@@ -1,56 +1,142 @@
-import { useFonts } from 'expo-font';
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
-import 'react-native-reanimated';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { SyncProvider } from '@/contexts/SyncContext';
+import { NotificationProvider } from '@/contexts/NotificationContext';
+import { ToastProvider } from '@/components/ui';
+import {
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+  Inter_800ExtraBold,
+  useFonts,
+} from '@expo-google-fonts/inter';
 
-import { useColorScheme } from '@/components/useColorScheme';
-
-export {
-  // Catch any errors thrown by the Layout component.
-  ErrorBoundary,
-} from 'expo-router';
-
-export const unstable_settings = {
-  // Ensure that reloading on `/modal` keeps a back button present.
-  initialRouteName: '(tabs)',
-};
-
-// Prevent the splash screen from auto-hiding before asset loading is complete.
+// Prevent auto-hide splash screen
 SplashScreen.preventAutoHideAsync();
 
-export default function RootLayout() {
-  const [loaded, error] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
-
-  // Expo Router uses Error Boundaries to catch errors in the navigation tree.
-  useEffect(() => {
-    if (error) throw error;
-  }, [error]);
-
-  useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded]);
-
-  if (!loaded) {
-    return null;
-  }
-
-  return <RootLayoutNav />;
-}
+/** Shared header style for all Stack.Screen */
+const headerStyle = { backgroundColor: '#2D6A4F' };
+const headerTitleStyle = { fontWeight: '700' as const, fontFamily: 'Inter_700Bold' };
+const headerOptions = {
+  headerBackTitle: 'Back',
+  headerStyle,
+  headerTintColor: '#FFF',
+  headerTitleStyle,
+};
 
 function RootLayoutNav() {
-  const colorScheme = useColorScheme();
+  const { isAuthenticated, isLoading, user } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    const inAuthGroup = segments[0] === '(auth)';
+    const isDiscover = segments[0] === 'discover';
+
+    if (!isAuthenticated) {
+      // Not logged in — only allow auth screens and guest discover
+      if (!inAuthGroup && !isDiscover) {
+        router.replace('/discover');
+      }
+    } else {
+      // Authenticated — only redirect FROM auth/discover screens to the correct role-based home
+      // Do NOT redirect from detail screens like /bookings, /invoices, /settings, etc.
+      if (inAuthGroup || isDiscover) {
+        if (user?.role === 'BUYER') {
+          router.replace('/(buyer)');
+        } else if (user?.role === 'OWNER' || user?.role === 'STAFF') {
+          router.replace('/(owner)');
+        } else {
+          router.replace('/(tabs)');
+        }
+      }
+    }
+  }, [isAuthenticated, isLoading, user, segments]);
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-      </Stack>
-    </ThemeProvider>
+    <Stack>
+      {/* Auth group */}
+      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+
+      {/* Farmer tabs group */}
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+
+      {/* Buyer tabs group */}
+      <Stack.Screen name="(buyer)" options={{ headerShown: false }} />
+
+      {/* Owner tabs group */}
+      <Stack.Screen name="(owner)" options={{ headerShown: false }} />
+
+      {/* Shared detail screens */}
+      <Stack.Screen name="lots/[id]" options={{ title: 'Lot Details', ...headerOptions }} />
+      <Stack.Screen name="kyc/reupload" options={{ title: 'KYC Documents', ...headerOptions }} />
+      <Stack.Screen name="facility/[id]" options={{ title: 'Facility Details', ...headerOptions }} />
+      <Stack.Screen name="listing/create" options={{ title: 'List for Sale', presentation: 'modal', ...headerOptions }} />
+      <Stack.Screen name="listing/[id]" options={{ title: 'Listing Details', ...headerOptions }} />
+      <Stack.Screen name="place-order/[id]" options={{ title: 'Place Order', presentation: 'modal', ...headerOptions }} />
+      <Stack.Screen name="orders/index" options={{ title: 'Orders', ...headerOptions }} />
+      <Stack.Screen name="orders/[id]" options={{ title: 'Order Details', ...headerOptions }} />
+      <Stack.Screen name="market-prices/index" options={{ headerShown: false }} />
+      <Stack.Screen name="notifications" options={{ title: 'Notifications', ...headerOptions }} />
+      {/* Invoices */}
+      <Stack.Screen name="invoices/index" options={{ title: 'Invoices', ...headerOptions }} />
+      <Stack.Screen name="invoices/[id]" options={{ title: 'Invoice Details', ...headerOptions }} />
+      {/* Warehouse Receipts */}
+      <Stack.Screen name="receipts/index" options={{ title: 'Warehouse Receipts', ...headerOptions }} />
+      <Stack.Screen name="receipts/[id]" options={{ title: 'Receipt Details', ...headerOptions }} />
+      {/* Reviews */}
+      <Stack.Screen name="facility/review" options={{ title: 'Write Review', presentation: 'modal', ...headerOptions }} />
+      {/* Escrow */}
+      <Stack.Screen name="orders/payment" options={{ title: 'Make Payment', presentation: 'modal', ...headerOptions }} />
+      <Stack.Screen name="orders/escrow-status" options={{ title: 'Payment Status', ...headerOptions }} />
+      {/* Settings */}
+      <Stack.Screen name="settings" options={{ title: 'Settings', ...headerOptions }} />
+      {/* Bookings */}
+      <Stack.Screen name="book-storage" options={{ headerShown: false }} />
+      <Stack.Screen name="bookings" options={{ headerShown: false }} />
+      <Stack.Screen name="booking/[id]" options={{ headerShown: false }} />
+      {/* Owner booking screens */}
+      <Stack.Screen name="owner-booking/weigh" options={{ headerShown: false }} />
+      <Stack.Screen name="discover" options={{ headerShown: false }} />
+      <Stack.Screen name="+not-found" />
+    </Stack>
+  );
+}
+
+export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    Inter_800ExtraBold,
+  });
+
+  useEffect(() => {
+    if (fontsLoaded) {
+      // Small delay so splash doesn't flash
+      setTimeout(() => SplashScreen.hideAsync(), 300);
+    }
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded) return null;
+
+  return (
+    <SyncProvider>
+      <AuthProvider>
+        <NotificationProvider>
+          <ToastProvider>
+            <RootLayoutNav />
+            <StatusBar style="light" />
+          </ToastProvider>
+        </NotificationProvider>
+      </AuthProvider>
+    </SyncProvider>
   );
 }
