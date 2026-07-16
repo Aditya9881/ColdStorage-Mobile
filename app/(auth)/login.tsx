@@ -1,27 +1,16 @@
 /**
- * ColdStorage — Premium Login Screen
- *
- * "Trusted Agri-Fintech, Premium & Calm"
+ * ColdStorage — Login Screen
  *
  * Flow:
  *   Step 1: Enter phone → "Send OTP"
  *   Step 2: Enter 6-digit OTP → auto-verify → logged in
- *   Alt:    "Login with Password" toggle (backward compat + dev creds)
- *
- * Design:
- * - Deep forest-to-teal gradient mesh background
- * - Animated floating snowflake particles
- * - Glassmorphic form card
- * - Individual OTP box cells with pulsing cursor
- * - GradientButton with glow shadow
- * - Trust badges at bottom
- * - Dev credentials as subtle collapsible section
+ *   Alt:    "Login with Password" toggle
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ActivityIndicator,
-  Animated as RNAnimated, Keyboard, ScrollView, Dimensions,
+  Keyboard, ScrollView, Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -33,60 +22,9 @@ import {
 } from '@/constants/Colors';
 import { hapticLight, hapticError, hapticSuccess } from '@/lib/haptics';
 
-const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
+const { width: SCREEN_W } = Dimensions.get('window');
 
 type LoginStep = 'phone' | 'otp' | 'password';
-
-// ── Floating Snowflake Particle ──
-function FloatingParticle({ delay, x, size, duration }: { delay: number; x: number; size: number; duration: number }) {
-  const translateY = useRef(new RNAnimated.Value(SCREEN_H + 20)).current;
-  const opacity = useRef(new RNAnimated.Value(0)).current;
-  const rotate = useRef(new RNAnimated.Value(0)).current;
-
-  useEffect(() => {
-    const anim = RNAnimated.loop(
-      RNAnimated.sequence([
-        RNAnimated.delay(delay),
-        RNAnimated.parallel([
-          RNAnimated.timing(translateY, { toValue: -40, duration, useNativeDriver: true }),
-          RNAnimated.sequence([
-            RNAnimated.timing(opacity, { toValue: 0.35, duration: duration * 0.2, useNativeDriver: true }),
-            RNAnimated.timing(opacity, { toValue: 0.35, duration: duration * 0.6, useNativeDriver: true }),
-            RNAnimated.timing(opacity, { toValue: 0, duration: duration * 0.2, useNativeDriver: true }),
-          ]),
-          RNAnimated.timing(rotate, { toValue: 1, duration, useNativeDriver: true }),
-        ]),
-        RNAnimated.timing(translateY, { toValue: SCREEN_H + 20, duration: 0, useNativeDriver: true }),
-        RNAnimated.timing(rotate, { toValue: 0, duration: 0, useNativeDriver: true }),
-      ])
-    );
-    anim.start();
-    return () => anim.stop();
-  }, []);
-
-  const spin = rotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
-
-  return (
-    <RNAnimated.View 
-      pointerEvents="none"
-      style={{
-        position: 'absolute', left: x, width: size, height: size,
-        transform: [{ translateY }, { rotate: spin }],
-        opacity,
-      }}
-    >
-      <Ionicons name="snow" size={size} color="rgba(255,255,255,0.5)" />
-    </RNAnimated.View>
-  );
-}
-
-const PARTICLES = [
-  { delay: 0, x: SCREEN_W * 0.1, size: 14, duration: 8000 },
-  { delay: 2000, x: SCREEN_W * 0.35, size: 10, duration: 10000 },
-  { delay: 4000, x: SCREEN_W * 0.65, size: 16, duration: 7000 },
-  { delay: 1000, x: SCREEN_W * 0.85, size: 12, duration: 9000 },
-  { delay: 3000, x: SCREEN_W * 0.5, size: 8, duration: 11000 },
-];
 
 export default function LoginScreen() {
   const { login, sendOtp, verifyOtp } = useAuth();
@@ -102,46 +40,12 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [phoneFocused, setPhoneFocused] = useState(false);
-  const [otpFocused, setOtpFocused] = useState(false);
   const [passFocused, setPassFocused] = useState(false);
   const [showDevCreds, setShowDevCreds] = useState(false);
 
   const otpInputRef = useRef<TextInput>(null);
+  const phoneInputRef = useRef<TextInput>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // ── Animations ──
-  const logoScale = useRef(new RNAnimated.Value(0.6)).current;
-  const logoOpacity = useRef(new RNAnimated.Value(0)).current;
-  const cardTranslate = useRef(new RNAnimated.Value(40)).current;
-  const cardOpacity = useRef(new RNAnimated.Value(0)).current;
-  const otpCursorAnim = useRef(new RNAnimated.Value(1)).current;
-
-  useEffect(() => {
-    RNAnimated.parallel([
-      RNAnimated.spring(logoScale, {
-        toValue: 1, tension: 60, friction: 8, useNativeDriver: true,
-      }),
-      RNAnimated.timing(logoOpacity, {
-        toValue: 1, duration: 600, useNativeDriver: true,
-      }),
-      RNAnimated.timing(cardTranslate, {
-        toValue: 0, duration: 500, delay: 200, useNativeDriver: true,
-      }),
-      RNAnimated.timing(cardOpacity, {
-        toValue: 1, duration: 500, delay: 200, useNativeDriver: true,
-      }),
-    ]).start();
-
-    // OTP cursor blink
-    const cursorBlink = RNAnimated.loop(
-      RNAnimated.sequence([
-        RNAnimated.timing(otpCursorAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
-        RNAnimated.timing(otpCursorAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
-      ])
-    );
-    cursorBlink.start();
-    return () => cursorBlink.stop();
-  }, []);
 
   // ── Countdown Timer ──
   useEffect(() => {
@@ -160,6 +64,22 @@ export default function LoginScreen() {
       if (countdownRef.current) clearInterval(countdownRef.current);
     };
   }, [countdown]);
+
+  // ── Step titles ──
+  const stepConfig: Record<LoginStep, { title: string; help: string }> = {
+    phone: {
+      title: 'Welcome Back',
+      help: 'Enter your registered phone number',
+    },
+    otp: {
+      title: 'Verify OTP',
+      help: `Enter the 6-digit code sent to +91 ${phone}`,
+    },
+    password: {
+      title: 'Sign In',
+      help: 'Use your credentials to login',
+    },
+  };
 
   // ── Send OTP ──
   const handleSendOtp = useCallback(async () => {
@@ -208,7 +128,7 @@ export default function LoginScreen() {
     }
   }, [phone, verifyOtp]);
 
-  // ── OTP Input Change (auto-submit on 6 digits) ──
+  // ── OTP Input Change ──
   const handleOtpChange = useCallback((text: string) => {
     const cleaned = text.replace(/[^0-9]/g, '').slice(0, 6);
     setOtp(cleaned);
@@ -253,7 +173,6 @@ export default function LoginScreen() {
     try {
       await sendOtp(phone, 'LOGIN');
       setCountdown(30);
-      setOtp('');
       hapticSuccess();
     } catch (err: any) {
       setError(err.message || 'Failed to resend OTP');
@@ -263,66 +182,24 @@ export default function LoginScreen() {
     }
   }, [phone, countdown, sendOtp]);
 
-  const stepConfig = {
-    phone: { title: 'Welcome Back', help: 'Enter your registered phone number' },
-    otp: { title: 'Verify Identity', help: `6-digit code sent to +91 ${phone.slice(0, 3)}****${phone.slice(-3)}` },
-    password: { title: 'Sign In', help: 'Use your credentials to login' },
-  };
-
-  // ── OTP Box Cells ──
-  const renderOtpCells = () => (
-    <View style={s.otpCellsRow}>
-      {[0, 1, 2, 3, 4, 5].map(i => {
-        const digit = otp[i];
-        const isActive = i === otp.length && otpFocused;
-        return (
-          <TouchableOpacity
-            key={i}
-            style={[
-              s.otpCell,
-              digit ? s.otpCellFilled : {},
-              isActive ? s.otpCellActive : {},
-            ]}
-            onPress={() => otpInputRef.current?.focus()}
-            activeOpacity={0.8}
-          >
-            {digit ? (
-              <Text style={s.otpCellText}>{digit}</Text>
-            ) : isActive ? (
-              <RNAnimated.View style={[s.otpCursor, { opacity: otpCursorAnim }]} />
-            ) : null}
-          </TouchableOpacity>
-        );
-      })}
-      {/* Hidden input */}
-      <TextInput
-        ref={otpInputRef}
-        style={s.hiddenOtpInput}
-        value={otp}
-        onChangeText={handleOtpChange}
-        keyboardType="number-pad"
-        maxLength={6}
-        autoFocus={step === 'otp'}
-        editable={!loading}
-        onFocus={() => setOtpFocused(true)}
-        onBlur={() => setOtpFocused(false)}
-      />
-    </View>
-  );
-
   return (
-    <LinearGradient colors={Gradients.mesh as any} style={s.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-      {/* Floating Snowflake Particles */}
-      {PARTICLES.map((p, i) => <FloatingParticle key={i} {...p} />)}
-
-      {/* Grain texture overlay — must not block touch */}
-      <View style={s.grainOverlay} pointerEvents="none" />
-
-      <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ScrollView contentContainerStyle={s.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-
+    <LinearGradient
+      colors={['#0A2519', '#143D2B', '#1B5E4A'] as any}
+      style={s.gradient}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+    >
+      <KeyboardAvoidingView
+        style={s.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView
+          contentContainerStyle={s.scrollContent}
+          keyboardShouldPersistTaps="always"
+          showsVerticalScrollIndicator={false}
+        >
           {/* ── Logo ── */}
-          <RNAnimated.View style={[s.logoContainer, { transform: [{ scale: logoScale }], opacity: logoOpacity }]}>
+          <View style={s.logoContainer}>
             <View style={s.logoGlow}>
               <View style={s.logoIcon}>
                 <Ionicons name="snow" size={28} color="#E8BE6A" />
@@ -331,19 +208,17 @@ export default function LoginScreen() {
             <Text style={s.brandName}>ColdStorage</Text>
             <Text style={s.brandHindi}>शीतकोष</Text>
             <Text style={s.tagline}>India's Smart Cold Storage Network</Text>
-          </RNAnimated.View>
+          </View>
 
-          {/* ── Form Card ── */}
-          <RNAnimated.View style={[s.card, { transform: [{ translateY: cardTranslate }], opacity: cardOpacity }]}>
+          {/* ── Form Card — plain View, no animations ── */}
+          <View style={s.card}>
             <Text style={s.stepTitle}>{stepConfig[step].title}</Text>
             <Text style={s.stepHelp}>{stepConfig[step].help}</Text>
 
             {/* Error Banner */}
             {error ? (
               <View style={s.errorBanner}>
-                <View style={s.errorIconWrap}>
-                  <Ionicons name="alert-circle" size={16} color="#DC2626" />
-                </View>
+                <Ionicons name="alert-circle" size={16} color="#DC2626" />
                 <Text style={s.errorText}>{error}</Text>
               </View>
             ) : null}
@@ -360,6 +235,7 @@ export default function LoginScreen() {
                     </View>
                     <View style={s.inputSep} />
                     <TextInput
+                      ref={phoneInputRef}
                       style={s.input}
                       value={phone}
                       onChangeText={setPhone}
@@ -367,8 +243,8 @@ export default function LoginScreen() {
                       placeholderTextColor="#94A3B8"
                       keyboardType="phone-pad"
                       maxLength={10}
-                      editable={true}
-                      selectTextOnFocus={true}
+                      editable={!loading}
+                      autoFocus
                       onFocus={() => setPhoneFocused(true)}
                       onBlur={() => setPhoneFocused(false)}
                     />
@@ -382,7 +258,12 @@ export default function LoginScreen() {
                   disabled={loading}
                   activeOpacity={0.85}
                 >
-                  <LinearGradient colors={Gradients.mesh as any} style={s.primaryBtnGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+                  <LinearGradient
+                    colors={['#143D2B', '#1B5E4A'] as any}
+                    style={s.primaryBtnGrad}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
                     {loading ? (
                       <ActivityIndicator color="#FFF" size="small" />
                     ) : (
@@ -416,7 +297,20 @@ export default function LoginScreen() {
             {/* ── OTP STEP ── */}
             {step === 'otp' && (
               <>
-                {renderOtpCells()}
+                <View style={s.otpRow}>
+                  <TextInput
+                    ref={otpInputRef}
+                    style={s.otpInput}
+                    value={otp}
+                    onChangeText={handleOtpChange}
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    placeholder="Enter 6-digit OTP"
+                    placeholderTextColor="#94A3B8"
+                    autoFocus
+                    editable={!loading}
+                  />
+                </View>
 
                 {loading && (
                   <View style={s.verifyingRow}>
@@ -468,8 +362,7 @@ export default function LoginScreen() {
                       placeholderTextColor="#94A3B8"
                       keyboardType="phone-pad"
                       maxLength={10}
-                      editable={true}
-                      selectTextOnFocus={true}
+                      editable={!loading}
                       onFocus={() => setPhoneFocused(true)}
                       onBlur={() => setPhoneFocused(false)}
                     />
@@ -488,8 +381,7 @@ export default function LoginScreen() {
                       placeholderTextColor="#94A3B8"
                       secureTextEntry={!showPassword}
                       autoCapitalize="none"
-                      editable={true}
-                      selectTextOnFocus={true}
+                      editable={!loading}
                       onFocus={() => setPassFocused(true)}
                       onBlur={() => setPassFocused(false)}
                     />
@@ -508,7 +400,12 @@ export default function LoginScreen() {
                   disabled={loading}
                   activeOpacity={0.85}
                 >
-                  <LinearGradient colors={Gradients.mesh as any} style={s.primaryBtnGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+                  <LinearGradient
+                    colors={['#143D2B', '#1B5E4A'] as any}
+                    style={s.primaryBtnGrad}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
                     {loading ? (
                       <ActivityIndicator color="#FFF" size="small" />
                     ) : (
@@ -576,10 +473,10 @@ export default function LoginScreen() {
                 )}
               </View>
             )}
-          </RNAnimated.View>
+          </View>
 
           {/* ── Bottom: Register + Trust ── */}
-          <RNAnimated.View style={[s.bottomArea, { opacity: cardOpacity }]}>
+          <View style={s.bottomArea}>
             <View style={s.registerRow}>
               <Text style={s.registerText}>New to ColdStorage? </Text>
               <TouchableOpacity onPress={() => { router.replace('/(auth)/register'); hapticLight(); }}>
@@ -599,7 +496,7 @@ export default function LoginScreen() {
                 <Text style={s.trustText}>FSSAI Verified</Text>
               </View>
             </View>
-          </RNAnimated.View>
+          </View>
 
         </ScrollView>
       </KeyboardAvoidingView>
@@ -613,10 +510,6 @@ export default function LoginScreen() {
 const s = StyleSheet.create({
   gradient: { flex: 1 },
   container: { flex: 1 },
-  grainOverlay: {
-    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.03)',
-  },
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
@@ -636,9 +529,6 @@ const s = StyleSheet.create({
     marginBottom: 14,
     backgroundColor: 'rgba(232, 190, 106, 0.12)',
     borderWidth: 1, borderColor: 'rgba(232, 190, 106, 0.2)',
-    ...Shadows.glow,
-    shadowColor: '#D9A441',
-    shadowOpacity: 0.15,
   },
   logoIcon: {
     width: 52, height: 52,
@@ -651,28 +541,25 @@ const s = StyleSheet.create({
     fontSize: 30,
     fontWeight: '800',
     color: '#FFFFFF',
-    fontFamily: FontFamily.extrabold,
     letterSpacing: -0.5,
   },
   brandHindi: {
     fontSize: 16,
     color: '#E8BE6A',
     fontWeight: '500',
-    fontFamily: FontFamily.medium,
     marginTop: 2,
   },
   tagline: {
     fontSize: 13,
     color: 'rgba(255,255,255,0.5)',
     marginTop: 6,
-    fontFamily: FontFamily.regular,
     letterSpacing: 0.3,
   },
 
   // ── Card ──
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: BorderRadius.xl,
+    borderRadius: 20,
     padding: 24,
     ...Shadows.lg,
     borderWidth: 1,
@@ -682,7 +569,6 @@ const s = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
     color: '#1A1A2E',
-    fontFamily: FontFamily.bold,
     letterSpacing: -0.3,
   },
   stepHelp: {
@@ -690,7 +576,6 @@ const s = StyleSheet.create({
     color: '#5F6B7A',
     marginTop: 4,
     marginBottom: 20,
-    fontFamily: FontFamily.regular,
     lineHeight: 20,
   },
 
@@ -698,24 +583,18 @@ const s = StyleSheet.create({
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
     backgroundColor: '#FEF2F2',
     borderRadius: 12,
     padding: 12,
     marginBottom: 16,
-    gap: 10,
-    borderWidth: 1, borderColor: '#FECACA',
-  },
-  errorIconWrap: {
-    width: 28, height: 28,
-    borderRadius: 8,
-    backgroundColor: '#FEE2E2',
-    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#FECACA',
   },
   errorText: {
     fontSize: 13,
     color: '#991B1B',
     flex: 1,
-    fontFamily: FontFamily.medium,
     lineHeight: 18,
   },
 
@@ -728,7 +607,6 @@ const s = StyleSheet.create({
     fontWeight: '700',
     color: '#5F6B7A',
     marginBottom: 8,
-    fontFamily: FontFamily.bold,
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
@@ -746,9 +624,6 @@ const s = StyleSheet.create({
   inputRowFocused: {
     borderColor: '#1B5E4A',
     backgroundColor: '#FFFFFF',
-    ...Shadows.sm,
-    shadowColor: '#1B5E4A',
-    shadowOpacity: 0.08,
   },
   countryBadge: {
     flexDirection: 'row',
@@ -762,7 +637,6 @@ const s = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#1A1A2E',
-    fontFamily: FontFamily.semibold,
   },
   inputSep: {
     width: 1,
@@ -773,50 +647,26 @@ const s = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     color: '#1A1A2E',
-    fontFamily: FontFamily.regular,
+    padding: 0,
+    margin: 0,
   },
 
-  // ── OTP Cells ──
-  otpCellsRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 10,
-    marginBottom: 20,
-    marginTop: 4,
+  // ── OTP ──
+  otpRow: {
+    marginBottom: 16,
   },
-  otpCell: {
-    width: 46, height: 54,
-    borderRadius: 14,
+  otpInput: {
     borderWidth: 1.5,
     borderColor: '#E8E6E1',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: Platform.OS === 'ios' ? 13 : 6,
     backgroundColor: '#FAFAF8',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  otpCellFilled: {
-    borderColor: '#1B5E4A',
-    backgroundColor: '#E6F2ED',
-  },
-  otpCellActive: {
-    borderColor: '#1B5E4A',
-    backgroundColor: '#FFFFFF',
-    ...Shadows.sm,
-    shadowColor: '#1B5E4A',
-  },
-  otpCellText: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#1B5E4A',
-    fontFamily: FontFamily.extrabold,
-  },
-  otpCursor: {
-    width: 2, height: 24,
-    borderRadius: 1,
-    backgroundColor: '#1B5E4A',
-  },
-  hiddenOtpInput: {
-    position: 'absolute',
-    width: 1, height: 1,
-    opacity: 0,
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#1A1A2E',
+    textAlign: 'center',
+    letterSpacing: 8,
   },
   verifyingRow: {
     flexDirection: 'row',
@@ -828,30 +678,44 @@ const s = StyleSheet.create({
   verifyingText: {
     fontSize: 13,
     color: '#1B5E4A',
-    fontFamily: FontFamily.medium,
+    fontWeight: '500',
+  },
+  resendRow: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  resendTimer: {
+    fontSize: 13,
+    color: '#5F6B7A',
+  },
+  resendBold: {
+    fontWeight: '700',
+    color: '#1A1A2E',
+  },
+  resendLink: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1B5E4A',
   },
 
   // ── Buttons ──
   primaryBtn: {
-    marginTop: 4,
     borderRadius: 14,
     overflow: 'hidden',
-    ...Shadows.glow,
+    marginBottom: 14,
   },
   primaryBtnGrad: {
-    flexDirection: 'row',
+    paddingVertical: 15,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    paddingVertical: 15,
+    flexDirection: 'row',
+    gap: 8,
     borderRadius: 14,
   },
   primaryBtnText: {
     fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
-    fontFamily: FontFamily.bold,
-    letterSpacing: 0.3,
   },
   outlineBtn: {
     flexDirection: 'row',
@@ -861,20 +725,19 @@ const s = StyleSheet.create({
     paddingVertical: 13,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: '#1B5E4A',
-    backgroundColor: 'rgba(27, 94, 74, 0.04)',
+    borderColor: '#D4E8DC',
+    backgroundColor: '#F0F8F3',
   },
   outlineBtnText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
     color: '#1B5E4A',
-    fontFamily: FontFamily.semibold,
   },
   dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 16,
     gap: 12,
+    marginVertical: 14,
   },
   dividerLine: {
     flex: 1,
@@ -884,45 +747,62 @@ const s = StyleSheet.create({
   dividerText: {
     fontSize: 12,
     color: '#94A3B8',
-    fontFamily: FontFamily.regular,
-  },
-
-  // ── Resend & Back ──
-  resendRow: {
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  resendTimer: {
-    fontSize: 13,
-    color: '#94A3B8',
-    fontFamily: FontFamily.regular,
-  },
-  resendBold: {
-    fontWeight: '700',
-    color: '#1B5E4A',
-    fontFamily: FontFamily.bold,
-  },
-  resendLink: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1B5E4A',
-    fontFamily: FontFamily.semibold,
+    fontWeight: '500',
   },
   backRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 12,
-    marginTop: 4,
+    paddingVertical: 8,
   },
   backText: {
     fontSize: 13,
     color: '#5F6B7A',
-    fontFamily: FontFamily.regular,
+    fontWeight: '500',
   },
 
-  // ── Dev Section ──
+  // ── Bottom ──
+  bottomArea: {
+    alignItems: 'center',
+    marginTop: 24,
+  },
+  registerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  registerText: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.6)',
+  },
+  registerLink: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textDecorationLine: 'underline',
+  },
+  trustRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  trustBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  trustText: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.4)',
+  },
+  trustDot: {
+    width: 3, height: 3,
+    borderRadius: 1.5,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+  },
+
+  // ── Dev ──
   devSection: {
     marginTop: 16,
   },
@@ -932,25 +812,25 @@ const s = StyleSheet.create({
     gap: 8,
   },
   devToggleLine: {
-    flex: 1, height: 1,
+    flex: 1,
+    height: 1,
     backgroundColor: '#E8E6E1',
   },
   devTogglePill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 10,
     paddingVertical: 4,
+    paddingHorizontal: 10,
     borderRadius: 12,
-    backgroundColor: '#FBF5E8',
-    borderWidth: 1, borderColor: '#E8BE6A40',
+    borderWidth: 1,
+    borderColor: '#F0E4C4',
+    backgroundColor: '#FFF9ED',
   },
   devToggleText: {
-    fontSize: 9,
-    fontWeight: '800',
+    fontSize: 10,
+    fontWeight: '700',
     color: '#D9A441',
-    fontFamily: FontFamily.extrabold,
-    letterSpacing: 1,
   },
   devCredsWrap: {
     marginTop: 10,
@@ -961,9 +841,10 @@ const s = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     padding: 10,
-    backgroundColor: '#FAFAF8',
-    borderRadius: 12,
-    borderWidth: 1, borderColor: '#E8E6E1',
+    borderRadius: 10,
+    backgroundColor: '#F8FAF8',
+    borderWidth: 1,
+    borderColor: '#E8F0E8',
   },
   devCredIcon: {
     width: 28, height: 28,
@@ -974,56 +855,10 @@ const s = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#1A1A2E',
-    fontFamily: FontFamily.bold,
   },
   devCredPhone: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#94A3B8',
-    fontFamily: FontFamily.regular,
     marginTop: 1,
-  },
-
-  // ── Bottom ──
-  bottomArea: {
-    alignItems: 'center',
-    marginTop: 28,
-    gap: 16,
-  },
-  registerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  registerText: {
-    fontSize: 15,
-    color: 'rgba(255,255,255,0.6)',
-    fontFamily: FontFamily.regular,
-  },
-  registerLink: {
-    fontSize: 15,
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontFamily: FontFamily.bold,
-    textDecorationLine: 'underline',
-    textDecorationColor: 'rgba(255,255,255,0.4)',
-  },
-  trustRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  trustBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  trustText: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.4)',
-    fontFamily: FontFamily.medium,
-  },
-  trustDot: {
-    width: 3, height: 3,
-    borderRadius: 1.5,
-    backgroundColor: 'rgba(255,255,255,0.3)',
   },
 });
