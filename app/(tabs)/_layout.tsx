@@ -1,15 +1,10 @@
 /**
- * ColdStorage — Premium Floating Tab Bar
+ * ColdStorage — Farmer Tab Bar
  *
- * "Trusted Agri-Fintech, Premium & Calm"
- *
- * Features:
- * - Floating pill-style nav bar with side margins
- * - Frosted glass background (iOS BlurView)
- * - Active tab gets filled pill background + icon color shift
- * - Elevated floating shadow
- * - Haptic feedback on tab switch
- * - Notification badge dot on Home tab
+ * 4 tabs: Home, Bookings, Discover, Profile
+ * - Floating pill-style nav bar
+ * - Fixed Android bottom spacing
+ * - Haptic feedback
  */
 import React from 'react';
 import { Tabs } from 'expo-router';
@@ -33,10 +28,10 @@ export default function TabLayout() {
         tabBarInactiveTintColor: colors.tabIconDefault,
         tabBarStyle: {
           position: 'absolute',
-          bottom: Platform.OS === 'ios' ? 24 : 12,
+          bottom: Platform.OS === 'ios' ? 24 : 8,
           left: 16,
           right: 16,
-          height: 64,
+          height: Platform.OS === 'ios' ? 64 : 60,
           borderRadius: 22,
           backgroundColor: Platform.OS === 'ios'
             ? 'transparent'
@@ -49,6 +44,7 @@ export default function TabLayout() {
           paddingBottom: 0,
           paddingTop: 0,
           ...Shadows.floating,
+          elevation: 12,
         },
         tabBarBackground: () =>
           Platform.OS === 'ios' ? (
@@ -63,11 +59,11 @@ export default function TabLayout() {
           fontWeight: '600',
           fontFamily: FontFamily.semibold,
           marginTop: -2,
-          marginBottom: Platform.OS === 'ios' ? 0 : 6,
+          marginBottom: Platform.OS === 'ios' ? 0 : 8,
         },
         tabBarItemStyle: {
           paddingTop: 8,
-          paddingBottom: Platform.OS === 'ios' ? 8 : 4,
+          paddingBottom: Platform.OS === 'ios' ? 8 : 2,
         },
         tabBarIconStyle: {
           marginBottom: -2,
@@ -106,32 +102,23 @@ export default function TabLayout() {
           ),
         }}
       />
+
+      {/* Hide Inventory/Ledger from tab bar — accessible via Quick Actions */}
       <Tabs.Screen
         name="inventory"
         options={{
-          title: 'Ledger',
-          headerTitle: 'Pocket Ledger',
-          headerShown: false,
-          tabBarIcon: ({ color, focused }) => (
-            <View style={focused ? tabS.activePill : undefined}>
-              <Ionicons name={focused ? 'cube' : 'cube-outline'} size={22} color={color} />
-            </View>
-          ),
+          href: null,
         }}
       />
+
+      {/* Hide Marketplace from tab bar — accessible via Quick Actions */}
       <Tabs.Screen
         name="marketplace"
         options={{
-          title: 'Market',
-          headerTitle: 'Marketplace',
-          headerShown: false,
-          tabBarIcon: ({ color, focused }) => (
-            <View style={focused ? tabS.activePill : undefined}>
-              <Ionicons name={focused ? 'storefront' : 'storefront-outline'} size={22} color={color} />
-            </View>
-          ),
+          href: null,
         }}
       />
+
       <Tabs.Screen
         name="discover"
         options={{

@@ -20,6 +20,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { api } from '@/lib/api-client';
 import { Spacing, BorderRadius, FontSize, FontWeight, Shadows } from '@/constants/Colors';
 import { hapticLight, hapticSuccess, hapticError } from '@/lib/haptics';
+import QRCode from 'react-native-qrcode-svg';
 
 // Status config for the step tracker
 const STATUS_STEPS = [
@@ -156,10 +157,13 @@ export default function BookingDetailScreen() {
           <View style={styles.qrCard}>
             <Text style={styles.qrTitle}>Show this at the facility</Text>
             <View style={styles.qrBox}>
-              {/* QR visual representation */}
-              <View style={styles.qrPattern}>
-                <Ionicons name="qr-code" size={120} color="#1A1A2E" />
-              </View>
+              <QRCode
+                value={booking.qrCodeData}
+                size={180}
+                color="#1A1A2E"
+                backgroundColor="#FFFFFF"
+                ecl="M"
+              />
             </View>
             <Text style={styles.qrBookingNo}>{booking.bookingNumber}</Text>
             <Text style={styles.qrHint}>Staff will scan this QR code when you arrive</Text>
@@ -390,8 +394,8 @@ const styles = StyleSheet.create({
 
   // QR Card
   qrCard: {
-    backgroundColor: '#FFF', borderRadius: 16, padding: 24, alignItems: 'center',
-    marginBottom: 16, ...Shadows.md, borderWidth: 1, borderColor: '#F3F4F6',
+    backgroundColor: '#FFF', borderRadius: 18, padding: 24, alignItems: 'center',
+    marginBottom: 16, ...Shadows.glass, borderWidth: 1, borderColor: 'rgba(27, 94, 74, 0.06)',
   },
   qrTitle: { fontSize: 14, fontWeight: '600', color: '#6B7280', marginBottom: 16 },
   qrBox: {
@@ -405,8 +409,8 @@ const styles = StyleSheet.create({
 
   // Cards
   card: {
-    backgroundColor: '#FFF', borderRadius: 14, padding: 16, marginBottom: 12,
-    ...Shadows.sm, borderWidth: 1, borderColor: '#F3F4F6',
+    backgroundColor: '#FFF', borderRadius: 18, padding: 16, marginBottom: 12,
+    ...Shadows.glass, borderWidth: 1, borderColor: 'rgba(27, 94, 74, 0.06)',
   },
   cardTitle: { fontSize: 15, fontWeight: '700', color: '#1A1A2E', marginBottom: 12 },
 

@@ -7,6 +7,7 @@
 
 export { default as PremiumCard } from './PremiumCard';
 export { default as GlassCard } from './GlassCard';
+export { default as GlassMeshBackground } from './GlassMeshBackground';
 export { default as GradientButton } from './GradientButton';
 export { default as MoneyText } from './MoneyText';
 export { default as ProgressRing } from './ProgressRing';

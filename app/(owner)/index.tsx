@@ -17,7 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api-client';
-import { Shadows } from '@/constants/Colors';
+import { Shadows, Gradients, BorderRadius, FontFamily } from '@/constants/Colors';
 import { hapticLight } from '@/lib/haptics';
 
 interface FacilityInfo {
@@ -92,7 +92,8 @@ export default function OwnerDashboardScreen() {
   return (
     <View style={styles.screen}>
       {/* Header */}
-      <LinearGradient colors={['#4C1D95', '#7C3AED']} style={styles.header}>
+      <LinearGradient colors={Gradients.meshViolet as any} style={styles.header}>
+        <View style={styles.grainOverlay} />
         <View style={{ flex: 1 }}>
           <Text style={styles.greeting}>Welcome back,</Text>
           <Text style={styles.userName}>{user?.fullName || 'Owner'}</Text>
@@ -210,6 +211,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingTop: Platform.OS === 'ios' ? 56 : 16, paddingBottom: 20, paddingHorizontal: 20,
   },
+  grainOverlay: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.03)',
+  },
   greeting: { fontSize: 13, color: 'rgba(255,255,255,0.7)' },
   userName: { fontSize: 22, fontWeight: '800', color: '#FFF' },
   notifBtn: {
@@ -222,8 +227,9 @@ const styles = StyleSheet.create({
   // Facility badge
   facilityBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#FFF', borderRadius: 14, padding: 14,
-    marginBottom: 20, ...Shadows.sm, borderWidth: 1, borderColor: '#F3F4F6',
+    backgroundColor: '#FFF', borderRadius: 18, padding: 16,
+    marginBottom: 20, ...Shadows.glass,
+    borderWidth: 1, borderColor: 'rgba(124, 58, 237, 0.06)',
   },
   facilityIcon: {
     width: 40, height: 40, borderRadius: 12,
@@ -238,8 +244,9 @@ const styles = StyleSheet.create({
   // Stats
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
   statCard: {
-    flex: 1, minWidth: '45%', backgroundColor: '#FFF', borderRadius: 12, padding: 14,
-    ...Shadows.sm, borderLeftWidth: 3, borderWidth: 1, borderColor: '#F3F4F6',
+    flex: 1, minWidth: '45%', backgroundColor: '#FFF', borderRadius: 18, padding: 16,
+    ...Shadows.glass, borderLeftWidth: 3,
+    borderWidth: 1, borderColor: 'rgba(124, 58, 237, 0.06)',
   },
   statIconBox: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   statValue: { fontSize: 24, fontWeight: '800', color: '#1A1A2E' },
@@ -257,8 +264,9 @@ const styles = StyleSheet.create({
   // Bookings
   bookingRow: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#FFF', borderRadius: 12, padding: 14, marginBottom: 8,
-    ...Shadows.sm, borderWidth: 1, borderColor: '#F3F4F6',
+    backgroundColor: '#FFF', borderRadius: 16, padding: 14, marginBottom: 8,
+    ...Shadows.glass,
+    borderWidth: 1, borderColor: 'rgba(124, 58, 237, 0.06)',
   },
   bookingDot: { width: 8, height: 8, borderRadius: 4 },
   bookingTitle: { fontSize: 13, fontWeight: '700', color: '#1A1A2E' },
@@ -268,8 +276,8 @@ const styles = StyleSheet.create({
   // Empty
   emptyCard: {
     alignItems: 'center', gap: 8, paddingVertical: 40,
-    backgroundColor: '#FFF', borderRadius: 14, ...Shadows.sm,
-    borderWidth: 1, borderColor: '#F3F4F6',
+    backgroundColor: '#FFF', borderRadius: 18, ...Shadows.glass,
+    borderWidth: 1, borderColor: 'rgba(124, 58, 237, 0.06)',
   },
   emptyText: { fontSize: 13, color: '#9CA3AF', fontWeight: '500' },
 });

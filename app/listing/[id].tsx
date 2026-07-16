@@ -1,32 +1,67 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, ActivityIndicator,
-  TouchableOpacity, Alert,
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  ActivityIndicator,
+  TouchableOpacity,
+  StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Spacing, BorderRadius, FontSize, FontWeight } from '@/constants/Colors';
 
-const BUYER_PRIMARY = '#0F766E';
 const WATCHLIST_KEY = 'buyer_watchlist';
 
-const COMMODITY_ICON: Record<string, string> = {
-  Potato: 'nutrition-outline', Onion: 'ellipse-outline', Tomato: 'ellipse',
-  Apple: 'nutrition', Mango: 'leaf-outline', Garlic: 'flower-outline',
-  Ginger: 'leaf', Wheat: 'sunny-outline', Rice: 'water-outline', default: 'cube-outline',
+const UI = {
+  canvas: '#F5F7F4',
+  surface: '#FFFFFF',
+  forest: '#103E34',
+  forestDeep: '#082B24',
+  emerald: '#17A56D',
+  emeraldSoft: '#E8F7EF',
+  teal: '#0D8D8A',
+  tealSoft: '#E8F9F7',
+  blue: '#2589AA',
+  blueSoft: '#EAF8FC',
+  gold: '#D29424',
+  goldSoft: '#FFF5DE',
+  ink: '#15231D',
+  muted: '#718079',
+  subtle: '#96A19B',
+  border: '#E2E9E3',
+  whiteTransparent: 'rgba(255,255,255,0.14)',
+};
+
+const COMMODITY_ICON: Record<
+  string,
+  React.ComponentProps<typeof Ionicons>['name']
+> = {
+  Potato: 'nutrition-outline',
+  Onion: 'ellipse-outline',
+  Tomato: 'ellipse',
+  Apple: 'nutrition',
+  Mango: 'leaf-outline',
+  Garlic: 'flower-outline',
+  Ginger: 'leaf',
+  Wheat: 'sunny-outline',
+  Rice: 'water-outline',
+  default: 'cube-outline',
 };
 
 export default function ListingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const router = useRouter();
+
   const [listing, setListing] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isWatchlisted, setIsWatchlisted] = useState(false);
+
   const isBuyer = user?.role === 'BUYER';
 
   useEffect(() => {
@@ -36,26 +71,34 @@ export default function ListingDetailScreen() {
 
   async function fetchListing() {
     try {
-      // Try direct endpoint first, fallback to list filter
-      const res = await api.get<any>(`/marketplace/listings/${id}`);
-      if (res.success && res.data) {
-        setListing(res.data);
-      } else {
-        // Fallback: get from list
-        const listRes = await api.get<any>('/marketplace/listings?limit=100');
-        if (listRes.success) {
-          const found = listRes.data?.listings?.find((l: any) => l.id === id);
-          setListing(found || null);
-        }
+      const directResponse = await api.get<any>(`/marketplace/listings/${id}`);
+
+      if (directResponse.success && directResponse.data) {
+        setListing(directResponse.data);
+        return;
+      }
+
+      const listResponse = await api.get<any>('/marketplace/listings?limit=100');
+
+      if (listResponse.success) {
+        const found = listResponse.data?.listings?.find(
+          (item: any) => item.id === id
+        );
+        setListing(found || null);
       }
     } catch {
       try {
-        const listRes = await api.get<any>('/marketplace/listings?limit=100');
-        if (listRes.success) {
-          const found = listRes.data?.listings?.find((l: any) => l.id === id);
+        const listResponse = await api.get<any>('/marketplace/listings?limit=100');
+
+        if (listResponse.success) {
+          const found = listResponse.data?.listings?.find(
+            (item: any) => item.id === id
+          );
           setListing(found || null);
         }
-      } catch (err) { console.error(err); }
+      } catch (error) {
+        console.error('Failed to load listing:', error);
+      }
     } finally {
       setLoading(false);
     }
@@ -64,244 +107,1126 @@ export default function ListingDetailScreen() {
   async function checkWatchlist() {
     try {
       const raw = await AsyncStorage.getItem(WATCHLIST_KEY);
-      if (raw) {
-        const saved: any[] = JSON.parse(raw);
-        setIsWatchlisted(saved.some(item => item.id === id));
-      }
-    } catch {}
+
+      if (!raw) return;
+
+      const saved: any[] = JSON.parse(raw);
+      setIsWatchlisted(saved.some((item) => item.id === id));
+    } catch (error) {
+      console.error('Watchlist check failed:', error);
+    }
   }
 
   async function toggleWatchlist() {
+    if (!listing) return;
+
     try {
       const raw = await AsyncStorage.getItem(WATCHLIST_KEY);
       let saved: any[] = raw ? JSON.parse(raw) : [];
+
       if (isWatchlisted) {
-        saved = saved.filter(item => item.id !== id);
+        saved = saved.filter((item) => item.id !== id);
         setIsWatchlisted(false);
       } else {
         saved.push({ ...listing, _savedAt: new Date().toISOString() });
         setIsWatchlisted(true);
       }
+
       await AsyncStorage.setItem(WATCHLIST_KEY, JSON.stringify(saved));
-    } catch {}
+    } catch (error) {
+      console.error('Watchlist update failed:', error);
+    }
   }
 
   if (loading) {
-    return <View style={styles.center}><ActivityIndicator size="large" color={BUYER_PRIMARY} /></View>;
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={UI.forest} />
+          <Text style={styles.loadingText}>Loading listing details...</Text>
+        </View>
+      </>
+    );
   }
 
   if (!listing) {
     return (
-      <View style={styles.center}>
-        <Text style={{ color: '#6B7280', fontSize: FontSize.md }}>Listing not found</Text>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: Spacing.lg }}>
-          <Text style={{ color: BUYER_PRIMARY, fontWeight: FontWeight.semibold }}>Go Back</Text>
-        </TouchableOpacity>
-      </View>
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+
+        <View style={styles.center}>
+          <View style={styles.emptyIcon}>
+            <Ionicons name="alert-circle-outline" size={42} color={UI.muted} />
+          </View>
+
+          <Text style={styles.emptyTitle}>Listing not found</Text>
+          <Text style={styles.emptyDescription}>
+            This listing may have expired or is no longer available.
+          </Text>
+
+          <TouchableOpacity
+            onPress={() => router.back()}
+            activeOpacity={0.85}
+            style={styles.emptyButton}
+          >
+            <Ionicons name="arrow-back" size={17} color="#FFFFFF" />
+            <Text style={styles.emptyButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </>
     );
   }
 
   const lot = listing.lot || {};
   const iconName = COMMODITY_ICON[lot.commodityName] || COMMODITY_ICON.default;
-  const price = Number(listing.askingPricePerKg);
-  const weightMT = (Number(lot.currentWeightKg) / 1000).toFixed(2);
-  const totalValue = (price * Number(lot.currentWeightKg)).toLocaleString();
-  const minQty = Number(listing.minQuantityKg) || 0;
+
+  const price = Number(listing.askingPricePerKg || 0);
+  const availableWeightKg = Number(lot.currentWeightKg || 0);
+  const weightMT = availableWeightKg / 1000;
+  const totalValue = price * availableWeightKg;
+  const minQty = Number(listing.minQuantityKg || 0);
+
+  const facilityName = lot.facility?.name || 'Verified Cold Storage';
+  const facilityCity = lot.facility?.city || 'Location unavailable';
+  const facilityState = lot.facility?.state || '';
+  const facilityLocation = [facilityCity, facilityState]
+    .filter(Boolean)
+    .join(', ');
+
+  const chamberText = lot.chamber?.chamberNumber
+    ? `Chamber ${lot.chamber.chamberNumber}`
+    : 'Temperature-controlled chamber';
+
+  const temperatureRange =
+    lot.chamber?.targetTempMin !== null &&
+    lot.chamber?.targetTempMin !== undefined &&
+    lot.chamber?.targetTempMax !== null &&
+    lot.chamber?.targetTempMax !== undefined
+      ? `${lot.chamber.targetTempMin}°C to ${lot.chamber.targetTempMax}°C`
+      : 'Controlled storage range';
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Hero Header */}
-      <LinearGradient colors={['#134E4A', BUYER_PRIMARY, '#14B8A6']} style={styles.heroGradient}>
-        <View style={styles.heroIconBox}>
-          <Ionicons name={iconName as any} size={36} color="#FFFFFF" />
-        </View>
-        <Text style={styles.heroCommodity}>{lot.commodityName}</Text>
-        <Text style={styles.heroLocation}>
-          <Ionicons name="location" size={14} color="rgba(255,255,255,0.8)" /> {lot.facility?.name}, {lot.facility?.city}, {lot.facility?.state}
-        </Text>
-        {isBuyer && (
-          <TouchableOpacity style={styles.watchlistBtn} onPress={toggleWatchlist} activeOpacity={0.7}>
-            <Ionicons name={isWatchlisted ? 'bookmark' : 'bookmark-outline'} size={18} color={isWatchlisted ? '#FBBF24' : '#FFF'} />
-            <Text style={styles.watchlistBtnText}>{isWatchlisted ? 'Saved' : 'Save'}</Text>
-          </TouchableOpacity>
-        )}
-      </LinearGradient>
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-      {/* Price Card */}
-      <View style={[styles.priceCard, { marginTop: -24 }]}>
-        <View style={styles.priceRow}>
-          <View>
-            <Text style={styles.priceLabel}>Asking Price</Text>
-            <Text style={styles.priceValue}>₹{price.toFixed(0)}<Text style={styles.priceUnit}>/kg</Text></Text>
-          </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={styles.priceLabel}>Total Value</Text>
-            <Text style={styles.totalValue}>₹{totalValue}</Text>
-          </View>
-        </View>
-
-        {minQty > 0 && (
-          <View style={styles.minQtyBanner}>
-            <Ionicons name="information-circle-outline" size={16} color="#0891B2" />
-            <Text style={styles.minQtyText}>Minimum order: {minQty} kg ({(minQty / 1000).toFixed(1)} MT)</Text>
-          </View>
-        )}
-      </View>
-
-      {/* Lot Details */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Lot Information</Text>
-        <View style={styles.statsGrid}>
-          <StatBox icon="scale" label="Available" value={`${weightMT} MT`} color={BUYER_PRIMARY} />
-          <StatBox icon="cube" label="Bags" value={lot.bagCount || '—'} color="#059669" />
-          <StatBox icon="time" label="Days Stored" value={`${lot.daysSinceIntake || 0}d`} color="#D97706" />
-          <StatBox icon="ribbon" label="Grade" value={lot.qualityGrade || 'N/A'} color="#0891B2" />
-        </View>
-        {lot.moistureContent && (
-          <View style={styles.infoRow}>
-            <Ionicons name="water-outline" size={16} color="#0891B2" />
-            <Text style={styles.infoText}>Moisture Content: {Number(lot.moistureContent)}%</Text>
-          </View>
-        )}
-      </View>
-
-      {/* Facility Info */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Storage Facility</Text>
-        <View style={styles.facilityRow}>
-          <View style={styles.facilityIconBox}>
-            <Ionicons name="snow" size={24} color={BUYER_PRIMARY} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.facilityName}>{lot.facility?.name}</Text>
-            <Text style={styles.facilityLocation}>{lot.facility?.city}, {lot.facility?.state}</Text>
-          </View>
-          <TouchableOpacity onPress={() => router.push(`/facility/${lot.facility?.id}`)} activeOpacity={0.7}>
-            <Text style={styles.viewFacilityText}>View →</Text>
-          </TouchableOpacity>
-        </View>
-        {lot.chamber && (
-          <View style={styles.chamberRow}>
-            <Ionicons name="thermometer-outline" size={14} color="#9CA3AF" />
-            <Text style={styles.chamberText}>
-              Chamber {lot.chamber?.chamberNumber} • {lot.chamber?.targetTempMin}°C to {lot.chamber?.targetTempMax}°C
-            </Text>
-          </View>
-        )}
-      </View>
-
-      {/* IoT Snapshot (if available) */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Storage Conditions</Text>
-        <Text style={styles.iotNote}>
-          📡 This lot is monitored 24/7 via IoT sensors. Verified storage temperatures ensure produce quality at time of delivery.
-        </Text>
-        <View style={styles.iotBadge}>
-          <Ionicons name="checkmark-circle" size={16} color="#059669" />
-          <Text style={styles.iotBadgeText}>IoT Monitored Facility</Text>
-        </View>
-      </View>
-
-      {/* Seller Info */}
-      {listing.seller && isBuyer && (
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Seller</Text>
-          <View style={styles.sellerRow}>
-            <View style={styles.sellerAvatar}>
-              <Text style={styles.sellerInitial}>{listing.seller.fullName?.[0] || '?'}</Text>
-            </View>
-            <View>
-              <Text style={styles.sellerName}>{listing.seller.fullName}</Text>
-              <Text style={styles.sellerLocation}>{listing.seller.city}, {listing.seller.state}</Text>
-            </View>
-          </View>
-        </View>
-      )}
-
-      {listing.description && (
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Description</Text>
-          <Text style={styles.descriptionText}>{listing.description}</Text>
-        </View>
-      )}
-
-      {/* CTA */}
-      {isBuyer && (
-        <View style={styles.ctaContainer}>
-          <TouchableOpacity
-            style={styles.ctaBtn}
-            onPress={() => router.push(`/place-order/${listing.id}`)}
-            activeOpacity={0.85}
+      <View style={styles.screen}>
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Premium marketplace hero */}
+          <LinearGradient
+            colors={[UI.forestDeep, UI.forest, '#087B73']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.hero}
           >
-            <LinearGradient colors={['#134E4A', BUYER_PRIMARY]} style={styles.ctaGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-              <Ionicons name="cart" size={20} color="#FFF" />
-              <Text style={styles.ctaBtnText}>Place Order</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-      )}
+            <View style={styles.heroTopRow}>
+              <TouchableOpacity
+                onPress={() => router.back()}
+                style={styles.topIconButton}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="chevron-back" size={26} color="#FFFFFF" />
+              </TouchableOpacity>
 
-      <View style={{ height: 40 }} />
-    </ScrollView>
+              <View style={styles.verifiedPill}>
+                <Ionicons name="shield-checkmark" size={14} color="#B9F5D5" />
+                <Text style={styles.verifiedPillText}>VERIFIED LOT</Text>
+              </View>
+
+              {isBuyer ? (
+                <TouchableOpacity
+                  style={styles.topIconButton}
+                  onPress={toggleWatchlist}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons
+                    name={isWatchlisted ? 'bookmark' : 'bookmark-outline'}
+                    size={19}
+                    color={isWatchlisted ? UI.gold : '#FFFFFF'}
+                  />
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.topIconPlaceholder} />
+              )}
+            </View>
+
+            <View style={styles.heroContent}>
+              <View style={styles.commodityIconBox}>
+                <Ionicons name={iconName} size={27} color="#FFFFFF" />
+              </View>
+
+              <View style={styles.heroTextWrap}>
+                <Text style={styles.heroEyebrow}>MARKETPLACE LISTING</Text>
+                <Text style={styles.heroTitle} numberOfLines={2}>
+                  {lot.commodityName || 'Commodity Listing'}
+                </Text>
+
+                <View style={styles.heroLocationRow}>
+                  <Ionicons
+                    name="location"
+                    size={14}
+                    color="rgba(255,255,255,0.72)"
+                  />
+                  <Text style={styles.heroLocation} numberOfLines={2}>
+                    {facilityName}, {facilityLocation}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.heroMetaRow}>
+              <View style={styles.heroMetaItem}>
+                <Ionicons name="cube-outline" size={15} color="#B9F5D5" />
+                <Text style={styles.heroMetaText}>
+                  {weightMT.toFixed(2)} MT Available
+                </Text>
+              </View>
+
+              <View style={styles.heroMetaDivider} />
+
+              <View style={styles.heroMetaItem}>
+                <Ionicons name="ribbon-outline" size={15} color="#B9F5D5" />
+                <Text style={styles.heroMetaText}>
+                  Grade {lot.qualityGrade || 'N/A'}
+                </Text>
+              </View>
+            </View>
+          </LinearGradient>
+
+          {/* Price card */}
+          <View style={styles.priceCard}>
+            <View style={styles.priceCardTop}>
+              <View>
+                <Text style={styles.priceLabel}>ASKING PRICE</Text>
+                <View style={styles.priceValueRow}>
+                  <Text style={styles.priceValue}>₹{price.toFixed(0)}</Text>
+                  <Text style={styles.priceUnit}>/kg</Text>
+                </View>
+              </View>
+
+              <View style={styles.priceDivider} />
+
+              <View style={styles.totalValueBlock}>
+                <Text style={styles.priceLabel}>TOTAL LOT VALUE</Text>
+                <Text style={styles.totalValue}>
+                  ₹
+                  {totalValue.toLocaleString(undefined, {
+                    maximumFractionDigits: 0,
+                  })}
+                </Text>
+              </View>
+            </View>
+
+            {minQty > 0 && (
+              <View style={styles.minQtyBanner}>
+                <View style={styles.minQtyIcon}>
+                  <Ionicons
+                    name="layers-outline"
+                    size={17}
+                    color={UI.blue}
+                  />
+                </View>
+
+                <View style={styles.minQtyTextWrap}>
+                  <Text style={styles.minQtyLabel}>MINIMUM ORDER QUANTITY</Text>
+                  <Text style={styles.minQtyText}>
+                    {minQty.toLocaleString()} kg · {(minQty / 1000).toFixed(1)} MT
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
+
+          {/* Lot information */}
+          <View style={styles.sectionCard}>
+            <SectionHeading
+              icon="cube-outline"
+              eyebrow="INVENTORY OVERVIEW"
+              title="Lot Information"
+              color="#596DCC"
+              background="#EEF1FF"
+            />
+
+            <View style={styles.statsGrid}>
+              <MarketStat
+                icon="scale-outline"
+                label="AVAILABLE"
+                value={`${weightMT.toFixed(2)} MT`}
+                color={UI.teal}
+                background={UI.tealSoft}
+              />
+              <MarketStat
+                icon="cube-outline"
+                label="BAGS"
+                value={`${lot.bagCount || '—'}`}
+                color={UI.emerald}
+                background={UI.emeraldSoft}
+              />
+              <MarketStat
+                icon="time-outline"
+                label="DAYS STORED"
+                value={`${lot.daysSinceIntake || 0}d`}
+                color={UI.gold}
+                background={UI.goldSoft}
+              />
+              <MarketStat
+                icon="ribbon-outline"
+                label="GRADE"
+                value={lot.qualityGrade || 'N/A'}
+                color={UI.blue}
+                background={UI.blueSoft}
+              />
+            </View>
+
+            {lot.moistureContent !== null &&
+              lot.moistureContent !== undefined && (
+                <View style={styles.detailFooter}>
+                  <Ionicons name="water-outline" size={17} color={UI.blue} />
+                  <Text style={styles.detailFooterText}>
+                    Moisture content: {Number(lot.moistureContent)}%
+                  </Text>
+                </View>
+              )}
+          </View>
+
+          {/* Facility */}
+          <View style={styles.sectionCard}>
+            <SectionHeading
+              icon="snow-outline"
+              eyebrow="VERIFIED STORAGE"
+              title="Storage Facility"
+              color={UI.teal}
+              background={UI.tealSoft}
+            />
+
+            <View style={styles.facilityRow}>
+              <View style={styles.facilityIcon}>
+                <Ionicons name="business-outline" size={22} color={UI.forest} />
+              </View>
+
+              <View style={styles.facilityTextWrap}>
+                <Text style={styles.facilityName} numberOfLines={2}>
+                  {facilityName}
+                </Text>
+                <Text style={styles.facilityLocation}>{facilityLocation}</Text>
+              </View>
+
+              {!!lot.facility?.id && (
+                <TouchableOpacity
+                  onPress={() => router.push(`/facility/${lot.facility.id}`)}
+                  activeOpacity={0.8}
+                  style={styles.facilityViewButton}
+                >
+                  <Text style={styles.facilityViewText}>View</Text>
+                  <Ionicons name="arrow-forward" size={14} color={UI.teal} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <View style={styles.chamberRow}>
+              <Ionicons
+                name="thermometer-outline"
+                size={16}
+                color={UI.muted}
+              />
+              <Text style={styles.chamberText}>
+                {chamberText} · {temperatureRange}
+              </Text>
+            </View>
+          </View>
+
+          {/* Conditions */}
+          <View style={styles.sectionCard}>
+            <SectionHeading
+              icon="pulse-outline"
+              eyebrow="QUALITY ASSURANCE"
+              title="Storage Conditions"
+              color={UI.emerald}
+              background={UI.emeraldSoft}
+            />
+
+            <Text style={styles.iotNote}>
+              This lot is monitored through the cold-storage facility’s IoT
+              systems to help preserve product quality until delivery.
+            </Text>
+
+            <View style={styles.iotBadge}>
+              <View style={styles.iotBadgeIcon}>
+                <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+              </View>
+
+              <View>
+                <Text style={styles.iotBadgeTitle}>IoT Monitored Facility</Text>
+                <Text style={styles.iotBadgeSubtitle}>
+                  Verified controlled storage
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Seller */}
+          {listing.seller && isBuyer && (
+            <View style={styles.sectionCard}>
+              <SectionHeading
+                icon="person-outline"
+                eyebrow="LISTED BY"
+                title="Seller Details"
+                color="#7A5CC7"
+                background="#F0EBFF"
+              />
+
+              <View style={styles.sellerRow}>
+                <View style={styles.sellerAvatar}>
+                  <Text style={styles.sellerInitial}>
+                    {listing.seller.fullName?.charAt(0)?.toUpperCase() || '?'}
+                  </Text>
+                </View>
+
+                <View style={styles.sellerInfo}>
+                  <Text style={styles.sellerName}>
+                    {listing.seller.fullName || 'Verified Seller'}
+                  </Text>
+                  <Text style={styles.sellerLocation}>
+                    {[listing.seller.city, listing.seller.state]
+                      .filter(Boolean)
+                      .join(', ') || 'India'}
+                  </Text>
+                </View>
+
+                <View style={styles.verifiedSeller}>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={16}
+                    color={UI.emerald}
+                  />
+                  <Text style={styles.verifiedSellerText}>Verified</Text>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* Description */}
+          {listing.description && (
+            <View style={styles.sectionCard}>
+              <SectionHeading
+                icon="document-text-outline"
+                eyebrow="SELLER NOTE"
+                title="Description"
+                color={UI.gold}
+                background={UI.goldSoft}
+              />
+
+              <Text style={styles.descriptionText}>{listing.description}</Text>
+            </View>
+          )}
+
+          <View style={{ height: isBuyer ? 112 : 35 }} />
+        </ScrollView>
+
+        {/* Sticky action */}
+        {isBuyer && (
+          <View style={styles.actionDock}>
+            <TouchableOpacity
+              style={styles.dockSaveButton}
+              activeOpacity={0.8}
+              onPress={toggleWatchlist}
+            >
+              <Ionicons
+                name={isWatchlisted ? 'bookmark' : 'bookmark-outline'}
+                size={22}
+                color={isWatchlisted ? UI.gold : UI.forest}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.orderButton}
+              activeOpacity={0.85}
+              onPress={() => router.push(`/place-order/${listing.id}`)}
+            >
+              <Ionicons name="cart-outline" size={20} color="#FFFFFF" />
+              <Text style={styles.orderButtonText}>Place Order</Text>
+              <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+    </>
   );
 }
 
-function StatBox({ icon, label, value, color }: { icon: string; label: string; value: any; color: string }) {
+function SectionHeading({
+  icon,
+  eyebrow,
+  title,
+  color,
+  background,
+}: {
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  eyebrow: string;
+  title: string;
+  color: string;
+  background: string;
+}) {
+  return (
+    <View style={styles.sectionHeading}>
+      <View style={[styles.sectionIconBox, { backgroundColor: background }]}>
+        <Ionicons name={icon} size={20} color={color} />
+      </View>
+
+      <View style={styles.sectionHeadingText}>
+        <Text style={styles.sectionEyebrow}>{eyebrow}</Text>
+        <Text style={styles.sectionTitle}>{title}</Text>
+      </View>
+    </View>
+  );
+}
+
+function MarketStat({
+  icon,
+  label,
+  value,
+  color,
+  background,
+}: {
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  label: string;
+  value: string;
+  color: string;
+  background: string;
+}) {
   return (
     <View style={styles.statBox}>
-      <View style={[styles.statIcon, { backgroundColor: `${color}15` }]}>
-        <Ionicons name={icon as any} size={18} color={color} />
+      <View style={[styles.statIcon, { backgroundColor: background }]}>
+        <Ionicons name={icon} size={20} color={color} />
       </View>
-      <Text style={[styles.statValue, { color }]}>{value}</Text>
+
+      <Text style={[styles.statValue, { color }]} numberOfLines={1}>
+        {value}
+      </Text>
+
       <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F3FF' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  heroGradient: { alignItems: 'center', paddingTop: 32, paddingBottom: 48, paddingHorizontal: Spacing.xl },
-  heroIconBox: { width: 72, height: 72, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.md },
-  heroCommodity: { fontSize: FontSize.xxxl, fontWeight: FontWeight.extrabold, color: '#FFF' },
-  heroLocation: { fontSize: FontSize.sm, color: 'rgba(255,255,255,0.8)', marginTop: Spacing.sm, textAlign: 'center' },
-  watchlistBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: BorderRadius.full, marginTop: Spacing.lg },
-  watchlistBtnText: { color: '#FFF', fontSize: FontSize.sm, fontWeight: FontWeight.semibold },
-  priceCard: { marginHorizontal: Spacing.lg, backgroundColor: '#FFF', borderRadius: BorderRadius.lg, padding: Spacing.xl, shadowColor: '#0F766E', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 12, elevation: 8 },
-  priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
-  priceLabel: { fontSize: FontSize.xs, color: '#9CA3AF', marginBottom: 4 },
-  priceValue: { fontSize: FontSize.xxxl, fontWeight: FontWeight.extrabold, color: BUYER_PRIMARY },
-  priceUnit: { fontSize: FontSize.md, fontWeight: FontWeight.regular, color: '#9CA3AF' },
-  totalValue: { fontSize: FontSize.xl, fontWeight: FontWeight.bold, color: '#1A1A2E' },
-  minQtyBanner: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, backgroundColor: '#ECFEFF', borderRadius: BorderRadius.sm, padding: Spacing.md, marginTop: Spacing.md },
-  minQtyText: { fontSize: FontSize.sm, color: '#0891B2' },
-  card: { marginHorizontal: Spacing.lg, marginTop: Spacing.lg, backgroundColor: '#FFF', borderRadius: BorderRadius.lg, padding: Spacing.lg, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
-  cardTitle: { fontSize: FontSize.md, fontWeight: FontWeight.bold, color: '#1A1A2E', marginBottom: Spacing.lg },
-  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md },
-  statBox: { width: '47%', alignItems: 'center', padding: Spacing.md, backgroundColor: '#FAFAFA', borderRadius: BorderRadius.md },
-  statIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.sm },
-  statValue: { fontSize: FontSize.xl, fontWeight: FontWeight.bold },
-  statLabel: { fontSize: FontSize.xs, color: '#9CA3AF', marginTop: 2 },
-  infoRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: Spacing.md },
-  infoText: { fontSize: FontSize.sm, color: '#6B7280' },
-  facilityRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  facilityIconBox: { width: 44, height: 44, borderRadius: BorderRadius.md, backgroundColor: '#EDE9FE', alignItems: 'center', justifyContent: 'center' },
-  facilityName: { fontSize: FontSize.md, fontWeight: FontWeight.semibold, color: '#1A1A2E' },
-  facilityLocation: { fontSize: FontSize.xs, color: '#9CA3AF', marginTop: 2 },
-  viewFacilityText: { color: BUYER_PRIMARY, fontWeight: FontWeight.semibold, fontSize: FontSize.sm },
-  chamberRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: Spacing.md, paddingTop: Spacing.md, borderTopWidth: 1, borderTopColor: '#F3F4F6' },
-  chamberText: { fontSize: FontSize.sm, color: '#6B7280' },
-  iotNote: { fontSize: FontSize.sm, color: '#6B7280', lineHeight: 20, marginBottom: Spacing.md },
-  iotBadge: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, backgroundColor: '#ECFDF5', padding: Spacing.md, borderRadius: BorderRadius.sm },
-  iotBadgeText: { fontSize: FontSize.sm, color: '#059669', fontWeight: FontWeight.semibold },
-  sellerRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  sellerAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#EDE9FE', alignItems: 'center', justifyContent: 'center' },
-  sellerInitial: { fontSize: FontSize.xl, fontWeight: FontWeight.bold, color: BUYER_PRIMARY },
-  sellerName: { fontSize: FontSize.md, fontWeight: FontWeight.semibold, color: '#1A1A2E' },
-  sellerLocation: { fontSize: FontSize.xs, color: '#9CA3AF', marginTop: 2 },
-  descriptionText: { fontSize: FontSize.md, color: '#6B7280', lineHeight: 22, fontStyle: 'italic' },
-  ctaContainer: { paddingHorizontal: Spacing.lg, marginTop: Spacing.xl },
-  ctaBtn: { borderRadius: BorderRadius.lg, overflow: 'hidden' },
-  ctaGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.md, padding: Spacing.lg },
-  ctaBtnText: { color: '#FFF', fontSize: FontSize.xl, fontWeight: FontWeight.bold },
+  screen: {
+    flex: 1,
+    backgroundColor: UI.canvas,
+  },
+
+  container: {
+    flex: 1,
+    backgroundColor: UI.canvas,
+  },
+
+  scrollContent: {
+    paddingBottom: 20,
+  },
+
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 30,
+    backgroundColor: UI.canvas,
+  },
+
+  loadingText: {
+    marginTop: 13,
+    color: UI.muted,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+
+  emptyIcon: {
+    width: 78,
+    height: 78,
+    borderRadius: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E9F0EB',
+  },
+
+  emptyTitle: {
+    marginTop: 18,
+    color: UI.ink,
+    fontSize: 21,
+    fontWeight: '800',
+  },
+
+  emptyDescription: {
+    marginTop: 7,
+    color: UI.muted,
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+
+  emptyButton: {
+    marginTop: 23,
+    paddingHorizontal: 18,
+    paddingVertical: 13,
+    borderRadius: 14,
+    backgroundColor: UI.forest,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  emptyButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+
+  hero: {
+    paddingTop: 67,
+    paddingHorizontal: 20,
+    paddingBottom: 76,
+    borderBottomLeftRadius: 34,
+    borderBottomRightRadius: 34,
+  },
+
+  heroTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  topIconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: UI.whiteTransparent,
+  },
+
+  topIconPlaceholder: {
+    width: 44,
+    height: 44,
+  },
+
+  verifiedPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    backgroundColor: 'rgba(143, 240, 194, 0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(185, 245, 213, 0.14)',
+  },
+
+  verifiedPillText: {
+    color: '#B9F5D5',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.65,
+  },
+
+  heroContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 31,
+  },
+
+  commodityIconBox: {
+    width: 66,
+    height: 66,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.13)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+
+  heroTextWrap: {
+    flex: 1,
+    marginLeft: 15,
+  },
+
+  heroEyebrow: {
+    color: 'rgba(255,255,255,0.63)',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+
+  heroTitle: {
+    marginTop: 5,
+    color: '#FFFFFF',
+    fontSize: 26,
+    lineHeight: 32,
+    letterSpacing: -0.7,
+    fontWeight: '800',
+  },
+
+  heroLocationRow: {
+    marginTop: 10,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 5,
+  },
+
+  heroLocation: {
+    flex: 1,
+    color: 'rgba(255,255,255,0.73)',
+    fontSize: 12,
+    lineHeight: 17,
+  },
+
+  heroMetaRow: {
+    marginTop: 25,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 15,
+    backgroundColor: 'rgba(255,255,255,0.09)',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  heroMetaItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+
+  heroMetaText: {
+    color: '#D4F5E4',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+
+  heroMetaDivider: {
+    width: 1,
+    height: 18,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+  },
+
+  priceCard: {
+    marginHorizontal: 16,
+    marginTop: -50,
+    padding: 18,
+    borderRadius: 23,
+    backgroundColor: UI.surface,
+    borderWidth: 1,
+    borderColor: '#ECF0EB',
+    shadowColor: UI.forest,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    elevation: 5,
+  },
+
+  priceCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  priceLabel: {
+    color: '#88958D',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.65,
+  },
+
+  priceValueRow: {
+    marginTop: 6,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+
+  priceValue: {
+    color: UI.teal,
+    fontSize: 37,
+    fontWeight: '900',
+    letterSpacing: -1.1,
+  },
+
+  priceUnit: {
+    marginLeft: 3,
+    color: UI.subtle,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+
+  priceDivider: {
+    width: 1,
+    height: 49,
+    marginHorizontal: 17,
+    backgroundColor: '#E7ECE7',
+  },
+
+  totalValueBlock: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+
+  totalValue: {
+    marginTop: 9,
+    color: UI.ink,
+    fontSize: 20,
+    fontWeight: '800',
+    textAlign: 'right',
+  },
+
+  minQtyBanner: {
+    marginTop: 17,
+    padding: 12,
+    borderRadius: 15,
+    backgroundColor: UI.blueSoft,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+
+  minQtyIcon: {
+    width: 31,
+    height: 31,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+
+  minQtyTextWrap: {
+    flex: 1,
+  },
+
+  minQtyLabel: {
+    color: '#5D97AC',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.55,
+  },
+
+  minQtyText: {
+    marginTop: 2,
+    color: UI.blue,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+
+  sectionCard: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    padding: 18,
+    borderRadius: 22,
+    backgroundColor: UI.surface,
+    borderWidth: 1,
+    borderColor: UI.border,
+    shadowColor: '#173D31',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.045,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+
+  sectionHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+
+  sectionIconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  sectionHeadingText: {
+    flex: 1,
+  },
+
+  sectionEyebrow: {
+    color: '#7A8780',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.7,
+  },
+
+  sectionTitle: {
+    marginTop: 2,
+    color: UI.ink,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 19,
+  },
+
+  statBox: {
+    width: '47%',
+    minHeight: 124,
+    padding: 14,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F7F9F6',
+  },
+
+  statIcon: {
+    width: 39,
+    height: 39,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  statValue: {
+    marginTop: 12,
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.4,
+  },
+
+  statLabel: {
+    marginTop: 5,
+    color: '#7D8982',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.55,
+  },
+
+  detailFooter: {
+    marginTop: 17,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#EEF1EC',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  detailFooterText: {
+    color: UI.muted,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+
+  facilityRow: {
+    marginTop: 19,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  facilityIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: UI.emeraldSoft,
+  },
+
+  facilityTextWrap: {
+    flex: 1,
+    marginLeft: 11,
+    marginRight: 8,
+  },
+
+  facilityName: {
+    color: UI.ink,
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '800',
+  },
+
+  facilityLocation: {
+    marginTop: 3,
+    color: UI.muted,
+    fontSize: 12,
+  },
+
+  facilityViewButton: {
+    paddingVertical: 8,
+    paddingLeft: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+
+  facilityViewText: {
+    color: UI.teal,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+
+  chamberRow: {
+    marginTop: 17,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#EEF1EC',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  chamberText: {
+    flex: 1,
+    color: UI.muted,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+
+  iotNote: {
+    marginTop: 19,
+    color: UI.muted,
+    fontSize: 14,
+    lineHeight: 21,
+  },
+
+  iotBadge: {
+    marginTop: 17,
+    padding: 13,
+    borderRadius: 15,
+    backgroundColor: UI.emeraldSoft,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+
+  iotBadgeIcon: {
+    width: 25,
+    height: 25,
+    borderRadius: 99,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: UI.emerald,
+  },
+
+  iotBadgeTitle: {
+    color: '#087D58',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+
+  iotBadgeSubtitle: {
+    marginTop: 1,
+    color: '#4B8B70',
+    fontSize: 11,
+  },
+
+  sellerRow: {
+    marginTop: 19,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  sellerAvatar: {
+    width: 46,
+    height: 46,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F0EBFF',
+  },
+
+  sellerInitial: {
+    color: '#7457BE',
+    fontSize: 20,
+    fontWeight: '800',
+  },
+
+  sellerInfo: {
+    flex: 1,
+    marginLeft: 11,
+  },
+
+  sellerName: {
+    color: UI.ink,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+
+  sellerLocation: {
+    marginTop: 3,
+    color: UI.muted,
+    fontSize: 12,
+  },
+
+  verifiedSeller: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+
+  verifiedSellerText: {
+    color: UI.emerald,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+
+  descriptionText: {
+    marginTop: 19,
+    color: UI.muted,
+    fontSize: 14,
+    lineHeight: 22,
+    fontStyle: 'italic',
+  },
+
+  actionDock: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingTop: 12,
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+    flexDirection: 'row',
+    gap: 11,
+    borderTopWidth: 1,
+    borderTopColor: '#E3E8E1',
+    backgroundColor: 'rgba(245,247,244,0.98)',
+  },
+
+  dockSaveButton: {
+    width: 56,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E8F0E9',
+  },
+
+  orderButton: {
+    flex: 1,
+    minHeight: 56,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 9,
+    backgroundColor: UI.forest,
+    shadowColor: UI.forest,
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+
+  orderButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
+  },
 });

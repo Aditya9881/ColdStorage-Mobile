@@ -66,6 +66,11 @@ export const Colors = {
     glassBg: 'rgba(255, 255, 255, 0.72)',
     glassBorder: 'rgba(255, 255, 255, 0.35)',
     glassDark: 'rgba(255, 255, 255, 0.12)',
+    glassBgLight: 'rgba(255, 255, 255, 0.15)',
+    glassBgMedium: 'rgba(255, 255, 255, 0.22)',
+    glassBgHeavy: 'rgba(255, 255, 255, 0.35)',
+    glassBorderTop: 'rgba(255, 255, 255, 0.35)',
+    glassBorderBottom: 'rgba(255, 255, 255, 0.1)',
 
     // Text
     text: '#1A1A2E',
@@ -135,6 +140,11 @@ export const Colors = {
     glassBg: 'rgba(28, 38, 32, 0.72)',
     glassBorder: 'rgba(255, 255, 255, 0.08)',
     glassDark: 'rgba(0, 0, 0, 0.25)',
+    glassBgLight: 'rgba(255, 255, 255, 0.06)',
+    glassBgMedium: 'rgba(255, 255, 255, 0.10)',
+    glassBgHeavy: 'rgba(255, 255, 255, 0.18)',
+    glassBorderTop: 'rgba(255, 255, 255, 0.12)',
+    glassBorderBottom: 'rgba(255, 255, 255, 0.04)',
 
     text: '#F0F4F1',
     textSecondary: '#94A3B8',
@@ -244,6 +254,14 @@ export const Shadows = {
     shadowRadius: 12,
     elevation: 8,
   },
+  /** Glass card — soft dispersed depth */
+  glass: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 32,
+    elevation: 8,
+  },
   xl: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
@@ -267,6 +285,15 @@ export const Gradients = {
   darkCard: ['#222E27', '#1C2620'] as const,
   /** Glass overlay on gradient backgrounds */
   glassOverlay: ['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.05)'] as const,
+  /** Owner dashboard — violet mesh */
+  meshViolet: ['#2D1B69', '#4C1D95', '#7C3AED'] as const,
+  meshVioletDark: ['#1A0F40', '#2D1B69', '#4C1D95'] as const,
+  /** Buyer dashboard — teal mesh */
+  meshTeal: ['#042F2E', '#0F766E', '#14B8A6'] as const,
+  meshTealDark: ['#021716', '#042F2E', '#0F766E'] as const,
+  /** Profile/settings — neutral mesh */
+  meshNeutral: ['#1A1A2E', '#2D3B33', '#374151'] as const,
+  meshNeutralDark: ['#0F0F1A', '#1A1A2E', '#2D3B33'] as const,
 };
 
 /** Animation durations (ms) */

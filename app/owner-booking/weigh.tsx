@@ -4,7 +4,7 @@
  * Owner/staff enters actual weight, bag count, rate,
  * then confirms storage to transition booking to STORED.
  */
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ScrollView, Platform, ActivityIndicator, Alert,
@@ -26,6 +26,9 @@ export default function WeighScreen() {
   const [ratePerUnit, setRatePerUnit] = useState('');
   const [advancePaid, setAdvancePaid] = useState('');
   const [ownerNote, setOwnerNote] = useState('');
+  const [chambers, setChambers] = useState<any[]>([]);
+  const [selectedChamberId, setSelectedChamberId] = useState('');
+  const [chambersLoading, setChambersLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -34,9 +37,54 @@ export default function WeighScreen() {
   const rate = parseFloat(ratePerUnit) || 0;
   const totalAmount = weight > 0 && rate > 0 ? (weight / 1000 * rate).toFixed(2) : '0.00'; // Rate per MT
 
+  useEffect(() => {
+    let active = true;
+
+    const loadStorageOptions = async () => {
+      if (!bookingId) return;
+      setChambersLoading(true);
+      try {
+        const bookingRes = await api.get<any>(`/bookings/${bookingId}`);
+        const booking = bookingRes.success ? bookingRes.data : null;
+        if (!booking?.facilityId) throw new Error('Booking facility is unavailable');
+
+        const chambersRes = await api.get<any>(`/chambers?facilityId=${booking.facilityId}`);
+        if (!active) return;
+
+        const availableChambers = chambersRes.success
+          ? (chambersRes.data || []).filter((chamber: any) => chamber.status === 'OPERATIONAL')
+          : [];
+        setChambers(availableChambers);
+        setSelectedChamberId(booking.chamberId || '');
+        if (!availableChambers.length) setError('No operational chambers are available for this facility');
+      } catch (err: any) {
+        if (active) setError(err.message || 'Unable to load available chambers');
+      } finally {
+        if (active) setChambersLoading(false);
+      }
+    };
+
+    loadStorageOptions();
+    return () => { active = false; };
+  }, [bookingId]);
+
   const handleConfirm = useCallback(async () => {
     if (!actualWeight || Number(actualWeight) <= 0) {
       setError('Enter actual weight');
+      hapticError();
+      return;
+    }
+    if (!selectedChamberId) {
+      setError('Select a storage chamber before confirming');
+      hapticError();
+      return;
+    }
+    const selectedChamber = chambers.find((chamber: any) => chamber.id === selectedChamberId);
+    const availableMt = selectedChamber
+      ? Number(selectedChamber.capacityMt || 0) - Number(selectedChamber.occupiedMt || 0)
+      : 0;
+    if (!selectedChamber || Number(actualWeight) / 1000 > availableMt) {
+      setError('The selected chamber does not have enough available capacity');
       hapticError();
       return;
     }
@@ -48,6 +96,7 @@ export default function WeighScreen() {
     try {
       const payload: any = {
         status: 'STORED',
+        chamberId: selectedChamberId,
         actualWeightKg: Number(actualWeight),
       };
       if (actualBags) payload.actualBags = Number(actualBags);
@@ -76,7 +125,7 @@ export default function WeighScreen() {
     } finally {
       setLoading(false);
     }
-  }, [actualWeight, actualBags, ratePerUnit, advancePaid, ownerNote, bookingId, bookingNumber, rate, weight, totalAmount, router]);
+  }, [actualWeight, actualBags, ratePerUnit, advancePaid, ownerNote, bookingId, bookingNumber, selectedChamberId, chambers, rate, weight, totalAmount, router]);
 
   return (
     <View style={styles.screen}>
@@ -102,6 +151,45 @@ export default function WeighScreen() {
               <Text style={styles.errorText}>{error}</Text>
             </View>
           ) : null}
+
+          {/* Chamber selection */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="cube-outline" size={20} color="#2563EB" />
+              <Text style={styles.sectionTitle}>Storage Chamber</Text>
+            </View>
+            <Text style={styles.chamberHelp}>Choose the operational chamber that will receive this lot.</Text>
+            {chambersLoading ? (
+              <ActivityIndicator color="#2563EB" style={{ marginVertical: 18 }} />
+            ) : chambers.length ? (
+              <View style={styles.chamberList}>
+                {chambers.map((chamber: any) => {
+                  const availableMt = Math.max(0, Number(chamber.capacityMt || 0) - Number(chamber.occupiedMt || 0));
+                  const isSelected = selectedChamberId === chamber.id;
+                  return (
+                    <TouchableOpacity
+                      key={chamber.id}
+                      style={[styles.chamberOption, isSelected && styles.chamberOptionSelected]}
+                      onPress={() => { setSelectedChamberId(chamber.id); setError(''); hapticLight(); }}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: isSelected }}
+                    >
+                      <View style={[styles.chamberRadio, isSelected && styles.chamberRadioSelected]}>
+                        {isSelected ? <Ionicons name="checkmark" size={14} color="#FFF" /> : null}
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.chamberName}>{chamber.name || `Chamber ${chamber.chamberNumber}`}</Text>
+                        <Text style={styles.chamberMeta}>#{chamber.chamberNumber} · {availableMt.toFixed(2)} MT available</Text>
+                        {chamber.commodityCategory ? <Text style={styles.chamberCommodity}>{chamber.commodityCategory.replace(/_/g, ' ')}</Text> : null}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ) : (
+              <Text style={styles.noChambers}>Ask an administrator to add or activate a chamber before accepting storage.</Text>
+            )}
+          </View>
 
           {/* Weight section */}
           <View style={styles.section}>
@@ -256,6 +344,22 @@ const styles = StyleSheet.create({
   },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: '#1A1A2E' },
+  chamberHelp: { color: '#6B7280', fontSize: 12, lineHeight: 18, marginTop: -8, marginBottom: 12 },
+  chamberList: { gap: 10 },
+  chamberOption: {
+    flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1.5,
+    borderColor: '#E5E7EB', borderRadius: 10, padding: 12, backgroundColor: '#FFF',
+  },
+  chamberOptionSelected: { borderColor: '#2563EB', backgroundColor: '#EFF6FF' },
+  chamberRadio: {
+    width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: '#CBD5E1',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  chamberRadioSelected: { backgroundColor: '#2563EB', borderColor: '#2563EB' },
+  chamberName: { color: '#1A1A2E', fontSize: 14, fontWeight: '700' },
+  chamberMeta: { color: '#64748B', fontSize: 12, marginTop: 2 },
+  chamberCommodity: { color: '#2563EB', fontSize: 11, fontWeight: '700', marginTop: 4, textTransform: 'capitalize' },
+  noChambers: { color: '#B45309', fontSize: 12, lineHeight: 18 },
 
   row: { flexDirection: 'row', gap: 12 },
   fieldGroup: { marginBottom: 12 },

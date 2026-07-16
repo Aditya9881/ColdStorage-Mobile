@@ -1,26 +1,27 @@
-/**
- * SheetKosh — Premium Buyer Browse Screen
- *
- * Features:
- * - Teal gradient header with sticky search
- * - Commodity filter chips with icons
- * - Grade + Sort filters
- * - Redesigned listing cards with commodity icon, weight, grade star
- * - Skeleton loading, Error state
- * - Haptic feedback
- */
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
-  View, Text, FlatList, StyleSheet, RefreshControl,
-  TouchableOpacity, useColorScheme, Platform,
-  Animated as RNAnimated, Dimensions,
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  RefreshControl,
+  TouchableOpacity,
+  useColorScheme,
+  Platform,
+  Animated as RNAnimated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, Stack } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Colors, Spacing, BorderRadius, FontSize, FontWeight, Shadows, Gradients } from '@/constants/Colors';
+import {
+  Colors,
+  Spacing,
+  BorderRadius,
+  FontSize,
+  FontWeight,
+} from '@/constants/Colors';
 import { SkeletonList } from '@/components/ui/Skeleton';
 import ErrorState from '@/components/ui/ErrorState';
 import EmptyState from '@/components/ui/EmptyState';
@@ -48,17 +49,28 @@ const SORT_OPTIONS = [
 ];
 
 const COMMODITY_ICON: Record<string, string> = {
-  Potato: 'nutrition-outline', Onion: 'ellipse-outline', Tomato: 'ellipse',
-  Apple: 'nutrition', Mango: 'leaf-outline', Garlic: 'flower-outline',
-  Ginger: 'leaf', Wheat: 'sunny-outline', Rice: 'water-outline',
+  Potato: 'nutrition-outline',
+  Onion: 'ellipse-outline',
+  Tomato: 'ellipse',
+  Apple: 'nutrition',
+  Mango: 'leaf-outline',
+  Garlic: 'flower-outline',
+  Ginger: 'leaf',
+  Wheat: 'sunny-outline',
+  Rice: 'water-outline',
   default: 'cube-outline',
 };
+
+const SCREEN_BG = '#F4F7F6';
+const BUYER_PRIMARY = '#0F766E';
+const BUYER_DARK = '#0B3B36';
 
 export default function BuyerBrowseScreen() {
   const router = useRouter();
   const { isAuthenticated, user } = useAuth();
   const colorScheme = (useColorScheme() ?? 'light') as 'light' | 'dark';
   const colors = Colors[colorScheme];
+
   const [listings, setListings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -67,6 +79,7 @@ export default function BuyerBrowseScreen() {
   const [selectedCommodity, setSelectedCommodity] = useState('');
   const [selectedGrade, setSelectedGrade] = useState('All');
   const [selectedSort, setSelectedSort] = useState('newest');
+
   const headerAnim = useRef(new RNAnimated.Value(0)).current;
 
   const fetchListings = useCallback(async () => {
@@ -75,6 +88,8 @@ export default function BuyerBrowseScreen() {
       const res = await api.get<any>('/marketplace/listings?limit=50&status=ACTIVE');
       if (res.success && res.data?.listings) {
         setListings(res.data.listings);
+      } else {
+        setListings([]);
       }
     } catch (err) {
       console.error('Browse error:', err);
@@ -89,8 +104,12 @@ export default function BuyerBrowseScreen() {
   }, [fetchListings, isAuthenticated]);
 
   useEffect(() => {
-    RNAnimated.timing(headerAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
-  }, []);
+    RNAnimated.timing(headerAnim, {
+      toValue: 1,
+      duration: 420,
+      useNativeDriver: true,
+    }).start();
+  }, [headerAnim]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -98,28 +117,45 @@ export default function BuyerBrowseScreen() {
     setRefreshing(false);
   };
 
+  const cycleGrade = () => {
+    const currentIndex = GRADE_FILTERS.indexOf(selectedGrade);
+    const nextIndex = (currentIndex + 1) % GRADE_FILTERS.length;
+    setSelectedGrade(GRADE_FILTERS[nextIndex]);
+    hapticSelection();
+  };
+
+  const cycleSort = () => {
+    const currentIndex = SORT_OPTIONS.findIndex((s) => s.value === selectedSort);
+    const nextIndex = (currentIndex + 1) % SORT_OPTIONS.length;
+    setSelectedSort(SORT_OPTIONS[nextIndex].value);
+    hapticSelection();
+  };
+
+  const activeSortLabel =
+    SORT_OPTIONS.find((s) => s.value === selectedSort)?.label || 'Newest';
+
   const filtered = useMemo(() => {
     let result = [...listings];
 
     if (search.trim()) {
       const q = search.toLowerCase();
-      result = result.filter(l =>
-        l.lot?.commodityName?.toLowerCase().includes(q) ||
-        l.seller?.fullName?.toLowerCase().includes(q)
+      result = result.filter(
+        (l) =>
+          l.lot?.commodityName?.toLowerCase().includes(q) ||
+          l.seller?.fullName?.toLowerCase().includes(q)
       );
     }
 
     if (selectedCommodity) {
-      result = result.filter(l =>
+      result = result.filter((l) =>
         l.lot?.commodityName?.toLowerCase().includes(selectedCommodity.toLowerCase())
       );
     }
 
     if (selectedGrade !== 'All') {
-      result = result.filter(l => l.lot?.qualityGrade === selectedGrade);
+      result = result.filter((l) => l.lot?.qualityGrade === selectedGrade);
     }
 
-    // Sort
     switch (selectedSort) {
       case 'price_asc':
         result.sort((a, b) => Number(a.askingPricePerKg) - Number(b.askingPricePerKg));
@@ -128,369 +164,580 @@ export default function BuyerBrowseScreen() {
         result.sort((a, b) => Number(b.askingPricePerKg) - Number(a.askingPricePerKg));
         break;
       case 'weight_desc':
-        result.sort((a, b) => Number(b.lot?.currentWeightKg || 0) - Number(a.lot?.currentWeightKg || 0));
+        result.sort(
+          (a, b) => Number(b.lot?.currentWeightKg || 0) - Number(a.lot?.currentWeightKg || 0)
+        );
         break;
       default:
-        result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        result.sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
     }
 
     return result;
   }, [listings, search, selectedCommodity, selectedGrade, selectedSort]);
 
+  const renderListing = useCallback(
+    ({ item }: { item: any }) => {
+      const commodity = item.lot?.commodityName || 'Unknown';
+      const icon = COMMODITY_ICON[commodity] || COMMODITY_ICON.default;
+      const weight = Number(item.lot?.currentWeightKg || 0);
+      const grade = item.lot?.qualityGrade || '—';
+      const price = Number(item.askingPricePerKg || 0);
+      const totalValue = price * weight;
+
+      return (
+        <TouchableOpacity
+          style={styles.premiumCard}
+          onPress={() => {
+            router.push(`/listing/${item.id}`);
+            hapticLight();
+          }}
+          activeOpacity={0.84}
+        >
+          <View style={styles.cardUpper}>
+            <View style={styles.cardTop}>
+              <View style={styles.commodityCircle}>
+                <Ionicons name={icon as any} size={20} color={BUYER_PRIMARY} />
+              </View>
+
+              <View style={styles.cardMain}>
+                <View style={styles.cardTitleRow}>
+                  <View style={{ flex: 1, paddingRight: 10 }}>
+                    <Text style={styles.commodityName} numberOfLines={1}>
+                      {commodity}
+                    </Text>
+                    <Text style={styles.sellerName} numberOfLines={1}>
+                      by {item.seller?.fullName || 'Unknown Seller'}
+                    </Text>
+                  </View>
+
+                  <View style={styles.priceBox}>
+                    <Text style={styles.priceMain}>₹{price.toFixed(0)}</Text>
+                    <Text style={styles.priceUnit}>per kg</Text>
+                  </View>
+                </View>
+
+                <View style={styles.metricStrip}>
+                  <View style={styles.metricPill}>
+                    <Ionicons name="scale-outline" size={11} color="#6B7280" />
+                    <Text style={styles.metricPillText}>{(weight / 1000).toFixed(1)} MT</Text>
+                  </View>
+
+                  {grade !== '—' && (
+                    <View style={[styles.metricPill, styles.gradePill]}>
+                      <Ionicons name="star" size={11} color="#C98212" />
+                      <Text style={[styles.metricPillText, { color: '#C98212' }]}>
+                        Grade {grade}
+                      </Text>
+                    </View>
+                  )}
+
+                  <View style={styles.metricPill}>
+                    <Ionicons name="wallet-outline" size={11} color="#6B7280" />
+                    <Text style={styles.metricPillText}>
+                      Total ₹{(totalValue / 1000).toFixed(0)}k
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.cardLower}>
+            <TouchableOpacity
+              style={styles.orderBtn}
+              onPress={() => {
+                router.push(`/place-order/${item.id}`);
+                hapticLight();
+              }}
+              activeOpacity={0.88}
+            >
+              <Ionicons name="cart" size={15} color="#FFF" />
+              <Text style={styles.orderBtnText}>Place Order</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      );
+    },
+    [router]
+  );
+
+  const Header = () => (
+    <>
+      <LinearGradient
+        colors={['#0B3B36', '#0F766E', '#14B8A6']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.header}
+      >
+        <View style={{ height: Platform.OS === 'ios' ? 50 : 30 }} />
+        <RNAnimated.View style={{ opacity: headerAnim }}>
+          <View style={styles.topBar}>
+            <View style={{ flex: 1 }} />
+            <SyncBadge />
+          </View>
+
+          <View style={styles.headerContent}>
+            <Text style={styles.headerGreeting}>Welcome, {user?.fullName || 'Buyer'}</Text>
+            <Text style={styles.headerTitle}>Browse Produce</Text>
+            <Text style={styles.headerSubtitle}>
+              Discover fresh lots from verified sellers
+            </Text>
+          </View>
+
+          <View style={styles.searchWrap}>
+            <View style={styles.searchShell}>
+              <SearchBar
+                value={search}
+                onChangeText={setSearch}
+                placeholder="Search commodity, seller..."
+              />
+            </View>
+          </View>
+        </RNAnimated.View>
+      </LinearGradient>
+
+      <View style={styles.filtersShell}>
+        <FlatList
+          data={COMMODITY_FILTERS}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(item) => item.value || 'all'}
+          contentContainerStyle={styles.filterChips}
+          renderItem={({ item }) => {
+            const active = selectedCommodity === item.value;
+            return (
+              <TouchableOpacity
+                style={[
+                  styles.commodityChip,
+                  active ? styles.commodityChipActive : styles.commodityChipIdle,
+                ]}
+                onPress={() => {
+                  setSelectedCommodity(item.value);
+                  hapticSelection();
+                }}
+                activeOpacity={0.84}
+              >
+                <Ionicons
+                  name={item.icon as any}
+                  size={14}
+                  color={active ? '#FFF' : '#5F6C80'}
+                />
+                <Text
+                  style={[
+                    styles.commodityChipText,
+                    { color: active ? '#FFF' : '#5F6C80' },
+                  ]}
+                >
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          }}
+        />
+
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            style={[
+              styles.actionPill,
+              selectedGrade !== 'All' ? styles.actionPillActive : styles.actionPillIdle,
+            ]}
+            onPress={cycleGrade}
+            activeOpacity={0.85}
+          >
+            <Ionicons
+              name="options-outline"
+              size={15}
+              color={selectedGrade !== 'All' ? BUYER_PRIMARY : '#5F6C80'}
+            />
+            <Text
+              style={[
+                styles.actionPillText,
+                { color: selectedGrade !== 'All' ? BUYER_PRIMARY : '#5F6C80' },
+              ]}
+            >
+              {selectedGrade === 'All' ? 'Filter' : `Grade ${selectedGrade}`}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.actionPill,
+              selectedSort !== 'newest' ? styles.actionPillActive : styles.actionPillIdle,
+            ]}
+            onPress={cycleSort}
+            activeOpacity={0.85}
+          >
+            <Ionicons
+              name="swap-vertical-outline"
+              size={15}
+              color={selectedSort !== 'newest' ? BUYER_PRIMARY : '#5F6C80'}
+            />
+            <Text
+              style={[
+                styles.actionPillText,
+                { color: selectedSort !== 'newest' ? BUYER_PRIMARY : '#5F6C80' },
+              ]}
+            >
+              {activeSortLabel}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.resultsBar}>
+          <Text style={styles.resultsText}>
+            {filtered.length} listing{filtered.length !== 1 ? 's' : ''}
+          </Text>
+        </View>
+      </View>
+    </>
+  );
+
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <LinearGradient colors={Gradients.buyer} style={styles.header}>
-          <View style={{ height: Platform.OS === 'ios' ? 54 : 36 }} />
-          <Text style={styles.headerTitle}>Browse Produce</Text>
-        </LinearGradient>
-        <SkeletonList count={4} />
-      </View>
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.container}>
+          <LinearGradient
+            colors={['#0B3B36', '#0F766E', '#14B8A6']}
+            style={styles.header}
+          >
+            <View style={{ height: Platform.OS === 'ios' ? 50 : 30 }} />
+            <View style={styles.headerContent}>
+              <Text style={styles.headerTitle}>Browse Produce</Text>
+            </View>
+          </LinearGradient>
+          <SkeletonList count={4} />
+        </View>
+      </>
     );
   }
 
   if (error) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <ErrorState variant="network" onRetry={fetchListings} />
-      </View>
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.container}>
+          <ErrorState variant="network" onRetry={fetchListings} />
+        </View>
+      </>
     );
   }
 
-  const renderListing = ({ item }: { item: any }) => {
-    const commodity = item.lot?.commodityName || 'Unknown';
-    const icon = COMMODITY_ICON[commodity] || COMMODITY_ICON.default;
-    const weight = Number(item.lot?.currentWeightKg || 0);
-    const grade = item.lot?.qualityGrade || '—';
-    const price = Number(item.askingPricePerKg || 0);
-    const totalValue = price * weight;
-
-    return (
-      <TouchableOpacity
-        style={[styles.card, { backgroundColor: colors.card, borderColor: colors.borderLight }]}
-        onPress={() => { router.push(`/listing/${item.id}`); hapticLight(); }}
-        activeOpacity={0.7}
-      >
-        <View style={styles.cardTop}>
-          <View style={[styles.commodityCircle, { backgroundColor: colors.buyerSubtle }]}>
-            <Ionicons name={icon as any} size={24} color={colors.buyerPrimary} />
-          </View>
-          <View style={{ flex: 1, marginLeft: Spacing.md }}>
-            <Text style={[styles.commodityName, { color: colors.text }]}>{commodity}</Text>
-            <Text style={[styles.sellerName, { color: colors.textTertiary }]}>
-              by {item.seller?.fullName || 'Unknown Seller'}
-            </Text>
-          </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={[styles.priceMain, { color: colors.buyerPrimary }]}>₹{price.toFixed(0)}</Text>
-            <Text style={[styles.priceUnit, { color: colors.textTertiary }]}>per kg</Text>
-          </View>
-        </View>
-
-        {/* Info chips row */}
-        <View style={styles.chipsRow}>
-          <View style={[styles.infoChip, { backgroundColor: colors.cardAlt }]}>
-            <Ionicons name="scale-outline" size={11} color={colors.textSecondary} />
-            <Text style={[styles.chipLabel, { color: colors.textSecondary }]}>
-              {(weight / 1000).toFixed(1)} MT
-            </Text>
-          </View>
-          {grade !== '—' && (
-            <View style={[styles.infoChip, { backgroundColor: '#FFFBEB' }]}>
-              <Ionicons name="star" size={11} color="#F59E0B" />
-              <Text style={[styles.chipLabel, { color: '#D97706' }]}>Grade {grade}</Text>
-            </View>
-          )}
-          <View style={[styles.infoChip, { backgroundColor: colors.cardAlt }]}>
-            <Ionicons name="wallet-outline" size={11} color={colors.textSecondary} />
-            <Text style={[styles.chipLabel, { color: colors.textSecondary }]}>
-              Total ₹{(totalValue / 1000).toFixed(0)}k
-            </Text>
-          </View>
-        </View>
-
-        {/* CTA */}
-        <View style={styles.cardActions}>
-          <TouchableOpacity
-            style={[styles.orderBtn, { backgroundColor: colors.buyerPrimary }]}
-            onPress={() => { router.push(`/place-order/${item.id}`); hapticLight(); }}
-          >
-            <Ionicons name="cart" size={14} color="#FFF" />
-            <Text style={styles.orderBtnText}>Place Order</Text>
-          </TouchableOpacity>
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <LinearGradient colors={Gradients.buyer} style={styles.header}>
-        <View style={{ height: Platform.OS === 'ios' ? 54 : 36 }} />
-        <RNAnimated.View style={{ opacity: headerAnim }}>
-          <View style={styles.headerRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.headerGreeting}>Welcome, {user?.fullName || 'Buyer'}</Text>
-              <Text style={styles.headerTitle}>Browse Produce</Text>
-            </View>
-            <SyncBadge />
-          </View>
-          <SearchBar value={search} onChangeText={setSearch} placeholder="Search commodity, seller..." />
-        </RNAnimated.View>
-      </LinearGradient>
-
-      {/* Commodity filter chips */}
-      <FlatList
-        data={COMMODITY_FILTERS}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        keyExtractor={(item) => item.value || 'all'}
-        contentContainerStyle={styles.filterChips}
-        style={[styles.filterRow, { backgroundColor: colors.card }]}
-        renderItem={({ item }) => {
-          const active = selectedCommodity === item.value;
-          return (
-            <TouchableOpacity
-              style={[
-                styles.commodityChip,
-                active ? { backgroundColor: colors.buyerPrimary } : { backgroundColor: colors.cardAlt },
-              ]}
-              onPress={() => { setSelectedCommodity(item.value); hapticSelection(); }}
-            >
-              <Ionicons name={item.icon as any} size={14} color={active ? '#FFF' : colors.textSecondary} />
-              <Text style={[styles.commodityChipText, { color: active ? '#FFF' : colors.textSecondary }]}>
-                {item.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        }}
-      />
-
-      {/* Grade + Sort row */}
-      <View style={[styles.secondFilterRow, { borderBottomColor: colors.borderLight }]}>
-        <View style={styles.gradeRow}>
-          <Text style={[styles.filterLabel, { color: colors.textTertiary }]}>Grade:</Text>
-          {GRADE_FILTERS.map(g => (
-            <TouchableOpacity
-              key={g}
-              style={[styles.gradeBtn, selectedGrade === g && { backgroundColor: `${colors.buyerPrimary}15` }]}
-              onPress={() => { setSelectedGrade(g); hapticSelection(); }}
-            >
-              <Text style={[styles.gradeText, { color: selectedGrade === g ? colors.buyerPrimary : colors.textTertiary }]}>
-                {g}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        <View style={styles.sortRow}>
-          {SORT_OPTIONS.map(s => (
-            <TouchableOpacity
-              key={s.value}
-              style={[styles.sortBtn, selectedSort === s.value && { backgroundColor: `${colors.buyerPrimary}15` }]}
-              onPress={() => { setSelectedSort(s.value); hapticSelection(); }}
-            >
-              <Text style={[styles.sortText, { color: selectedSort === s.value ? colors.buyerPrimary : colors.textTertiary }]}>
-                {s.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={styles.container}>
+        <FlatList
+          data={filtered}
+          renderItem={renderListing}
+          keyExtractor={(item) => item.id}
+          ListHeaderComponent={Header}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+          initialNumToRender={6}
+          maxToRenderPerBatch={8}
+          windowSize={10}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.buyerPrimary}
+            />
+          }
+          ListEmptyComponent={
+            <EmptyState
+              icon="storefront-outline"
+              title={search || selectedCommodity ? 'No Results' : 'No Listings Available'}
+              subtitle={
+                search || selectedCommodity
+                  ? 'Try different filters or search terms'
+                  : 'No produce is listed for sale right now. Check back soon!'
+              }
+            />
+          }
+        />
       </View>
-
-      {/* Results count */}
-      <View style={styles.resultsBar}>
-        <Text style={[styles.resultsText, { color: colors.textTertiary }]}>
-          {filtered.length} listing{filtered.length !== 1 ? 's' : ''}
-        </Text>
-      </View>
-
-      {/* Listing list */}
-      <FlatList
-        data={filtered}
-        renderItem={renderListing}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.buyerPrimary} />}
-        ListEmptyComponent={
-          <EmptyState
-            icon="storefront-outline"
-            title={search || selectedCommodity ? 'No Results' : 'No Listings Available'}
-            subtitle={search || selectedCommodity ? 'Try different filters or search terms' : 'No produce is listed for sale right now. Check back soon!'}
-          />
-        }
-      />
-    </View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: {
+    flex: 1,
+    backgroundColor: SCREEN_BG,
+  },
+
   header: {
     paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.lg,
+    paddingBottom: 16,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    overflow: 'hidden',
   },
-  headerRow: {
+
+  topBar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: Spacing.md,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    marginBottom: 10,
   },
+
+  headerContent: {
+    marginBottom: 12,
+  },
+
   headerGreeting: {
     fontSize: FontSize.sm,
-    color: 'rgba(255,255,255,0.6)',
+    color: 'rgba(255,255,255,0.74)',
     fontFamily: 'Inter_400Regular',
   },
+
   headerTitle: {
-    fontSize: FontSize.xxl,
+    fontSize: 32,
     fontWeight: FontWeight.bold,
     color: '#FFF',
     fontFamily: 'Inter_700Bold',
-    marginTop: 2,
+    marginTop: 4,
   },
-  filterRow: {
-    paddingVertical: Spacing.sm,
+
+  headerSubtitle: {
+    fontSize: FontSize.sm,
+    color: 'rgba(255,255,255,0.78)',
+    fontFamily: 'Inter_400Regular',
+    marginTop: 5,
   },
+
+  searchWrap: {
+    marginTop: 4,
+  },
+
+  searchShell: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderRadius: 22,
+    padding: 6,
+  },
+
+  filtersShell: {
+    paddingTop: 12,
+    backgroundColor: SCREEN_BG,
+  },
+
   filterChips: {
     paddingHorizontal: Spacing.lg,
-    gap: Spacing.sm,
+    gap: 10,
+    paddingBottom: 8,
   },
+
   commodityChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: BorderRadius.full,
+    borderWidth: 1,
   },
+
+  commodityChipActive: {
+    backgroundColor: BUYER_PRIMARY,
+    borderColor: BUYER_PRIMARY,
+    shadowColor: '#0F766E',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+
+  commodityChipIdle: {
+    backgroundColor: '#EEF2F1',
+    borderColor: '#DCE5E3',
+  },
+
   commodityChipText: {
     fontSize: FontSize.sm,
     fontWeight: FontWeight.semibold,
     fontFamily: 'Inter_600SemiBold',
   },
-  secondFilterRow: {
+
+  actionRow: {
+    flexDirection: 'row',
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    borderBottomWidth: 1,
+    gap: 10,
+    paddingTop: 2,
+    paddingBottom: 8,
   },
-  gradeRow: {
+
+  actionPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
-    marginBottom: Spacing.xs,
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
   },
-  filterLabel: {
-    fontSize: FontSize.xs,
-    fontWeight: FontWeight.semibold,
-    fontFamily: 'Inter_600SemiBold',
+
+  actionPillIdle: {
+    backgroundColor: '#EEF2F1',
+    borderColor: '#DCE5E3',
   },
-  gradeBtn: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: BorderRadius.sm,
+
+  actionPillActive: {
+    backgroundColor: '#E7F6F1',
+    borderColor: '#BFE8DB',
   },
-  gradeText: {
-    fontSize: FontSize.xs,
-    fontWeight: FontWeight.semibold,
-    fontFamily: 'Inter_600SemiBold',
-  },
-  sortRow: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-    marginTop: Spacing.xs,
-  },
-  sortBtn: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: BorderRadius.sm,
-  },
-  sortText: {
-    fontSize: FontSize.xs,
+
+  actionPillText: {
+    fontSize: FontSize.sm,
     fontWeight: FontWeight.medium,
     fontFamily: 'Inter_500Medium',
   },
+
   resultsBar: {
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
+    paddingTop: 4,
+    paddingBottom: 10,
   },
+
   resultsText: {
     fontSize: FontSize.xs,
+    color: '#7C8A9F',
     fontFamily: 'Inter_400Regular',
   },
+
   list: {
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Platform.OS === 'ios' ? 100 : 32,
+    paddingBottom: Platform.OS === 'ios' ? 96 : 28,
   },
-  // Card
-  card: {
-    borderRadius: BorderRadius.lg,
+
+  premiumCard: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: 14,
+    borderRadius: 24,
+    backgroundColor: '#FFFDF9',
+    overflow: 'hidden',
+    shadowColor: '#102A26',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    elevation: 4,
     borderWidth: 1,
-    padding: Spacing.lg,
-    marginBottom: Spacing.md,
-    ...Shadows.sm,
+    borderColor: '#EEF2EF',
   },
+
+  cardUpper: {
+    padding: 16,
+    backgroundColor: '#FFFDF9',
+  },
+
+  cardLower: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    backgroundColor: '#FCFAF6',
+  },
+
   cardTop: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
+
+  cardMain: {
+    flex: 1,
+    marginLeft: 12,
+  },
+
   commodityCircle: {
     width: 48,
     height: 48,
-    borderRadius: BorderRadius.md,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#E7F6F1',
   },
+
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+
   commodityName: {
-    fontSize: FontSize.md,
+    fontSize: 17,
     fontWeight: FontWeight.bold,
     fontFamily: 'Inter_700Bold',
+    color: '#111827',
   },
+
   sellerName: {
     fontSize: FontSize.xs,
-    marginTop: 2,
+    marginTop: 3,
     fontFamily: 'Inter_400Regular',
+    color: '#8A94A6',
   },
+
+  priceBox: {
+    alignItems: 'flex-end',
+  },
+
   priceMain: {
-    fontSize: FontSize.xl,
+    fontSize: 20,
     fontWeight: FontWeight.extrabold,
     fontFamily: 'Inter_800ExtraBold',
+    color: BUYER_PRIMARY,
   },
+
   priceUnit: {
-    fontSize: FontSize.xs,
+    fontSize: 12,
     fontFamily: 'Inter_400Regular',
+    marginTop: 1,
+    color: '#8A94A6',
   },
-  chipsRow: {
+
+  metricStrip: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: Spacing.sm,
-    marginTop: Spacing.md,
+    gap: 8,
+    marginTop: 14,
+    marginBottom: 2,
   },
-  infoChip: {
+
+  metricPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: BorderRadius.full,
+    backgroundColor: '#F3F5F7',
   },
-  chipLabel: {
+
+  gradePill: {
+    backgroundColor: '#FFF3DB',
+  },
+
+  metricPillText: {
     fontSize: 11,
     fontWeight: FontWeight.medium,
     fontFamily: 'Inter_500Medium',
+    color: '#6B7280',
   },
-  cardActions: {
-    marginTop: Spacing.md,
-  },
+
   orderBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.sm,
-    paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.md,
-    ...Shadows.sm,
+    gap: 8,
+    paddingVertical: 13,
+    borderRadius: 16,
+    backgroundColor: BUYER_PRIMARY,
+    shadowColor: '#0F766E',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    elevation: 4,
   },
+
   orderBtnText: {
     fontSize: FontSize.sm,
     fontWeight: FontWeight.bold,

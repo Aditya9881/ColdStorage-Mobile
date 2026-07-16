@@ -6,11 +6,8 @@ import { Platform } from 'react-native';
 import { storage } from './storage';
 import { enqueue, generateIdempotencyKey } from './offline-queue';
 
-const API_BASE = __DEV__
-  ? Platform.OS === 'android'
-    ? 'http://10.0.2.2:4000/api/v1'  // Android emulator
-    : 'http://localhost:4000/api/v1'  // iOS simulator
-  : 'https://coldstorage-api.onrender.com/api/v1'; // Production (Render)
+// Always use the deployed Render backend
+const API_BASE = 'https://coldstorage-api.onrender.com/api/v1';
 
 const TOKEN_KEY = 'auth_access_token';
 const REFRESH_KEY = 'auth_refresh_token';

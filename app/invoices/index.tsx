@@ -1,20 +1,30 @@
 /**
- * Invoice List Screen — Farmer/Buyer invoice listing
+ * Invoice List Screen — Premium Farmer/Buyer invoice listing
  *
- * Fetches invoices from GET /invoices with tab-based filtering.
+ * Fixed:
+ * - Removes header/content gap
+ * - Keeps back button icon only
+ * - Uses a single FlatList for proper spacing
+ * - Cleaner premium header and compact tabs
  */
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity,
-  RefreshControl, ActivityIndicator, useColorScheme,
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  RefreshControl,
+  ActivityIndicator,
+  StatusBar,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect, Stack } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '@/lib/api-client';
-import { Colors, Spacing, BorderRadius, FontSize, FontWeight } from '@/constants/Colors';
 import StatusChip from '@/components/ui/StatusChip';
 import EmptyState from '@/components/ui/EmptyState';
-import { useFocusEffect } from 'expo-router';
 
 interface Invoice {
   id: string;
@@ -34,10 +44,26 @@ interface Invoice {
 const TABS = ['ALL', 'ISSUED', 'PAID', 'OVERDUE'] as const;
 type Tab = typeof TABS[number];
 
+const UI = {
+  bg: '#F7F5F0',
+  surface: '#FFFFFF',
+  text: '#1B2230',
+  textMuted: '#6F7785',
+  textSoft: '#9AA3AF',
+  border: '#E9E4DB',
+  borderSoft: '#F1ECE4',
+  forest: '#2F7654',
+  forestDeep: '#276847',
+  forestLight: '#3B8A64',
+  gold: '#D8A23C',
+  goldSoft: '#FBF4E7',
+  goldBorder: '#EED9A6',
+  danger: '#D94B4B',
+  success: '#159A63',
+};
+
 export default function InvoiceListScreen() {
   const router = useRouter();
-  const colorScheme = (useColorScheme() ?? 'light') as 'light' | 'dark';
-  const colors = Colors[colorScheme];
 
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,9 +76,12 @@ export default function InvoiceListScreen() {
       if (res.success && res.data) {
         const items = Array.isArray(res.data) ? res.data : res.data.invoices || [];
         setInvoices(items);
+      } else {
+        setInvoices([]);
       }
     } catch (err) {
       console.error('[Invoices] Fetch error:', err);
+      setInvoices([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -70,213 +99,578 @@ export default function InvoiceListScreen() {
     fetchInvoices();
   }, [fetchInvoices]);
 
-  const filtered = activeTab === 'ALL'
-    ? invoices
-    : invoices.filter(i => i.status === activeTab);
+  const filtered = useMemo(() => {
+    if (activeTab === 'ALL') return invoices;
+    return invoices.filter(i => i.status === activeTab);
+  }, [activeTab, invoices]);
 
-  const totalUnpaid = invoices
-    .filter(i => i.status !== 'PAID' && i.status !== 'CANCELLED')
-    .reduce((sum, i) => sum + (i.totalAmount - i.paidAmount), 0);
+  const counts = useMemo(() => {
+    return {
+      ALL: invoices.length,
+      ISSUED: invoices.filter(i => i.status === 'ISSUED').length,
+      PAID: invoices.filter(i => i.status === 'PAID').length,
+      OVERDUE: invoices.filter(i => i.status === 'OVERDUE').length,
+    };
+  }, [invoices]);
+
+  const totalUnpaid = useMemo(() => {
+    return invoices
+      .filter(i => i.status !== 'PAID' && i.status !== 'CANCELLED')
+      .reduce((sum, i) => sum + (i.totalAmount - i.paidAmount), 0);
+  }, [invoices]);
 
   const formatCurrency = (amount: number) =>
-    `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+    `₹${amount.toLocaleString('en-IN', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    })}`;
 
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
-    return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    return d.toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
   };
 
   const renderInvoice = ({ item }: { item: Invoice }) => {
     const facilityName = item.facility?.name || item.facilityName || 'Cold Storage';
     const isOverdue = item.status === 'OVERDUE';
     const remaining = item.totalAmount - item.paidAmount;
+    const isSettled = remaining <= 0 || item.status === 'PAID';
 
     return (
       <TouchableOpacity
-        style={[styles.card, { backgroundColor: colors.card, borderColor: isOverdue ? '#FCA5A520' : colors.border }]}
-        activeOpacity={0.7}
+        style={[styles.card, isOverdue && styles.cardOverdue]}
+        activeOpacity={0.84}
         onPress={() => router.push(`/invoices/${item.id}`)}
       >
         <View style={styles.cardHeader}>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.invoiceNumber, { color: colors.primary }]}>
-              {item.invoiceNumber}
-            </Text>
-            <Text style={[styles.facilityName, { color: colors.textSecondary }]} numberOfLines={1}>
+          <View style={styles.iconWrap}>
+            <Ionicons
+              name={isOverdue ? 'alert-circle-outline' : 'receipt-outline'}
+              size={20}
+              color={isOverdue ? UI.danger : UI.forest}
+            />
+          </View>
+
+          <View style={styles.cardHeaderText}>
+            <Text style={styles.invoiceNumber}>{item.invoiceNumber}</Text>
+            <Text style={styles.facilityName} numberOfLines={1}>
               {facilityName}
             </Text>
           </View>
+
           <StatusChip status={item.status} />
         </View>
 
-        <View style={[styles.cardDivider, { backgroundColor: colors.borderLight }]} />
+        <View style={styles.divider} />
 
-        <View style={styles.cardFooter}>
-          <View>
-            <Text style={[styles.amountLabel, { color: colors.textTertiary }]}>Total</Text>
-            <Text style={[styles.amount, { color: colors.text }]}>
-              {formatCurrency(item.totalAmount)}
+        <View style={styles.metricsRow}>
+          <View style={styles.metric}>
+            <Text style={styles.metricLabel}>Total</Text>
+            <Text style={styles.metricValue}>{formatCurrency(item.totalAmount)}</Text>
+          </View>
+
+          <View style={[styles.metric, styles.metricCenter]}>
+            <Text style={styles.metricLabel}>{isSettled ? 'Status' : 'Balance'}</Text>
+            <Text
+              style={[
+                styles.metricValue,
+                { color: isSettled ? UI.success : isOverdue ? UI.danger : UI.gold },
+              ]}
+            >
+              {isSettled ? 'Settled' : formatCurrency(remaining)}
             </Text>
           </View>
-          {remaining > 0 && item.status !== 'CANCELLED' && (
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={[styles.amountLabel, { color: colors.textTertiary }]}>Balance</Text>
-              <Text style={[styles.amount, { color: isOverdue ? '#DC2626' : colors.accent }]}>
-                {formatCurrency(remaining)}
-              </Text>
-            </View>
-          )}
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={[styles.amountLabel, { color: colors.textTertiary }]}>Date</Text>
-            <Text style={[styles.dateText, { color: colors.textSecondary }]}>
-              {formatDate(item.createdAt)}
-            </Text>
+
+          <View style={[styles.metric, styles.metricRight]}>
+            <Text style={styles.metricLabel}>Date</Text>
+            <Text style={styles.metricDate}>{formatDate(item.createdAt)}</Text>
           </View>
         </View>
       </TouchableOpacity>
     );
   };
 
-  if (loading) {
-    return (
-      <View style={[styles.centered, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  const Header = () => (
+    <>
+      <LinearGradient
+        colors={[UI.forestDeep, UI.forest, UI.forestLight]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.header}
+      >
+        <View style={styles.headerGlow} />
 
-  return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Summary Banner */}
+        <View style={styles.headerRow}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            activeOpacity={0.82}
+            style={styles.backButton}
+          >
+            <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
+          </TouchableOpacity>
+
+          <View style={styles.headerCenter}>
+            <Text style={styles.headerTitle}>Invoices</Text>
+            <Text style={styles.headerSubtitle}>Billing overview and payment status</Text>
+          </View>
+
+          <View style={styles.rightSlot} />
+        </View>
+
+        <View style={styles.summaryStrip}>
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryValue}>{counts.ALL}</Text>
+            <Text style={styles.summaryLabel}>TOTAL</Text>
+          </View>
+
+          <View style={styles.summaryDivider} />
+
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryValue}>{counts.OVERDUE}</Text>
+            <Text style={styles.summaryLabel}>OVERDUE</Text>
+          </View>
+
+          <View style={styles.summaryDivider} />
+
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryValue} numberOfLines={1}>
+              {formatCurrency(totalUnpaid)}
+            </Text>
+            <Text style={styles.summaryLabel}>OUTSTANDING</Text>
+          </View>
+        </View>
+      </LinearGradient>
+
       {totalUnpaid > 0 && (
-        <View style={[styles.summaryBanner, { backgroundColor: `${colors.accent}15` }]}>
-          <Ionicons name="alert-circle" size={18} color={colors.accent} />
-          <Text style={[styles.summaryText, { color: colors.text }]}>
-            Outstanding: <Text style={{ fontWeight: FontWeight.bold, color: colors.accent }}>{formatCurrency(totalUnpaid)}</Text>
+        <View style={styles.alertBanner}>
+          <Ionicons name="alert-circle" size={18} color={UI.gold} />
+          <Text style={styles.alertText}>
+            Outstanding: <Text style={styles.alertHighlight}>{formatCurrency(totalUnpaid)}</Text>
           </Text>
         </View>
       )}
 
-      {/* Tab Filter */}
-      <View style={styles.tabRow}>
-        {TABS.map((tab) => {
-          const isActive = activeTab === tab;
-          const count = tab === 'ALL'
-            ? invoices.length
-            : invoices.filter(i => i.status === tab).length;
+      <View style={styles.tabsOuter}>
+        <FlatList
+          data={TABS}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(item) => item}
+          contentContainerStyle={styles.tabsRow}
+          renderItem={({ item: tab }) => {
+            const isActive = activeTab === tab;
+            const count = counts[tab];
 
-          return (
-            <TouchableOpacity
-              key={tab}
-              style={[
-                styles.tab,
-                isActive && { backgroundColor: colors.primary, borderColor: colors.primary },
-                !isActive && { borderColor: colors.border },
-              ]}
-              onPress={() => setActiveTab(tab)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.tabText, { color: isActive ? '#FFF' : colors.textSecondary }]}>
-                {tab === 'ALL' ? 'All' : tab.charAt(0) + tab.slice(1).toLowerCase()}
-              </Text>
-              {count > 0 && (
-                <View style={[styles.tabBadge, { backgroundColor: isActive ? '#FFFFFF30' : `${colors.primary}15` }]}>
-                  <Text style={[styles.tabBadgeText, { color: isActive ? '#FFF' : colors.primary }]}>
-                    {count}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          );
-        })}
+            return (
+              <TouchableOpacity
+                style={[styles.tab, isActive && styles.tabActive]}
+                onPress={() => setActiveTab(tab)}
+                activeOpacity={0.84}
+              >
+                <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
+                  {tab === 'ALL' ? 'All' : tab.charAt(0) + tab.slice(1).toLowerCase()}
+                </Text>
+
+                {count > 0 && (
+                  <View style={[styles.tabBadge, isActive && styles.tabBadgeActive]}>
+                    <Text style={[styles.tabBadgeText, isActive && styles.tabBadgeTextActive]}>
+                      {count}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          }}
+        />
       </View>
+    </>
+  );
 
-      {/* Invoice List */}
-      <FlatList
-        data={filtered}
-        keyExtractor={(item) => item.id}
-        renderItem={renderInvoice}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
-        }
-        ListEmptyComponent={
-          <EmptyState
-            icon="receipt-outline"
-            title="No Invoices"
-            subtitle={activeTab !== 'ALL' ? `No ${activeTab.toLowerCase()} invoices found` : 'Your invoices will appear here once billing begins'}
-          />
-        }
-      />
-    </View>
+  if (loading) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.loadingWrap}>
+          <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+          <LinearGradient
+            colors={[UI.forestDeep, UI.forest, UI.forestLight]}
+            style={styles.loadingHero}
+          >
+            <ActivityIndicator size="large" color="#FFFFFF" />
+            <Text style={styles.loadingTitle}>Loading invoices...</Text>
+            <Text style={styles.loadingSub}>Fetching your latest billing records</Text>
+          </LinearGradient>
+        </View>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+
+        <FlatList
+          data={filtered}
+          keyExtractor={(item) => item.id}
+          renderItem={renderInvoice}
+          ListHeaderComponent={Header}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={UI.forest}
+            />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <EmptyState
+                icon="receipt-outline"
+                title="No Invoices"
+                subtitle={
+                  activeTab !== 'ALL'
+                    ? `No ${activeTab.toLowerCase()} invoices found`
+                    : 'Your invoices will appear here once billing begins'
+                }
+              />
+            </View>
+          }
+        />
+      </View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  summaryBanner: {
+  container: {
+    flex: 1,
+    backgroundColor: UI.bg,
+  },
+
+  loadingWrap: {
+    flex: 1,
+    backgroundColor: UI.bg,
+  },
+
+  loadingHero: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+
+  loadingTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginTop: 16,
+  },
+
+  loadingSub: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.66)',
+    marginTop: 6,
+  },
+
+  header: {
+    paddingTop: Platform.OS === 'ios' ? 62 : 22,
+    paddingBottom: 16,
+    paddingHorizontal: 16,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    overflow: 'hidden',
+  },
+
+  headerGlow: {
+    position: 'absolute',
+    right: -36,
+    top: -18,
+    width: 170,
+    height: 170,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    marginHorizontal: Spacing.lg,
-    marginTop: Spacing.md,
-    borderRadius: BorderRadius.md,
+    marginBottom: 14,
   },
-  summaryText: { fontSize: FontSize.sm, flex: 1 },
-  tabRow: {
+
+  backButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+  },
+
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+
+  rightSlot: {
+    width: 42,
+    height: 42,
+  },
+
+  headerTitle: {
+    fontSize: 19,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.2,
+  },
+
+  headerSubtitle: {
+    marginTop: 4,
+    fontSize: 12,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.70)',
+    textAlign: 'center',
+  },
+
+  summaryStrip: {
     flexDirection: 'row',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    gap: Spacing.sm,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 10,
   },
+
+  summaryItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  summaryDivider: {
+    width: 1,
+    height: 34,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+
+  summaryValue: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+
+  summaryLabel: {
+    marginTop: 4,
+    fontSize: 10,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.66)',
+    letterSpacing: 0.8,
+  },
+
+  alertBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderRadius: 18,
+    backgroundColor: UI.goldSoft,
+    borderWidth: 1,
+    borderColor: UI.goldBorder,
+  },
+
+  alertText: {
+    flex: 1,
+    fontSize: 14,
+    color: UI.text,
+    fontWeight: '500',
+  },
+
+  alertHighlight: {
+    color: UI.gold,
+    fontWeight: '800',
+  },
+
+  tabsOuter: {
+    marginTop: 2,
+    marginBottom: 4,
+  },
+
+  tabsRow: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 10,
+  },
+
   tab: {
+    height: 40,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: UI.border,
+    backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.full,
-    borderWidth: 1,
-    gap: 4,
+    justifyContent: 'center',
+    gap: 6,
   },
-  tabText: { fontSize: FontSize.sm, fontWeight: FontWeight.medium },
+
+  tabActive: {
+    backgroundColor: UI.forest,
+    borderColor: UI.forest,
+  },
+
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: UI.textMuted,
+  },
+
+  tabTextActive: {
+    color: '#FFFFFF',
+  },
+
   tabBadge: {
+    minWidth: 22,
     paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: BorderRadius.full,
-    minWidth: 20,
+    paddingVertical: 2,
+    borderRadius: 999,
     alignItems: 'center',
+    backgroundColor: '#EEF3EF',
   },
-  tabBadgeText: { fontSize: FontSize.xs, fontWeight: FontWeight.bold },
-  listContent: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xxxl },
+
+  tabBadgeActive: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
+
+  tabBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: UI.forest,
+  },
+
+  tabBadgeTextActive: {
+    color: '#FFFFFF',
+  },
+
+  listContent: {
+    paddingBottom: 40,
+  },
+
   card: {
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
-    marginBottom: Spacing.md,
+    borderColor: UI.border,
+    borderRadius: 22,
+    padding: 16,
+    marginHorizontal: 16,
+    marginBottom: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
     elevation: 2,
   },
+
+  cardOverdue: {
+    borderColor: '#F4CACA',
+    backgroundColor: '#FFFCFC',
+  },
+
   cardHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'flex-start',
+    gap: 12,
   },
-  invoiceNumber: { fontSize: FontSize.md, fontWeight: FontWeight.bold },
-  facilityName: { fontSize: FontSize.sm, marginTop: 2 },
-  cardDivider: { height: 1, marginVertical: Spacing.md },
-  cardFooter: {
+
+  iconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EEF6F1',
+  },
+
+  cardHeaderText: {
+    flex: 1,
+    paddingRight: 8,
+  },
+
+  invoiceNumber: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: UI.forest,
+    letterSpacing: -0.2,
+  },
+
+  facilityName: {
+    marginTop: 4,
+    fontSize: 13,
+    color: UI.textMuted,
+  },
+
+  divider: {
+    height: 1,
+    backgroundColor: UI.borderSoft,
+    marginVertical: 14,
+  },
+
+  metricsRow: {
     flexDirection: 'row',
+    alignItems: 'flex-end',
     justifyContent: 'space-between',
+  },
+
+  metric: {
+    flex: 1,
+  },
+
+  metricCenter: {
+    alignItems: 'center',
+  },
+
+  metricRight: {
     alignItems: 'flex-end',
   },
-  amountLabel: { fontSize: FontSize.xs, marginBottom: 2 },
-  amount: { fontSize: FontSize.lg, fontWeight: FontWeight.bold },
-  dateText: { fontSize: FontSize.sm },
+
+  metricLabel: {
+    fontSize: 12,
+    color: UI.textSoft,
+    marginBottom: 4,
+    fontWeight: '500',
+  },
+
+  metricValue: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: UI.text,
+  },
+
+  metricDate: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: UI.textMuted,
+  },
+
+  emptyWrap: {
+    paddingTop: 70,
+    paddingHorizontal: 16,
+  },
 });

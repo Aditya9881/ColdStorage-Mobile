@@ -1,50 +1,80 @@
-/**
- * ColdStorage — Premium Farmer Dashboard
- *
- * "Trusted Agri-Fintech, Premium & Calm"
- *
- * Features:
- * - Deep forest gradient hero with grain texture
- * - Glassmorphic stat cards with ProgressRing + MoneyText
- * - Redesigned quick actions with colored icon squares
- * - Premium booking cards with PremiumCard
- * - Mandi price carousel with trend arrows
- * - Pending order alert with amber pulse
- * - Warm off-white background (#F7F6F2)
- * - All API calls & data flow UNCHANGED
- */
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, RefreshControl,
-  TouchableOpacity, Platform, FlatList,
-  Animated as RNAnimated, Dimensions,
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  RefreshControl,
+  TouchableOpacity,
+  Platform,
+  FlatList,
+  Animated as RNAnimated,
+  Dimensions,
+  StatusBar,
+  ActivityIndicator,
+  Modal,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
+import * as Location from 'expo-location';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { api } from '@/lib/api-client';
-import {
-  Colors, Spacing, BorderRadius, FontSize, FontWeight,
-  Shadows, Gradients, FontFamily,
-} from '@/constants/Colors';
-import { SkeletonStatsGrid, SkeletonCard } from '@/components/ui/Skeleton';
-import ErrorState from '@/components/ui/ErrorState';
-import SyncBadge from '@/components/SyncBadge';
-import { hapticLight, hapticMedium } from '@/lib/haptics';
+import { hapticLight, hapticSuccess } from '@/lib/haptics';
+import { getCommodityVisual } from '@/lib/commodityImages';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
+const UI = {
+  canvas: '#F5F7F4',
+  surface: '#FFFFFF',
+  forest: '#103E34',
+  forestDeep: '#082B24',
+  forestMid: '#135647',
+  teal: '#0D8D8A',
+  tealSoft: '#E8F9F7',
+  emerald: '#17A56D',
+  emeraldSoft: '#E8F7EF',
+  gold: '#D29424',
+  goldSoft: '#FFF6E1',
+  blue: '#2589AA',
+  blueSoft: '#EAF8FC',
+  ink: '#15231D',
+  muted: '#718079',
+  subtle: '#96A19B',
+  border: '#E2E9E3',
+  danger: '#D94A4A',
+  dangerSoft: '#FFF0F0',
+  purple: '#7457BE',
+  purpleSoft: '#F0EBFF',
+};
+
+const ACTION_GAP = 11;
+const SIDE_PADDING = 16;
+const ACTION_CARD_WIDTH =
+  (SCREEN_WIDTH - SIDE_PADDING * 2 - ACTION_GAP * 2) / 3;
+
+function getGreeting(): string {
+  const hour = new Date().getHours();
+
+  if (hour < 12) return 'Good Morning';
+  if (hour < 17) return 'Good Afternoon';
+  return 'Good Evening';
+}
+
 function formatTimeAgo(isoStr: string): string {
   const diff = Date.now() - new Date(isoStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
+  const minutes = Math.floor(diff / 60000);
+
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+
+  return `${Math.floor(hours / 24)}d ago`;
 }
 
 interface DashboardData {
@@ -55,117 +85,287 @@ interface DashboardData {
   alertLots: number;
 }
 
-// ── Quick Actions — ALL routes are real, registered screens ──
 const QUICK_ACTIONS = [
-  { key: 'bookings', icon: 'calendar',       label: 'My Bookings',   color: '#1B5E4A', bg: '#E6F2ED', route: '/bookings' },
-  { key: 'inventory', icon: 'cube',          label: 'My Lots',       color: '#059669', bg: '#ECFDF5', route: '/(tabs)/inventory' },
-  { key: 'discover', icon: 'compass',        label: 'Find Storage',  color: '#0F766E', bg: '#F0FDFA', route: '/(tabs)/discover' },
-  { key: 'invoices', icon: 'receipt',         label: 'Invoices',      color: '#0891B2', bg: '#ECFEFF', route: '/invoices' },
-  { key: 'receipts', icon: 'document-text',   label: 'Receipts',      color: '#7C3AED', bg: '#F5F3FF', route: '/receipts' },
-  { key: 'mandi', icon: 'trending-up',        label: 'Mandi Prices',  color: '#DC2626', bg: '#FEF2F2', route: '/market-prices' },
+  {
+    key: 'bookings',
+    icon: 'calendar-outline',
+    label: 'Bookings',
+    color: '#0D7A62',
+    background: '#E8F7F1',
+    route: '/bookings',
+  },
+  {
+    key: 'inventory',
+    icon: 'cube-outline',
+    label: 'My Lots',
+    color: '#0D8D8A',
+    background: '#E8F9F7',
+    route: '/(tabs)/inventory',
+  },
+  {
+    key: 'marketplace',
+    icon: 'storefront-outline',
+    label: 'Market',
+    color: '#197C76',
+    background: '#EAF8F5',
+    route: '/(tabs)/marketplace',
+  },
+  {
+    key: 'mandi',
+    icon: 'trending-up-outline',
+    label: 'Mandi Prices',
+    color: '#D45B4E',
+    background: '#FFF0EE',
+    route: '/market-prices',
+  },
+  {
+    key: 'invoices',
+    icon: 'receipt-outline',
+    label: 'Invoices',
+    color: '#2589AA',
+    background: '#EAF8FC',
+    route: '/invoices',
+  },
+  {
+    key: 'receipts',
+    icon: 'document-text-outline',
+    label: 'Receipts',
+    color: '#7457BE',
+    background: '#F0EBFF',
+    route: '/receipts',
+  },
 ] as const;
 
 export default function HomeScreen() {
   const { user } = useAuth();
   const { unreadCount } = useNotifications();
   const router = useRouter();
-  const colors = Colors.light;
 
   const [data, setData] = useState<DashboardData | null>(null);
   const [prices, setPrices] = useState<any[]>([]);
-  const [pricesMeta, setPricesMeta] = useState<{ fetchedAt: string; source: string } | null>(null);
+  const [pricesMeta, setPricesMeta] = useState<{
+    fetchedAt: string;
+    source: string;
+  } | null>(null);
+
   const [bookings, setBookings] = useState<any[]>([]);
   const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Entrance animation
-  const fadeAnim = useRef(new RNAnimated.Value(0)).current;
-  const slideAnim = useRef(new RNAnimated.Value(20)).current;
+  // ── Location state ──
+  const [showLocationPopup, setShowLocationPopup] = useState(false);
+  const [userState, setUserState] = useState<string | null>(user?.state || null);
+  const [userDistrict, setUserDistrict] = useState<string | null>(null);
+  const [userCity, setUserCity] = useState<string | null>(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationChecked, setLocationChecked] = useState(false);
 
-  // Alert pulse animation
+  const fadeAnim = useRef(new RNAnimated.Value(0)).current;
+  const slideAnim = useRef(new RNAnimated.Value(15)).current;
   const alertPulse = useRef(new RNAnimated.Value(1)).current;
+
+  // ── Location Permission Check ──
+  useEffect(() => {
+    if (locationChecked) return;
+    (async () => {
+      try {
+        const { status } = await Location.getForegroundPermissionsAsync();
+        if (status === 'granted') {
+          // Already granted — get location silently
+          await fetchUserLocation();
+        } else if (status === 'undetermined') {
+          // First time — show popup
+          setShowLocationPopup(true);
+        }
+        // If 'denied', don't bother user again
+      } catch {
+        // Location not available
+      } finally {
+        setLocationChecked(true);
+      }
+    })();
+  }, []);
+
+  const fetchUserLocation = useCallback(async () => {
+    setLocationLoading(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setShowLocationPopup(false);
+        setLocationLoading(false);
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      const [address] = await Location.reverseGeocodeAsync({
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+      });
+      if (address) {
+        setUserState(address.region || null);
+        setUserDistrict(address.subregion || address.district || null);
+        setUserCity(address.city || address.subregion || null);
+      }
+      hapticSuccess();
+    } catch (e) {
+      console.warn('Location error:', e);
+    } finally {
+      setLocationLoading(false);
+      setShowLocationPopup(false);
+    }
+  }, []);
+
   useEffect(() => {
     const pulse = RNAnimated.loop(
       RNAnimated.sequence([
-        RNAnimated.timing(alertPulse, { toValue: 0.5, duration: 1000, useNativeDriver: true }),
-        RNAnimated.timing(alertPulse, { toValue: 1, duration: 1000, useNativeDriver: true }),
+        RNAnimated.timing(alertPulse, {
+          toValue: 0.55,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        RNAnimated.timing(alertPulse, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
       ])
     );
+
     pulse.start();
+
     return () => pulse.stop();
-  }, []);
+  }, [alertPulse]);
 
   const fetchData = useCallback(async () => {
     try {
       setError(false);
+
+      const priceState = userState || user?.state;
       const [lotsRes, pricesRes, ordersRes, bookingsRes] = await Promise.all([
         api.get<any>('/inventory/my-lots?limit=100'),
-        api.get<any>(`/market-prices${user?.state ? `?state=${encodeURIComponent(user.state)}` : ''}`),  
-        api.get<any>('/orders?limit=50').catch(() => ({ success: false, data: null })),
-        api.get<any>('/bookings/my?limit=5').catch(() => ({ success: false, data: null })),
+        api.get<any>(
+          `/market-prices${
+            priceState ? `?state=${encodeURIComponent(priceState)}` : ''
+          }`
+        ),
+        api
+          .get<any>('/orders?limit=50')
+          .catch(() => ({ success: false, data: null })),
+        api
+          .get<any>('/bookings/my?limit=5')
+          .catch(() => ({ success: false, data: null })),
       ]);
 
       if (lotsRes.success && lotsRes.data?.lots) {
         const lots = lotsRes.data.lots;
-        const active = lots.filter((l: any) => l.status === 'STORED' || l.status === 'PARTIALLY_RELEASED');
+
+        const activeLots = lots.filter(
+          (lot: any) =>
+            lot.status === 'STORED' ||
+            lot.status === 'PARTIALLY_RELEASED'
+        );
+
         setData({
           totalLots: lots.length,
-          storedWeight: lots.reduce((sum: number, l: any) => sum + Number(l.currentWeightKg), 0),
-          totalRent: lots.reduce((sum: number, l: any) => sum + (l.estimatedRent || 0), 0),
-          activeLots: active.length,
+          storedWeight: lots.reduce(
+            (sum: number, lot: any) =>
+              sum + Number(lot.currentWeightKg || 0),
+            0
+          ),
+          totalRent: lots.reduce(
+            (sum: number, lot: any) =>
+              sum + Number(lot.estimatedRent || 0),
+            0
+          ),
+          activeLots: activeLots.length,
           alertLots: 0,
         });
       }
 
       if (pricesRes.success && pricesRes.data) {
         setPrices(pricesRes.data);
-        if (pricesRes.meta) setPricesMeta(pricesRes.meta as { fetchedAt: string; source: string });
+
+        if (pricesRes.meta) {
+          setPricesMeta(
+            pricesRes.meta as {
+              fetchedAt: string;
+              source: string;
+            }
+          );
+        }
       }
+
       if (ordersRes.success && ordersRes.data?.orders) {
-        const pending = ordersRes.data.orders.filter((o: any) => o.status === 'PENDING_APPROVAL');
+        const pending = ordersRes.data.orders.filter(
+          (order: any) => order.status === 'PENDING_APPROVAL'
+        );
+
         setPendingOrdersCount(pending.length);
       }
+
       if (bookingsRes.success && bookingsRes.data?.bookings) {
         setBookings(bookingsRes.data.bookings);
       }
 
       RNAnimated.parallel([
-        RNAnimated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
-        RNAnimated.timing(slideAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
+        RNAnimated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 420,
+          useNativeDriver: true,
+        }),
+        RNAnimated.timing(slideAnim, {
+          toValue: 0,
+          duration: 420,
+          useNativeDriver: true,
+        }),
       ]).start();
-    } catch (err) {
-      console.error('Dashboard fetch error:', err);
+    } catch (error) {
+      console.error('Dashboard fetch error:', error);
       setError(true);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user?.state, userState, fadeAnim, slideAnim]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
-  const onRefresh = async () => {
+  async function onRefresh() {
     setRefreshing(true);
     await fetchData();
     setRefreshing(false);
-  };
+  }
 
-  const userInitial = user?.fullName?.[0]?.toUpperCase() || '?';
+  function handleNavigation(route: string) {
+    hapticLight();
+    router.push(route as any);
+  }
 
   if (loading) {
     return (
-      <View style={s.container}>
-        <LinearGradient colors={Gradients.mesh as any} style={s.heroSkeleton}>
-          <View style={{ height: Platform.OS === 'ios' ? 50 : 30 }} />
-          <View style={s.heroContent}>
-            <View style={{ height: 24, width: 160, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 8 }} />
-            <View style={{ height: 16, width: 120, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 6, marginTop: 8 }} />
+      <View style={styles.loadingScreen}>
+        <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+
+        <LinearGradient
+          colors={[UI.forestDeep, UI.forest, UI.teal]}
+          style={styles.loadingHero}
+        >
+          <View style={styles.loadingBrandRow}>
+            <View style={styles.loadingLogo}>
+              <Ionicons name="leaf-outline" size={24} color="#FFFFFF" />
+            </View>
+            <Text style={styles.loadingBrand}>ColdStorage</Text>
           </View>
         </LinearGradient>
-        <View style={{ padding: 20 }}>
-          <SkeletonStatsGrid />
-          <View style={{ marginTop: 20 }}><SkeletonCard /><SkeletonCard /></View>
+
+        <View style={styles.loadingBody}>
+          <ActivityIndicator size="large" color={UI.forest} />
+          <Text style={styles.loadingText}>Preparing your dashboard...</Text>
         </View>
       </View>
     );
@@ -173,584 +373,1481 @@ export default function HomeScreen() {
 
   if (error) {
     return (
-      <View style={s.container}>
-        <ErrorState variant="network" onRetry={fetchData} />
+      <View style={styles.errorScreen}>
+        <StatusBar barStyle="dark-content" />
+
+        <View style={styles.errorCard}>
+          <View style={styles.errorIcon}>
+            <Ionicons
+              name="cloud-offline-outline"
+              size={35}
+              color="#C26935"
+            />
+          </View>
+
+          <Text style={styles.errorTitle}>Could not load dashboard</Text>
+
+          <Text style={styles.errorDescription}>
+            Check your connection and try again.
+          </Text>
+
+          <TouchableOpacity
+            style={styles.errorRetryButton}
+            activeOpacity={0.85}
+            onPress={fetchData}
+          >
+            <Ionicons name="refresh-outline" size={18} color="#FFFFFF" />
+            <Text style={styles.errorRetryText}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
 
+  const storedWeightMT = ((data?.storedWeight || 0) / 1000).toFixed(1);
+
   return (
-    <ScrollView
-      style={s.container}
-      showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1B5E4A" />}
-    >
-      {/* ── Hero Header ── */}
-      <LinearGradient colors={Gradients.mesh as any} style={s.hero}>
-        {/* Grain overlay */}
-        <View style={s.grainOverlay} />
-        <View style={{ height: Platform.OS === 'ios' ? 56 : 38 }} />
-        <View style={s.heroContent}>
-          {/* Top row — Brand + User */}
-          <View style={s.heroTop}>
-            <View style={s.brandRow}>
-              <View style={s.brandIcon}>
-                <Ionicons name="snow" size={16} color="#E8BE6A" />
-              </View>
-              <View>
-                <Text style={s.brandName}>ColdStorage</Text>
-                <Text style={s.brandSub}>{user?.fullName || 'Dashboard'}</Text>
-              </View>
-            </View>
-            <View style={s.heroActions}>
-              <SyncBadge />
+    <View style={styles.screen}>
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={UI.forest}
+            colors={[UI.forest]}
+          />
+        }
+      >
+        <LinearGradient
+          colors={[UI.forestDeep, UI.forest, '#087B73']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.hero}
+        >
+          <View style={styles.heroGlowTop} />
+          <View style={styles.heroGlowBottom} />
+
+          <View
+            style={{
+              height: Platform.OS === 'ios' ? 56 : 38,
+            }}
+          />
+
+          <View style={styles.heroContent}>
+            <View style={styles.heroTop}>
               <TouchableOpacity
-                style={s.avatarBtn}
-                onPress={() => { router.push('/(tabs)/profile'); hapticLight(); }}
+                activeOpacity={0.8}
+                onPress={() => handleNavigation('/(tabs)/profile')}
               >
-                <Text style={s.avatarText}>{userInitial}</Text>
+                <Text style={styles.greeting}>{getGreeting()},</Text>
+                <Text style={styles.userName} numberOfLines={1}>
+                  {user?.fullName || 'Farmer'}
+                </Text>
               </TouchableOpacity>
+
               <TouchableOpacity
-                style={s.notificationBtn}
-                onPress={() => { router.push('/notifications'); hapticLight(); }}
+                style={styles.notificationBtn}
+                activeOpacity={0.8}
+                onPress={() => handleNavigation('/notifications')}
               >
-                <Ionicons name="notifications-outline" size={20} color="#FFF" />
+                <Ionicons
+                  name="notifications-outline"
+                  size={22}
+                  color="#FFFFFF"
+                />
+
                 {unreadCount > 0 && (
-                  <View style={s.notiBadge}>
-                    <Text style={s.notiBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* ── Glassmorphic Stats ── */}
-          <View style={s.statsContainer}>
-            {/* Active Lots */}
-            <View style={s.glassCard}>
-              <View style={s.glassInner} />
-              <View style={s.statContent}>
-                <View style={[s.statIcon, { backgroundColor: 'rgba(52, 211, 153, 0.15)' }]}>
-                  <Ionicons name="cube" size={16} color="#34D399" />
-                </View>
-                <Text style={s.statValue}>{data?.activeLots || 0}</Text>
-                <Text style={s.statLabel}>ACTIVE LOTS</Text>
-              </View>
-            </View>
-
-            {/* Total Weight */}
-            <View style={s.glassCard}>
-              <View style={s.glassInner} />
-              <View style={s.statContent}>
-                <View style={[s.statIcon, { backgroundColor: 'rgba(96, 165, 250, 0.15)' }]}>
-                  <Ionicons name="scale" size={16} color="#60A5FA" />
-                </View>
-                <Text style={s.statValue}>
-                  {((data?.storedWeight || 0) / 1000).toFixed(1)}
-                  <Text style={s.statUnit}> MT</Text>
-                </Text>
-                <Text style={s.statLabel}>STORED WEIGHT</Text>
-              </View>
-            </View>
-
-            {/* Accrued Rent */}
-            <View style={s.glassCard}>
-              <View style={s.glassInner} />
-              <View style={s.statContent}>
-                <View style={[s.statIcon, { backgroundColor: 'rgba(232, 190, 106, 0.15)' }]}>
-                  <Ionicons name="wallet" size={16} color="#E8BE6A" />
-                </View>
-                <Text style={s.statValueGold}>
-                  ₹{(data?.totalRent || 0).toLocaleString('en-IN')}
-                </Text>
-                <Text style={s.statLabel}>ACCRUED RENT</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-      </LinearGradient>
-
-      <RNAnimated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
-        {/* ── Alert Banner ── */}
-        {pendingOrdersCount > 0 && (
-          <TouchableOpacity
-            style={s.alertBanner}
-            onPress={() => { router.push('/orders'); hapticLight(); }}
-            activeOpacity={0.8}
-          >
-            <LinearGradient colors={['#FFFBEB', '#FEF3C7']} style={s.alertGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-              <RNAnimated.View style={[s.alertIconWrap, { opacity: alertPulse }]}>
-                <Ionicons name="key" size={16} color="#D97706" />
-              </RNAnimated.View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.alertTitle}>
-                  {pendingOrdersCount} Pending Order{pendingOrdersCount > 1 ? 's' : ''}
-                </Text>
-                <Text style={s.alertSub}>Waiting for your approval</Text>
-              </View>
-              <View style={s.alertArrow}>
-                <Ionicons name="chevron-forward" size={16} color="#D97706" />
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
-        )}
-
-        {/* ── Quick Actions Grid ── */}
-        <View style={s.section}>
-          <Text style={s.sectionTitle}>Quick Actions</Text>
-          <View style={s.actionsGrid}>
-            {QUICK_ACTIONS.map((action) => (
-              <TouchableOpacity
-                key={action.key}
-                style={s.actionCard}
-                onPress={() => { router.push(action.route as any); hapticLight(); }}
-                activeOpacity={0.7}
-              >
-                <View style={[s.actionIconSquare, { backgroundColor: action.bg }]}>
-                  <Ionicons name={action.icon as any} size={20} color={action.color} />
-                </View>
-                <Text style={s.actionLabel}>{action.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* ── My Recent Bookings ── */}
-        {bookings.length > 0 && (
-          <View style={s.section}>
-            <View style={s.sectionHeader}>
-              <View style={s.sectionTitleRow}>
-                <View style={s.liveDot} />
-                <Text style={s.sectionTitleInline}>My Bookings</Text>
-              </View>
-              <TouchableOpacity onPress={() => { router.push('/bookings'); hapticLight(); }}>
-                <Text style={s.seeAll}>See All →</Text>
-              </TouchableOpacity>
-            </View>
-            {bookings.slice(0, 3).map((b: any) => (
-              <TouchableOpacity
-                key={b.id}
-                style={s.bookingCard}
-                onPress={() => { router.push(`/booking/${b.id}` as any); hapticLight(); }}
-                activeOpacity={0.7}
-              >
-                <View style={s.bookingRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.bookingNum}>#{b.bookingNumber}</Text>
-                    <Text style={s.bookingCommodity}>{b.commodityName} • {b.estimatedWeightKg} Kg</Text>
-                  </View>
-                  <View style={[
-                    s.statusChip,
-                    { backgroundColor: getStatusBg(b.status) },
-                  ]}>
-                    <Text style={[s.statusChipText, { color: getStatusColor(b.status) }]}>
-                      {b.status?.replace(/_/g, ' ')}
+                  <View style={styles.notiBadge}>
+                    <Text style={styles.notiBadgeText}>
+                      {unreadCount > 9 ? '9+' : unreadCount}
                     </Text>
                   </View>
-                </View>
-                <View style={s.bookingMeta}>
-                  <Ionicons name="business-outline" size={11} color="#94A3B8" />
-                  <Text style={s.bookingMetaText}>{b.facility?.name || '—'}</Text>
-                  <View style={s.metaDot} />
-                  <Ionicons name="calendar-outline" size={11} color="#94A3B8" />
-                  <Text style={s.bookingMetaText}>
-                    {b.preferredDate ? new Date(b.preferredDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '—'}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-
-        {/* ── Live Mandi Prices ── */}
-        {prices.length > 0 && (
-          <View style={s.section}>
-            <View style={s.sectionHeader}>
-              <View>
-                <View style={s.sectionTitleRow}>
-                  <View style={[s.liveDot, pricesMeta?.source === 'fallback' && { backgroundColor: '#F59E0B' }]} />
-                  <Text style={s.sectionTitleInline}>Live Mandi Prices</Text>
-                </View>
-                {pricesMeta?.fetchedAt && (
-                  <Text style={s.lastUpdated}>
-                    {pricesMeta.source === 'fallback' ? 'Offline • ' : ''}
-                    Updated {formatTimeAgo(pricesMeta.fetchedAt)}
-                    {user?.state ? ` • ${user.state}` : ''}
-                  </Text>
                 )}
-              </View>
-              <TouchableOpacity onPress={() => { router.push('/market-prices'); hapticLight(); }}>
-                <Text style={s.seeAll}>See All →</Text>
               </TouchableOpacity>
             </View>
-            <FlatList
-              data={prices.slice(0, 8)}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              keyExtractor={(item, index) => `price-${index}`}
-              contentContainerStyle={s.tickerContainer}
-              renderItem={({ item }) => {
-                const topMandi = item.mandis?.[0];
-                if (!topMandi) return null;
-                const minPrice = Number(topMandi.minPrice || 0);
-                const maxPrice = Number(topMandi.maxPrice || 0);
-                const modalPrice = Number(topMandi.modalPrice || 0);
-                const midpoint = (minPrice + maxPrice) / 2;
-                const isUp = modalPrice >= midpoint;
-                const cleanUnit = item.unit ? item.unit.replace('₹/', '') : 'Quintal';
 
-                return (
-                  <View style={s.tickerCard}>
-                    <View style={s.tickerTop}>
-                      <Text style={s.tickerCommodity} numberOfLines={1}>{item.commodity}</Text>
-                      <View style={[s.trendPill, { backgroundColor: isUp ? '#D1FAE5' : '#FECACA' }]}>
-                        <Ionicons
-                          name={isUp ? 'trending-up' : 'trending-down'}
-                          size={10}
-                          color={isUp ? '#059669' : '#DC2626'}
-                        />
-                      </View>
-                    </View>
-                    <Text style={s.tickerPrice}>₹{modalPrice.toLocaleString('en-IN')}</Text>
-                    <Text style={s.tickerUnit}>per {cleanUnit}</Text>
-                    <View style={s.tickerMandiRow}>
-                      <Ionicons name="location-outline" size={10} color="#94A3B8" />
-                      <Text style={s.tickerMandi} numberOfLines={1}>{topMandi.name || '—'}</Text>
-                    </View>
-                  </View>
-                );
-              }}
-            />
-          </View>
-        )}
-
-        {/* ── Empty Welcome ── */}
-        {data && data.totalLots === 0 && bookings.length === 0 && (
-          <View style={s.emptyCard}>
-            <LinearGradient colors={['#E6F2ED', '#F0FDFA']} style={s.emptyIconWrap}>
-              <Ionicons name="leaf" size={36} color="#1B5E4A" />
-            </LinearGradient>
-            <Text style={s.emptyTitle}>Welcome to ColdStorage!</Text>
-            <Text style={s.emptySub}>
-              Find a verified cold storage facility near you and book space for your produce.
+            <Text style={styles.heroSupportingText}>
+              Your storage summary for today.
             </Text>
+
+            <View style={styles.statStrip}>
+              <DashboardStat
+                icon="cube-outline"
+                value={`${data?.activeLots || 0}`}
+                label="LOTS"
+                tint="#B9F5D5"
+              />
+
+              <View style={styles.statDivider} />
+
+              <DashboardStat
+                icon="layers-outline"
+                value={storedWeightMT}
+                unit=" MT"
+                label="STORED"
+                tint="#C6F2F1"
+              />
+
+              <View style={styles.statDivider} />
+
+              <DashboardStat
+                icon="wallet-outline"
+                value={`₹${(data?.totalRent || 0).toLocaleString('en-IN')}`}
+                label="RENT"
+                tint="#F8D992"
+                gold
+              />
+            </View>
+          </View>
+        </LinearGradient>
+
+        <RNAnimated.View
+          style={{
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }],
+          }}
+        >
+          {pendingOrdersCount > 0 && (
             <TouchableOpacity
-              style={s.emptyBtn}
-              onPress={() => { router.push('/(tabs)/discover'); hapticLight(); }}
-              activeOpacity={0.8}
+              style={styles.alertBanner}
+              onPress={() => handleNavigation('/orders')}
+              activeOpacity={0.85}
             >
-              <LinearGradient colors={Gradients.mesh as any} style={s.emptyBtnGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-                <Ionicons name="compass" size={18} color="#FFF" />
-                <Text style={s.emptyBtnText}>Find Nearby Storage</Text>
+              <LinearGradient
+                colors={['#FFF9E7', '#FFF1C5']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.alertGradient}
+              >
+                <RNAnimated.View
+                  style={[
+                    styles.alertIconWrap,
+                    { opacity: alertPulse },
+                  ]}
+                >
+                  <Ionicons name="key-outline" size={20} color="#B96A10" />
+                </RNAnimated.View>
+
+                <View style={styles.alertTextWrap}>
+                  <Text style={styles.alertTitle}>
+                    {pendingOrdersCount} Pending Order
+                    {pendingOrdersCount > 1 ? 's' : ''}
+                  </Text>
+                  <Text style={styles.alertSub}>
+                    Review buyer requests awaiting approval.
+                  </Text>
+                </View>
+
+                <View style={styles.alertArrow}>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={18}
+                    color="#B96A10"
+                  />
+                </View>
               </LinearGradient>
             </TouchableOpacity>
-          </View>
-        )}
+          )}
 
-        <View style={{ height: Platform.OS === 'ios' ? 100 : 32 }} />
-      </RNAnimated.View>
-    </ScrollView>
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View>
+                <Text style={styles.sectionEyebrow}>SHORTCUTS</Text>
+                <Text style={styles.sectionTitle}>Quick Actions</Text>
+              </View>
+            </View>
+
+            <View style={styles.actionsGrid}>
+              {QUICK_ACTIONS.map((action) => (
+                <TouchableOpacity
+                  key={action.key}
+                  style={styles.actionCard}
+                  activeOpacity={0.76}
+                  onPress={() => handleNavigation(action.route)}
+                >
+                  <View
+                    style={[
+                      styles.actionIconSquare,
+                      { backgroundColor: action.background },
+                    ]}
+                  >
+                    <Ionicons
+                      name={action.icon as any}
+                      size={22}
+                      color={action.color}
+                    />
+                  </View>
+
+                  <Text style={styles.actionLabel}>{action.label}</Text>
+
+                  <View
+                    style={[
+                      styles.actionAccent,
+                      { backgroundColor: action.color },
+                    ]}
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {bookings.length > 0 && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <View>
+                  <Text style={styles.sectionEyebrow}>UPCOMING ACTIVITY</Text>
+
+                  <View style={styles.sectionTitleRow}>
+                    <View style={styles.liveDot} />
+                    <Text style={styles.sectionTitleInline}>My Bookings</Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.seeAllButton}
+                  onPress={() => handleNavigation('/bookings')}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.seeAllText}>See all</Text>
+                  <Ionicons
+                    name="arrow-forward"
+                    size={15}
+                    color={UI.forest}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              {bookings.slice(0, 3).map((booking: any) => (
+                <TouchableOpacity
+                  key={booking.id}
+                  style={styles.bookingCard}
+                  activeOpacity={0.78}
+                  onPress={() =>
+                    handleNavigation(`/booking/${booking.id}`)
+                  }
+                >
+                  <View style={styles.bookingTopRow}>
+                    <View style={styles.bookingIcon}>
+                      <Ionicons
+                        name="calendar-outline"
+                        size={20}
+                        color={UI.teal}
+                      />
+                    </View>
+
+                    <View style={styles.bookingInfo}>
+                      <Text style={styles.bookingNumber}>
+                        #{booking.bookingNumber}
+                      </Text>
+                      <Text style={styles.bookingCommodity} numberOfLines={1}>
+                        {booking.commodityName || 'Storage booking'}
+                      </Text>
+                    </View>
+
+                    <View
+                      style={[
+                        styles.statusChip,
+                        { backgroundColor: getStatusBg(booking.status) },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.statusChipText,
+                          { color: getStatusColor(booking.status) },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {booking.status?.replace(/_/g, ' ') || 'PENDING'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.bookingBottomRow}>
+                    <View style={styles.bookingMetaItem}>
+                      <Ionicons
+                        name="cube-outline"
+                        size={13}
+                        color={UI.subtle}
+                      />
+                      <Text style={styles.bookingMetaText}>
+                        {Number(
+                          booking.estimatedWeightKg || 0
+                        ).toLocaleString('en-IN')}{' '}
+                        kg
+                      </Text>
+                    </View>
+
+                    <View style={styles.bookingMetaDot} />
+
+                    <View style={styles.bookingMetaItem}>
+                      <Ionicons
+                        name="business-outline"
+                        size={13}
+                        color={UI.subtle}
+                      />
+                      <Text
+                        style={styles.bookingMetaText}
+                        numberOfLines={1}
+                      >
+                        {booking.facility?.name || 'Facility pending'}
+                      </Text>
+                    </View>
+
+                    <Ionicons
+                      name="chevron-forward"
+                      size={17}
+                      color={UI.subtle}
+                    />
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {prices.length > 0 && (
+  <View style={styles.mandiSectionWrap}>
+    <LinearGradient
+      colors={['#F9FBF8', '#F3F7F4']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.mandiSectionCard}
+    >
+      <View style={[styles.sectionHeader, styles.mandiHeader]}>
+        <View style={styles.mandiHeaderLeft}>
+          <Text style={styles.sectionEyebrow}>MARKET INTELLIGENCE</Text>
+
+          <View style={styles.sectionTitleRow}>
+            <View
+              style={[
+                styles.liveDot,
+                pricesMeta?.source === 'fallback' && styles.liveDotFallback,
+              ]}
+            />
+            <Text style={styles.sectionTitleInline}>Live Mandi Prices</Text>
+          </View>
+
+          {(userCity || userState || pricesMeta?.fetchedAt) && (
+            <View style={styles.locationInfoRow}>
+              {(userCity || userState) && (
+                <View style={styles.locationChip}>
+                  <Ionicons name="location" size={11} color={UI.forest} />
+                  <Text style={styles.locationChipText}>
+                    {userCity || userDistrict || userState}
+                  </Text>
+                </View>
+              )}
+              {pricesMeta?.fetchedAt && (
+                <Text style={styles.lastUpdated}>
+                  {pricesMeta.source === 'fallback' ? 'Offline · ' : ''}
+                  Updated {formatTimeAgo(pricesMeta.fetchedAt)}
+                </Text>
+              )}
+            </View>
+          )}
+        </View>
+
+        <TouchableOpacity
+          style={styles.mandiSeeAllButton}
+          onPress={() => handleNavigation('/market-prices')}
+          activeOpacity={0.82}
+        >
+          <Text style={styles.mandiSeeAllText}>See all</Text>
+          <Ionicons name="arrow-forward" size={15} color={UI.forest} />
+        </TouchableOpacity>
+      </View>
+
+      <FlatList
+        data={prices.slice(0, 8)}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        keyExtractor={(item, index) =>
+          item.id ? String(item.id) : `price-${index}`
+        }
+        contentContainerStyle={styles.mandiTickerContainer}
+        renderItem={({ item }) => {
+          const mandi = item.mandis?.[0];
+          if (!mandi) return null;
+
+          const minPrice = Number(mandi.minPrice || 0);
+          const maxPrice = Number(mandi.maxPrice || 0);
+          const modalPrice = Number(mandi.modalPrice || 0);
+          const midpoint = (minPrice + maxPrice) / 2;
+          const isUp = modalPrice >= midpoint;
+          const cleanUnit = item.unit ? item.unit.replace('₹/', '') : 'Quintal';
+          const visual = getCommodityVisual(item.commodity || '');
+
+          return (
+            <TouchableOpacity
+              style={styles.premiumTickerCard}
+              activeOpacity={0.85}
+              onPress={() => handleNavigation('/market-prices')}
+            >
+              {/* Commodity Emoji Header */}
+              <View style={[styles.commodityImageArea, { backgroundColor: visual.bg }]}>
+                <Text style={styles.commodityEmoji}>{visual.emoji}</Text>
+                <View
+                  style={[
+                    styles.trendBadgeOverlay,
+                    {
+                      backgroundColor: isUp
+                        ? 'rgba(23,165,109,0.15)'
+                        : 'rgba(217,74,74,0.15)',
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name={isUp ? 'trending-up' : 'trending-down'}
+                    size={13}
+                    color={isUp ? '#059669' : '#DC2626'}
+                  />
+                </View>
+              </View>
+
+              {/* Info */}
+              <View style={styles.commodityCardBody}>
+                <Text style={styles.premiumTickerCommodity} numberOfLines={1}>
+                  {item.commodity}
+                </Text>
+
+                <View style={styles.commodityLocationRow}>
+                  <Ionicons name="location-outline" size={10} color={UI.subtle} />
+                  <Text style={styles.commodityLocationText} numberOfLines={1}>
+                    {mandi.name || 'Mandi'}
+                    {mandi.district ? `, ${mandi.district}` : ''}
+                  </Text>
+                </View>
+
+                <View style={styles.commodityPriceRow}>
+                  <Text style={[styles.premiumTickerPrice, { color: visual.accent }]}>
+                    ₹{modalPrice.toLocaleString('en-IN')}
+                  </Text>
+                  <Text style={styles.premiumTickerUnit}>/{cleanUnit}</Text>
+                </View>
+
+                <View style={styles.commodityRangeRow}>
+                  <Text style={styles.rangeMinMax}>
+                    ₹{minPrice.toLocaleString('en-IN')} – ₹{maxPrice.toLocaleString('en-IN')}
+                  </Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          );
+        }}
+      />
+    </LinearGradient>
+  </View>
+)}
+
+          {data && data.totalLots === 0 && bookings.length === 0 && (
+            <View style={styles.emptyCard}>
+              <LinearGradient
+                colors={['#E4F5EE', '#E7F8F7']}
+                style={styles.emptyIconWrap}
+              >
+                <Ionicons name="leaf-outline" size={37} color={UI.forest} />
+              </LinearGradient>
+
+              <Text style={styles.emptyTitle}>Welcome to ColdStorage</Text>
+
+              <Text style={styles.emptySub}>
+                Find verified cold storage close to you and reserve space for
+                your produce.
+              </Text>
+
+              <TouchableOpacity
+                style={styles.emptyButton}
+                activeOpacity={0.85}
+                onPress={() => handleNavigation('/(tabs)/discover')}
+              >
+                <Ionicons name="compass-outline" size={19} color="#FFFFFF" />
+                <Text style={styles.emptyButtonText}>Find Nearby Storage</Text>
+                <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          <View style={{ height: Platform.OS === 'ios' ? 112 : 90 }} />
+        </RNAnimated.View>
+      </ScrollView>
+
+      {/* ── Location Permission Popup ── */}
+      <Modal
+        visible={showLocationPopup}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowLocationPopup(false)}
+      >
+        <View style={styles.locationModalOverlay}>
+          <View style={styles.locationModalCard}>
+            <View style={styles.locationModalHandle} />
+
+            <View style={styles.locationModalIconWrap}>
+              <Ionicons name="location" size={28} color={UI.forest} />
+            </View>
+
+            <Text style={styles.locationModalTitle}>
+              Enable Location
+            </Text>
+            <Text style={styles.locationModalDesc}>
+              Allow ColdStorage to access your location to show nearby mandi prices, cold storage facilities, and market rates from your area.
+            </Text>
+
+            <TouchableOpacity
+              style={styles.locationModalPrimaryBtn}
+              onPress={fetchUserLocation}
+              activeOpacity={0.85}
+              disabled={locationLoading}
+            >
+              <LinearGradient
+                colors={[UI.forestDeep, UI.forest] as any}
+                style={styles.locationModalBtnGrad}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                {locationLoading ? (
+                  <ActivityIndicator color="#FFF" size="small" />
+                ) : (
+                  <>
+                    <Ionicons name="navigate" size={16} color="#FFF" />
+                    <Text style={styles.locationModalBtnText}>Allow Location</Text>
+                  </>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.locationModalSkipBtn}
+              onPress={() => setShowLocationPopup(false)}
+            >
+              <Text style={styles.locationModalSkipText}>
+                Skip — Show all India prices
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 }
 
-// ── Status Color Helpers ──
+function DashboardStat({
+  icon,
+  value,
+  unit,
+  label,
+  tint,
+  gold = false,
+}: {
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  value: string;
+  unit?: string;
+  label: string;
+  tint: string;
+  gold?: boolean;
+}) {
+  return (
+    <View style={styles.statItem}>
+      <View style={styles.statIconRow}>
+        <Ionicons name={icon} size={13} color={tint} />
+        <Text style={[styles.statLabel, { color: tint }]}>{label}</Text>
+      </View>
+
+      <Text style={[styles.statValue, gold && styles.statValueGold]}>
+        {value}
+        {unit ? <Text style={styles.statUnit}>{unit}</Text> : null}
+      </Text>
+    </View>
+  );
+}
+
 function getStatusColor(status: string): string {
   const map: Record<string, string> = {
-    PENDING: '#92400E', CONFIRMED: '#1E40AF', ARRIVED: '#5B21B6',
-    WEIGHING: '#4338CA', STORED: '#065F46', DISPATCH_REQUESTED: '#9A3412',
-    DISPATCHING: '#9D174D', DISPATCHED: '#155E75', COMPLETED: '#065F46',
-    CANCELLED: '#991B1B', REJECTED: '#991B1B',
+    PENDING: '#92400E',
+    CONFIRMED: '#1E40AF',
+    ARRIVED: '#5B21B6',
+    WEIGHING: '#4338CA',
+    STORED: '#065F46',
+    DISPATCH_REQUESTED: '#9A3412',
+    DISPATCHING: '#9D174D',
+    DISPATCHED: '#155E75',
+    COMPLETED: '#065F46',
+    CANCELLED: '#991B1B',
+    REJECTED: '#991B1B',
   };
+
   return map[status] || '#4B5563';
 }
 
 function getStatusBg(status: string): string {
   const map: Record<string, string> = {
-    PENDING: '#FEF3C7', CONFIRMED: '#DBEAFE', ARRIVED: '#EDE9FE',
-    WEIGHING: '#E0E7FF', STORED: '#D1FAE5', DISPATCH_REQUESTED: '#FFEDD5',
-    DISPATCHING: '#FCE7F3', DISPATCHED: '#CFFAFE', COMPLETED: '#D1FAE5',
-    CANCELLED: '#FECACA', REJECTED: '#FECACA',
+    PENDING: '#FEF3C7',
+    CONFIRMED: '#DBEAFE',
+    ARRIVED: '#EDE9FE',
+    WEIGHING: '#E0E7FF',
+    STORED: '#D1FAE5',
+    DISPATCH_REQUESTED: '#FFEDD5',
+    DISPATCHING: '#FCE7F3',
+    DISPATCHED: '#CFFAFE',
+    COMPLETED: '#D1FAE5',
+    CANCELLED: '#FECACA',
+    REJECTED: '#FECACA',
   };
+
   return map[status] || '#F3F4F6';
 }
 
-// ─────────────────────────────────────────────────────
-// STYLES
-// ─────────────────────────────────────────────────────
-const CARD_W = (SCREEN_WIDTH - 20 * 2 - 10 * 2) / 3;
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: UI.canvas,
+  },
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F7F6F2' },
+  container: {
+    flex: 1,
+    backgroundColor: UI.canvas,
+  },
 
-  // ── Hero ──
-  hero: { paddingBottom: 24 },
-  heroSkeleton: { paddingBottom: 32 },
-  grainOverlay: {
-    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.03)',
+  scrollContent: {
+    paddingBottom: 18,
   },
-  heroContent: { paddingHorizontal: 20 },
-  heroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 },
-  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  brandIcon: {
-    width: 36, height: 36, borderRadius: 11,
-    backgroundColor: 'rgba(232, 190, 106, 0.12)',
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: 'rgba(232, 190, 106, 0.2)',
-  },
-  brandName: {
-    fontSize: 20, fontWeight: '800', color: '#FFF',
-    fontFamily: FontFamily.extrabold, letterSpacing: -0.3,
-  },
-  brandSub: {
-    fontSize: 12, color: 'rgba(255,255,255,0.5)',
-    fontFamily: FontFamily.regular, marginTop: 1,
-  },
-  heroActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  avatarBtn: {
-    width: 34, height: 34, borderRadius: 11,
-    backgroundColor: 'rgba(52, 211, 153, 0.2)',
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: 'rgba(52, 211, 153, 0.3)',
-  },
-  avatarText: {
-    fontSize: 14, fontWeight: '800', color: '#6EE7B7',
-    fontFamily: FontFamily.extrabold,
-  },
-  notificationBtn: {
-    width: 34, height: 34, borderRadius: 11,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
-  },
-  notiBadge: {
-    position: 'absolute', top: -2, right: -2, minWidth: 16, height: 16, borderRadius: 8,
-    backgroundColor: '#DC2626', alignItems: 'center', justifyContent: 'center',
-    paddingHorizontal: 3, borderWidth: 1.5, borderColor: '#0F3D2E',
-  },
-  notiBadgeText: { fontSize: 9, fontWeight: '800', color: '#FFF' },
 
-  // ── Glass Stat Cards ──
-  statsContainer: {
+  loadingScreen: {
+    flex: 1,
+    backgroundColor: UI.canvas,
+  },
+
+  loadingHero: {
+    height: 255,
+    paddingTop: Platform.OS === 'ios' ? 67 : 42,
+    paddingHorizontal: 20,
+  },
+
+  loadingBrandRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
   },
-  glassCard: {
+
+  loadingLogo: {
+    width: 43,
+    height: 43,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.14)',
+  },
+
+  loadingBrand: {
+    color: '#FFFFFF',
+    fontSize: 21,
+    fontWeight: '800',
+  },
+
+  loadingBody: {
     flex: 1,
-    borderRadius: 18,
-    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  loadingText: {
+    marginTop: 14,
+    color: UI.muted,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+
+  errorScreen: {
+    flex: 1,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: UI.canvas,
+  },
+
+  errorCard: {
+    width: '100%',
+    padding: 28,
+    borderRadius: 24,
+    alignItems: 'center',
+    backgroundColor: UI.surface,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
+    borderColor: UI.border,
   },
-  glassInner: {
-    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+
+  errorIcon: {
+    width: 74,
+    height: 74,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF2E8',
   },
-  statContent: {
+
+  errorTitle: {
+    marginTop: 17,
+    color: UI.ink,
+    fontSize: 20,
+    fontWeight: '800',
+  },
+
+  errorDescription: {
+    marginTop: 8,
+    color: UI.muted,
+    fontSize: 14,
+    textAlign: 'center',
+  },
+
+  errorRetryButton: {
+    marginTop: 22,
+    minHeight: 50,
+    paddingHorizontal: 19,
+    borderRadius: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: UI.forest,
+  },
+
+  errorRetryText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+
+  hero: {
+    paddingBottom: 26,
+    overflow: 'hidden',
+    borderBottomLeftRadius: 31,
+    borderBottomRightRadius: 31,
+  },
+
+  heroGlowTop: {
+    position: 'absolute',
+    width: 240,
+    height: 240,
+    top: -110,
+    right: -85,
+    borderRadius: 120,
+    backgroundColor: 'rgba(44, 207, 171, 0.16)',
+  },
+
+  heroGlowBottom: {
+    position: 'absolute',
+    width: 290,
+    height: 190,
+    bottom: -125,
+    left: -105,
+    borderRadius: 145,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+
+  heroContent: {
+    paddingHorizontal: SIDE_PADDING,
+  },
+
+  heroTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+
+  greeting: {
+    color: 'rgba(255,255,255,0.64)',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+
+  userName: {
+    maxWidth: SCREEN_WIDTH - 120,
+    marginTop: 3,
+    color: '#FFFFFF',
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -0.65,
+  },
+
+  heroSupportingText: {
+    marginTop: 8,
+    color: 'rgba(255,255,255,0.62)',
+    fontSize: 12,
+  },
+
+  notificationBtn: {
+    width: 46,
+    height: 46,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.13)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.17)',
+  },
+
+  notiBadge: {
+    position: 'absolute',
+    top: -3,
+    right: -3,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 3,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E5484D',
+    borderWidth: 2,
+    borderColor: UI.forest,
+  },
+
+  notiBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '900',
+  },
+
+  statStrip: {
+    marginTop: 22,
+    minHeight: 86,
+    paddingHorizontal: 7,
+    borderRadius: 21,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.13)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.13)',
+  },
+
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+
+  statIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+
+  statLabel: {
+    fontSize: 8,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
+
+  statValue: {
+    marginTop: 7,
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: -0.35,
+  },
+
+  statValueGold: {
+    color: '#F8D992',
+    fontSize: 18,
+  },
+
+  statUnit: {
+    color: 'rgba(255,255,255,0.62)',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+
+  statDivider: {
+    width: 1,
+    height: 41,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
+
+  alertBanner: {
+    marginHorizontal: SIDE_PADDING,
+    marginTop: 17,
+    borderRadius: 19,
+    overflow: 'hidden',
+    shadowColor: '#C99424',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.09,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+
+  alertGradient: {
+    minHeight: 78,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 19,
+    borderWidth: 1,
+    borderColor: '#F6DD97',
+  },
+
+  alertIconWrap: {
+    width: 43,
+    height: 43,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.6)',
+  },
+
+  alertTextWrap: {
+    flex: 1,
+  },
+
+  alertTitle: {
+    color: '#804D0E',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+
+  alertSub: {
+    marginTop: 3,
+    color: '#A66C21',
+    fontSize: 12,
+  },
+
+  alertArrow: {
+    width: 32,
+    height: 32,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(217,119,6,0.1)',
+  },
+
+  section: {
+    marginTop: 26,
+    paddingHorizontal: SIDE_PADDING,
+  },
+
+  
+
+  sectionHeader: {
+    marginBottom: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  sectionEyebrow: {
+    color: UI.teal,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.85,
+  },
+
+  sectionTitle: {
+    marginTop: 4,
+    color: UI.ink,
+    fontSize: 23,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+
+  sectionTitleRow: {
+    marginTop: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  sectionTitleInline: {
+    color: UI.ink,
+    fontSize: 21,
+    fontWeight: '800',
+    letterSpacing: -0.4,
+  },
+
+  seeAllButton: {
+    paddingLeft: 10,
+    paddingVertical: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+
+  seeAllText: {
+    color: UI.forest,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: UI.emerald,
+  },
+
+  liveDotFallback: {
+    backgroundColor: UI.gold,
+  },
+
+  lastUpdated: {
+    marginTop: 4,
+    marginLeft: 16,
+    color: UI.subtle,
+    fontSize: 10,
+    fontWeight: '600',
+  },
+
+  actionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: ACTION_GAP,
+  },
+
+  actionCard: {
+    width: ACTION_CARD_WIDTH,
+    height: 121,
+    paddingTop: 17,
+    borderRadius: 20,
+    alignItems: 'center',
+    overflow: 'hidden',
+    backgroundColor: UI.surface,
+    borderWidth: 1,
+    borderColor: UI.border,
+    shadowColor: '#173D31',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+
+  actionIconSquare: {
+    width: 47,
+    height: 47,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  actionLabel: {
+    marginTop: 10,
+    paddingHorizontal: 5,
+    color: UI.ink,
+    fontSize: 11,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+
+  actionAccent: {
+    position: 'absolute',
+    bottom: 0,
+    width: 32,
+    height: 3,
+    borderTopLeftRadius: 4,
+    borderTopRightRadius: 4,
+    opacity: 0.85,
+  },
+
+  bookingCard: {
+    marginBottom: 11,
     padding: 14,
+    borderRadius: 20,
+    backgroundColor: UI.surface,
+    borderWidth: 1,
+    borderColor: UI.border,
+    shadowColor: '#173D31',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+
+  bookingTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  bookingIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: UI.tealSoft,
+  },
+
+  bookingInfo: {
+    flex: 1,
+    marginLeft: 10,
+    marginRight: 8,
+  },
+
+  bookingNumber: {
+    color: UI.subtle,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+
+  bookingCommodity: {
+    marginTop: 3,
+    color: UI.ink,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+
+  statusChip: {
+    maxWidth: 109,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+
+  statusChipText: {
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 0.35,
+    textTransform: 'uppercase',
+  },
+
+  bookingBottomRow: {
+    marginTop: 13,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#EDF1ED',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
-  statIcon: {
-    width: 32, height: 32, borderRadius: 10,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  statValue: {
-    fontSize: 18, fontWeight: '800', color: '#FFF',
-    fontFamily: FontFamily.extrabold, fontVariant: ['tabular-nums'] as any,
-  },
-  statValueGold: {
-    fontSize: 16, fontWeight: '800', color: '#E8BE6A',
-    fontFamily: FontFamily.extrabold, fontVariant: ['tabular-nums'] as any,
-  },
-  statUnit: {
-    fontSize: 12, fontWeight: '500', color: 'rgba(255,255,255,0.6)',
-  },
-  statLabel: {
-    fontSize: 9, color: 'rgba(255,255,255,0.45)',
-    fontFamily: FontFamily.bold, letterSpacing: 0.8,
-    textTransform: 'uppercase',
+
+  bookingMetaItem: {
+    maxWidth: '43%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
 
-  // ── Alert Banner ──
-  alertBanner: {
-    marginHorizontal: 20, marginTop: 16,
-    borderRadius: 16, overflow: 'hidden',
-    ...Shadows.card,
-  },
-  alertGrad: {
-    flexDirection: 'row', alignItems: 'center',
-    padding: 14, gap: 12,
-    borderWidth: 1, borderColor: '#FDE68A',
-    borderRadius: 16,
-  },
-  alertIconWrap: {
-    width: 36, height: 36, borderRadius: 12,
-    backgroundColor: '#FEF3C7',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  alertTitle: {
-    fontSize: 14, fontWeight: '700', color: '#92400E',
-    fontFamily: FontFamily.bold,
-  },
-  alertSub: {
-    fontSize: 11, color: '#B45309', marginTop: 1,
-    fontFamily: FontFamily.regular,
-  },
-  alertArrow: {
-    width: 28, height: 28, borderRadius: 8,
-    backgroundColor: 'rgba(217, 119, 6, 0.1)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-
-  // ── Section ──
-  section: { paddingHorizontal: 20, marginTop: 24 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-  sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  sectionTitle: {
-    fontSize: 18, fontWeight: '700', color: '#1A1A2E',
-    fontFamily: FontFamily.bold, marginBottom: 14, letterSpacing: -0.2,
-  },
-  sectionTitleInline: {
-    fontSize: 18, fontWeight: '700', color: '#1A1A2E',
-    fontFamily: FontFamily.bold, letterSpacing: -0.2,
-  },
-  seeAll: {
-    fontSize: 13, fontWeight: '600', color: '#1B5E4A',
-    fontFamily: FontFamily.semibold,
-  },
-  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#10B981' },
-  lastUpdated: {
-    fontSize: 10, color: '#94A3B8', marginTop: 2, marginLeft: 16,
-    fontFamily: FontFamily.medium,
-  },
-
-  // ── Quick Actions ──
-  actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  actionCard: {
-    width: CARD_W, alignItems: 'center', paddingVertical: 18,
-    borderRadius: BorderRadius.lg, backgroundColor: '#FFFFFF',
-    borderWidth: 1, borderColor: '#E8E6E1',
-    ...Shadows.card,
-  },
-  actionIconSquare: {
-    width: 44, height: 44, borderRadius: 12,
-    alignItems: 'center', justifyContent: 'center', marginBottom: 8,
-  },
-  actionLabel: {
-    fontSize: 11, fontWeight: '600', color: '#374151',
-    fontFamily: FontFamily.semibold, textAlign: 'center',
-  },
-
-  // ── Booking Cards ──
-  bookingCard: {
-    backgroundColor: '#FFFFFF', borderRadius: BorderRadius.lg,
-    padding: 16, marginBottom: 10,
-    borderWidth: 1, borderColor: '#E8E6E1',
-    ...Shadows.card,
-  },
-  bookingRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  bookingNum: {
-    fontSize: 11, fontWeight: '700', color: '#94A3B8',
-    fontFamily: FontFamily.bold, letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
-  bookingCommodity: {
-    fontSize: 15, fontWeight: '700', color: '#1A1A2E',
-    fontFamily: FontFamily.bold, marginTop: 2,
-  },
-  statusChip: {
-    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8,
-  },
-  statusChipText: {
-    fontSize: 9, fontWeight: '700',
-    textTransform: 'uppercase', letterSpacing: 0.5,
-    fontFamily: FontFamily.bold,
-  },
-  bookingMeta: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    marginTop: 12, paddingTop: 12,
-    borderTopWidth: 1, borderTopColor: '#F0EDE8',
-  },
   bookingMetaText: {
-    fontSize: 11, color: '#94A3B8', fontWeight: '500',
-    fontFamily: FontFamily.medium,
-  },
-  metaDot: {
-    width: 3, height: 3, borderRadius: 1.5,
-    backgroundColor: '#D1D5DB', marginHorizontal: 4,
+    color: UI.muted,
+    fontSize: 11,
+    fontWeight: '600',
   },
 
-  // ── Mandi Ticker ──
-  tickerContainer: { gap: 10, paddingRight: 20 },
-  tickerCard: {
-    width: 150, padding: 16, borderRadius: BorderRadius.lg,
-    backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E8E6E1',
-    ...Shadows.card,
-  },
-  tickerTop: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', marginBottom: 8,
-  },
-  tickerCommodity: {
-    fontWeight: '700', fontSize: 13,
-    fontFamily: FontFamily.bold, color: '#1A1A2E', flex: 1,
-  },
-  trendPill: {
-    width: 22, height: 22, borderRadius: 7,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  tickerPrice: {
-    fontWeight: '800', fontSize: 20,
-    fontFamily: FontFamily.extrabold, color: '#1B5E4A',
-    fontVariant: ['tabular-nums'] as any,
-    letterSpacing: -0.5,
-  },
-  tickerUnit: {
-    fontSize: 10, color: '#94A3B8', marginTop: 2,
-    fontFamily: FontFamily.medium, letterSpacing: 0.3,
-    textTransform: 'uppercase',
-  },
-  tickerMandiRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 3,
-    marginTop: 8, paddingTop: 8,
-    borderTopWidth: 1, borderTopColor: '#F0EDE8',
-  },
-  tickerMandi: {
-    fontSize: 11, color: '#5F6B7A',
-    fontFamily: FontFamily.regular, flex: 1,
+  bookingMetaDot: {
+    width: 3,
+    height: 3,
+    marginHorizontal: 2,
+    borderRadius: 3,
+    backgroundColor: '#C7D1CA',
   },
 
-  // ── Empty State ──
+  
+
+
+
   emptyCard: {
-    marginHorizontal: 20, marginTop: 24, borderRadius: BorderRadius.xl,
-    padding: 32, alignItems: 'center',
-    backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E8E6E1',
-    ...Shadows.card,
+    marginHorizontal: SIDE_PADDING,
+    marginTop: 28,
+    paddingHorizontal: 24,
+    paddingVertical: 31,
+    borderRadius: 24,
+    alignItems: 'center',
+    backgroundColor: UI.surface,
+    borderWidth: 1,
+    borderColor: UI.border,
   },
+
   emptyIconWrap: {
-    width: 80, height: 80, borderRadius: 24,
-    alignItems: 'center', justifyContent: 'center', marginBottom: 20,
+    width: 82,
+    height: 82,
+    borderRadius: 27,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+
   emptyTitle: {
-    fontSize: 22, fontWeight: '800', color: '#1A1A2E',
-    fontFamily: FontFamily.extrabold, marginBottom: 8, letterSpacing: -0.3,
+    marginTop: 19,
+    color: UI.ink,
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.4,
   },
+
   emptySub: {
-    fontSize: 14, textAlign: 'center', lineHeight: 22,
-    color: '#5F6B7A', fontFamily: FontFamily.regular, marginBottom: 24,
+    marginTop: 8,
+    color: UI.muted,
+    fontSize: 13,
+    lineHeight: 20,
+    textAlign: 'center',
   },
-  emptyBtn: {
-    borderRadius: BorderRadius.lg, overflow: 'hidden',
-    ...Shadows.glow,
+
+  emptyButton: {
+    minHeight: 53,
+    marginTop: 22,
+    paddingHorizontal: 18,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: UI.forest,
+    shadowColor: UI.forest,
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 5,
   },
-  emptyBtnGrad: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: 28, paddingVertical: 15,
-    borderRadius: BorderRadius.lg,
-  },
-  emptyBtnText: {
-    fontSize: 15, fontWeight: '700', color: '#FFF',
-    fontFamily: FontFamily.bold,
-  },
+
+emptyButtonText: {
+  color: '#FFFFFF',
+  fontSize: 14,
+  fontWeight: '800',
+},
+
+mandiSectionWrap: {
+  marginTop: 30,
+  paddingHorizontal: 16,
+},
+
+mandiSectionCard: {
+  paddingTop: 18,
+  paddingBottom: 18,
+  borderRadius: 28,
+  borderWidth: 1,
+  borderColor: '#E4ECE5',
+  backgroundColor: '#F8FAF7',
+},
+
+mandiHeader: {
+  paddingHorizontal: SIDE_PADDING,
+  marginBottom: 16,
+  alignItems: 'flex-start',
+},
+
+mandiHeaderLeft: {
+  flex: 1,
+  paddingRight: 10,
+},
+
+mandiSeeAllButton: {
+  minHeight: 38,
+  paddingLeft: 12,
+  paddingRight: 10,
+  borderRadius: 999,
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 6,
+  backgroundColor: '#FFFFFF',
+  borderWidth: 1,
+  borderColor: '#E3EAE4',
+},
+
+mandiSeeAllText: {
+  color: UI.forest,
+  fontSize: 12,
+  fontWeight: '800',
+},
+
+mandiTickerContainer: {
+  paddingLeft: 16,
+  paddingRight: 6,
+},
+
+premiumTickerCard: {
+  width: 195,
+  marginRight: 12,
+  borderRadius: 20,
+  backgroundColor: '#FFFFFF',
+  borderWidth: 1,
+  borderColor: '#E4EAE4',
+  shadowColor: '#173D31',
+  shadowOffset: { width: 0, height: 6 },
+  shadowOpacity: 0.05,
+  shadowRadius: 12,
+  elevation: 3,
+  overflow: 'hidden',
+},
+
+commodityImageArea: {
+  height: 90,
+  alignItems: 'center',
+  justifyContent: 'center',
+  position: 'relative',
+},
+
+commodityEmoji: {
+  fontSize: 42,
+},
+
+trendBadgeOverlay: {
+  position: 'absolute',
+  top: 8,
+  right: 8,
+  width: 28,
+  height: 28,
+  borderRadius: 9,
+  alignItems: 'center',
+  justifyContent: 'center',
+},
+
+commodityCardBody: {
+  padding: 13,
+},
+
+premiumTickerCommodity: {
+  color: UI.ink,
+  fontSize: 15,
+  fontWeight: '800',
+  letterSpacing: -0.2,
+},
+
+commodityLocationRow: {
+  marginTop: 4,
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 3,
+},
+
+commodityLocationText: {
+  flex: 1,
+  color: UI.subtle,
+  fontSize: 10,
+  fontWeight: '600',
+},
+
+commodityPriceRow: {
+  marginTop: 10,
+  flexDirection: 'row',
+  alignItems: 'baseline',
+  gap: 2,
+},
+
+premiumTickerPrice: {
+  color: UI.forest,
+  fontSize: 22,
+  fontWeight: '900',
+  letterSpacing: -0.55,
+},
+
+premiumTickerUnit: {
+  color: UI.subtle,
+  fontSize: 11,
+  fontWeight: '700',
+},
+
+commodityRangeRow: {
+  marginTop: 4,
+},
+
+rangeMinMax: {
+  color: UI.muted,
+  fontSize: 11,
+  fontWeight: '600',
+},
+
+locationInfoRow: {
+  marginTop: 4,
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 8,
+  flexWrap: 'wrap',
+},
+
+locationChip: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 3,
+  paddingVertical: 3,
+  paddingHorizontal: 8,
+  borderRadius: 8,
+  backgroundColor: 'rgba(27, 94, 74, 0.08)',
+},
+
+locationChipText: {
+  color: UI.forest,
+  fontSize: 11,
+  fontWeight: '700',
+},
+
+// ── Location Modal ──
+locationModalOverlay: {
+  flex: 1,
+  justifyContent: 'flex-end',
+  backgroundColor: 'rgba(0,0,0,0.45)',
+},
+
+locationModalCard: {
+  backgroundColor: '#FFFFFF',
+  borderTopLeftRadius: 28,
+  borderTopRightRadius: 28,
+  paddingHorizontal: 24,
+  paddingTop: 12,
+  paddingBottom: Platform.OS === 'ios' ? 44 : 28,
+  alignItems: 'center',
+},
+
+locationModalHandle: {
+  width: 40,
+  height: 4,
+  borderRadius: 2,
+  backgroundColor: '#D4D8D4',
+  marginBottom: 20,
+},
+
+locationModalIconWrap: {
+  width: 60,
+  height: 60,
+  borderRadius: 18,
+  backgroundColor: 'rgba(27, 94, 74, 0.08)',
+  alignItems: 'center',
+  justifyContent: 'center',
+  marginBottom: 16,
+},
+
+locationModalTitle: {
+  fontSize: 22,
+  fontWeight: '800',
+  color: '#1A1A2E',
+  letterSpacing: -0.3,
+  marginBottom: 8,
+},
+
+locationModalDesc: {
+  fontSize: 14,
+  color: '#5F6B7A',
+  lineHeight: 21,
+  textAlign: 'center',
+  marginBottom: 24,
+  paddingHorizontal: 8,
+},
+
+locationModalPrimaryBtn: {
+  width: '100%',
+  borderRadius: 14,
+  overflow: 'hidden',
+  marginBottom: 10,
+},
+
+locationModalBtnGrad: {
+  paddingVertical: 15,
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 8,
+  borderRadius: 14,
+},
+
+locationModalBtnText: {
+  fontSize: 16,
+  fontWeight: '700',
+  color: '#FFFFFF',
+},
+
+locationModalSkipBtn: {
+  paddingVertical: 12,
+},
+
+locationModalSkipText: {
+  fontSize: 14,
+  fontWeight: '600',
+  color: '#94A3B8',
+},
 });
