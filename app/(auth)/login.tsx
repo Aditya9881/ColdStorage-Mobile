@@ -67,11 +67,14 @@ function FloatingParticle({ delay, x, size, duration }: { delay: number; x: numb
   const spin = rotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
 
   return (
-    <RNAnimated.View style={{
-      position: 'absolute', left: x, width: size, height: size,
-      transform: [{ translateY }, { rotate: spin }],
-      opacity,
-    }}>
+    <RNAnimated.View 
+      pointerEvents="none"
+      style={{
+        position: 'absolute', left: x, width: size, height: size,
+        transform: [{ translateY }, { rotate: spin }],
+        opacity,
+      }}
+    >
       <Ionicons name="snow" size={size} color="rgba(255,255,255,0.5)" />
     </RNAnimated.View>
   );
@@ -312,8 +315,8 @@ export default function LoginScreen() {
       {/* Floating Snowflake Particles */}
       {PARTICLES.map((p, i) => <FloatingParticle key={i} {...p} />)}
 
-      {/* Grain texture overlay */}
-      <View style={s.grainOverlay} />
+      {/* Grain texture overlay — must not block touch */}
+      <View style={s.grainOverlay} pointerEvents="none" />
 
       <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={s.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
