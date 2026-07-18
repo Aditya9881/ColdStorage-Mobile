@@ -94,9 +94,11 @@ export default function OwnerDashboardScreen() {
   const fetchData = useCallback(async () => {
     try {
       // 1. Get owner's facility
-      const facRes = await api.get<any>('/facilities?ownerId=me&limit=1');
-      if (facRes.success && facRes.data?.facilities?.[0]) {
-        const fac = facRes.data.facilities[0];
+      const facRes = await api.get<any>('/facilities?limit=1');
+      // Backend sends: { success: true, data: [ ...facilities ] } — data IS the array
+      const facArr = Array.isArray(facRes.data) ? facRes.data : facRes.data?.facilities || [];
+      if (facRes.success && facArr.length > 0) {
+        const fac = facArr[0];
         setFacility({
           id: fac.id,
           name: fac.name,

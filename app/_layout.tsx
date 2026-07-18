@@ -37,17 +37,15 @@ function RootLayoutNav() {
     if (isLoading) return;
 
     const inAuthGroup = segments[0] === '(auth)';
-    const isDiscover = segments[0] === 'discover';
 
     if (!isAuthenticated) {
-      // Not logged in — only allow auth screens and guest discover
-      if (!inAuthGroup && !isDiscover) {
-        router.replace('/discover');
+      // Not logged in → go to login screen
+      if (!inAuthGroup) {
+        router.replace('/(auth)/login');
       }
     } else {
-      // Authenticated — only redirect FROM auth/discover screens to the correct role-based home
-      // Do NOT redirect from detail screens like /bookings, /invoices, /settings, etc.
-      if (inAuthGroup || isDiscover) {
+      // Authenticated — redirect FROM auth screens to the correct role-based home
+      if (inAuthGroup) {
         if (user?.role === 'BUYER') {
           router.replace('/(buyer)');
         } else if (user?.role === 'OWNER' || user?.role === 'STAFF') {
