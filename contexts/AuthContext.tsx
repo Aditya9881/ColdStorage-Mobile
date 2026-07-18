@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { api, setTokens, clearTokens } from '@/lib/api-client';
+import { api, setTokens, clearTokens, API_BASE } from '@/lib/api-client';
 import { storage } from '@/lib/storage';
 import { Platform } from 'react-native';
 
@@ -33,11 +33,8 @@ interface AuthContextType extends AuthState {
   verifyOtp: (phone: string, otp: string, purpose?: 'LOGIN' | 'REGISTER') => Promise<any>;
 }
 
-const API_BASE = __DEV__
-  ? Platform.OS === 'android'
-    ? 'http://10.0.2.2:4000/api/v1'
-    : 'http://localhost:4000/api/v1'
-  : 'https://api.coldstorage.in/api/v1';
+
+// API_BASE is now imported from '@/lib/api-client'
 
 interface RegisterData {
   fullName: string;

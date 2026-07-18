@@ -1,24 +1,51 @@
 /**
- * SheetKosh — Owner Dashboard
+ * ColdStorage — Owner Dashboard
  *
- * Overview of facility stats:
- *  - Today's bookings count (pending, confirmed, arrived)
- *  - Facility capacity utilization
- *  - Quick action cards
+ * Premium owner dashboard with:
+ *  - Animated header with facility info
+ *  - Live stats (bookings, capacity, revenue)
+ *  - Quick action grid
  *  - Recent booking activity feed
+ *  - Capacity utilization ring
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, RefreshControl,
-  TouchableOpacity, Platform, ActivityIndicator,
+  TouchableOpacity, Platform, ActivityIndicator, Animated, Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api-client';
-import { Shadows, Gradients, BorderRadius, FontFamily } from '@/constants/Colors';
-import { hapticLight } from '@/lib/haptics';
+import { hapticLight, hapticSuccess } from '@/lib/haptics';
+
+const { width: SCREEN_W } = Dimensions.get('window');
+
+// ── Premium Color System ──
+const C = {
+  bg: '#F4F3F9',
+  surface: '#FFFFFF',
+  primary: '#6D28D9',       // Vivid violet
+  primaryLight: '#8B5CF6',
+  primarySoft: '#EDE9FE',
+  primaryGlow: 'rgba(109,40,217,0.08)',
+  accent: '#06B6D4',        // Cyan accent
+  accentSoft: '#ECFEFF',
+  success: '#059669',
+  successSoft: '#D1FAE5',
+  warning: '#D97706',
+  warningSoft: '#FEF3C7',
+  danger: '#DC2626',
+  dangerSoft: '#FEE2E2',
+  blue: '#2563EB',
+  blueSoft: '#DBEAFE',
+  ink: '#0F172A',
+  muted: '#64748B',
+  subtle: '#94A3B8',
+  border: '#E2E8F0',
+  divider: '#F1F5F9',
+};
 
 interface FacilityInfo {
   id: string;
@@ -26,44 +53,92 @@ interface FacilityInfo {
   city: string;
   state: string;
   totalCapacityMt: number;
+  usedCapacityMt: number;
   status: string;
+  chamberCount?: number;
+}
+
+interface DashStats {
+  pendingBookings: number;
+  confirmedBookings: number;
+  todayArrivals: number;
+  storedBookings: number;
+  totalBookings: number;
+  totalLots: number;
+  activeLots: number;
 }
 
 export default function OwnerDashboardScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const [facility, setFacility] = useState<FacilityInfo | null>(null);
-  const [stats, setStats] = useState({
-    pendingBookings: 0,
-    confirmedBookings: 0,
-    todayArrivals: 0,
-    storedBookings: 0,
-    totalBookings: 0,
+  const [stats, setStats] = useState<DashStats>({
+    pendingBookings: 0, confirmedBookings: 0, todayArrivals: 0,
+    storedBookings: 0, totalBookings: 0, totalLots: 0, activeLots: 0,
   });
   const [recentBookings, setRecentBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Animations
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+
+  const animateIn = () => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
+    ]).start();
+  };
+
   const fetchData = useCallback(async () => {
     try {
-      // Get owner's facility
+      // 1. Get owner's facility
       const facRes = await api.get<any>('/facilities?ownerId=me&limit=1');
       if (facRes.success && facRes.data?.facilities?.[0]) {
         const fac = facRes.data.facilities[0];
-        setFacility(fac);
+        setFacility({
+          id: fac.id,
+          name: fac.name,
+          city: fac.city,
+          state: fac.state,
+          totalCapacityMt: fac.totalCapacityMt || 0,
+          usedCapacityMt: fac.usedCapacityMt || 0,
+          status: fac.status,
+          chamberCount: fac._count?.chambers || fac.chambers?.length || 0,
+        });
 
-        // Get bookings for this facility
-        const bookRes = await api.get<any>(`/bookings/facility/${fac.id}?limit=20`);
-        if (bookRes.success && bookRes.data) {
-          const all = bookRes.data.bookings || [];
-          setRecentBookings(all.slice(0, 5));
-          setStats({
-            pendingBookings: all.filter((b: any) => b.status === 'PENDING').length,
-            confirmedBookings: all.filter((b: any) => b.status === 'CONFIRMED').length,
-            todayArrivals: all.filter((b: any) => b.status === 'ARRIVED' || b.status === 'WEIGHING').length,
-            storedBookings: all.filter((b: any) => b.status === 'STORED').length,
-            totalBookings: bookRes.data.total || 0,
-          });
+        // 2. Get bookings via /facility/mine (correct endpoint)
+        try {
+          const bookRes = await api.get<any>('/bookings/facility/mine?limit=30');
+          if (bookRes.success && bookRes.data) {
+            const all = bookRes.data.bookings || [];
+            setRecentBookings(all.slice(0, 6));
+            setStats(prev => ({
+              ...prev,
+              pendingBookings: all.filter((b: any) => b.status === 'PENDING').length,
+              confirmedBookings: all.filter((b: any) => b.status === 'CONFIRMED').length,
+              todayArrivals: all.filter((b: any) => b.status === 'ARRIVED' || b.status === 'WEIGHING').length,
+              storedBookings: all.filter((b: any) => b.status === 'STORED').length,
+              totalBookings: bookRes.data.total || 0,
+            }));
+          }
+        } catch (e) {
+          console.warn('[Dashboard] Bookings fetch:', e);
+        }
+
+        // 3. Get inventory stats
+        try {
+          const invRes = await api.get<any>(`/inventory/lots?facilityId=${fac.id}&limit=1`);
+          if (invRes.success && invRes.data) {
+            setStats(prev => ({
+              ...prev,
+              totalLots: invRes.data.total || 0,
+              activeLots: invRes.data.activeLots || invRes.data.total || 0,
+            }));
+          }
+        } catch (e) {
+          console.warn('[Dashboard] Inventory fetch:', e);
         }
       }
     } catch (err) {
@@ -71,213 +146,461 @@ export default function OwnerDashboardScreen() {
     } finally {
       setLoading(false);
       setRefreshing(false);
+      animateIn();
     }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const statCards = [
-    { label: 'Pending', value: stats.pendingBookings, icon: 'hourglass-outline', color: '#F59E0B', bg: '#FEF3C7' },
-    { label: 'Confirmed', value: stats.confirmedBookings, icon: 'checkmark-circle-outline', color: '#059669', bg: '#D1FAE5' },
-    { label: 'At Facility', value: stats.todayArrivals, icon: 'location-outline', color: '#3B82F6', bg: '#DBEAFE' },
-    { label: 'Stored', value: stats.storedBookings, icon: 'cube-outline', color: '#7C3AED', bg: '#EDE9FE' },
+  const capacityPercent = facility
+    ? Math.min(100, Math.round(((facility.usedCapacityMt || 0) / Math.max(1, facility.totalCapacityMt)) * 100))
+    : 0;
+
+  const getTimeGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  };
+
+  const STATUS_STYLE: Record<string, { bg: string; text: string; icon: string }> = {
+    PENDING:    { bg: C.warningSoft, text: C.warning, icon: 'time-outline' },
+    CONFIRMED:  { bg: C.successSoft, text: C.success, icon: 'checkmark-circle-outline' },
+    ARRIVED:    { bg: C.blueSoft,    text: C.blue,    icon: 'location-outline' },
+    WEIGHING:   { bg: '#EDE9FE',     text: C.primary, icon: 'scale-outline' },
+    STORED:     { bg: C.successSoft, text: '#047857', icon: 'cube-outline' },
+    DISPATCH_REQUESTED: { bg: '#FFEDD5', text: '#EA580C', icon: 'arrow-up-circle-outline' },
+    DISPATCHED: { bg: C.accentSoft,  text: '#0E7490', icon: 'car-outline' },
+    COMPLETED:  { bg: C.successSoft, text: C.success, icon: 'trophy-outline' },
+    CANCELLED:  { bg: C.dangerSoft,  text: C.danger,  icon: 'close-circle-outline' },
+    REJECTED:   { bg: C.dangerSoft,  text: C.danger,  icon: 'ban-outline' },
+  };
+
+  const quickActions = [
+    { label: 'Scan QR', icon: 'qr-code', gradient: ['#6D28D9', '#A78BFA'] as const, route: '/(owner)/scan' },
+    { label: 'Bookings', icon: 'calendar', gradient: ['#059669', '#34D399'] as const, route: '/(owner)/bookings' },
+    { label: 'Inventory', icon: 'cube', gradient: ['#2563EB', '#60A5FA'] as const, route: '/(tabs)/inventory' },
+    { label: 'Notifications', icon: 'notifications', gradient: ['#D97706', '#FBBF24'] as const, route: '/notifications' },
   ];
 
-  const STATUS_COLOR: Record<string, string> = {
-    PENDING: '#F59E0B', CONFIRMED: '#059669', ARRIVED: '#3B82F6',
-    WEIGHING: '#8B5CF6', STORED: '#047857', DISPATCH_REQUESTED: '#EA580C',
-    DISPATCHED: '#0891B2', COMPLETED: '#10B981', CANCELLED: '#EF4444', REJECTED: '#EF4444',
-  };
+  if (loading) {
+    return (
+      <View style={[styles.screen, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={C.primary} />
+        <Text style={{ marginTop: 12, color: C.muted, fontSize: 14, fontWeight: '500' }}>Loading dashboard...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.screen}>
-      {/* Header */}
-      <LinearGradient colors={Gradients.meshViolet as any} style={styles.header}>
-        <View style={styles.grainOverlay} />
-        <View style={{ flex: 1 }}>
-          <Text style={styles.greeting}>Welcome back,</Text>
-          <Text style={styles.userName}>{user?.fullName || 'Owner'}</Text>
+      {/* ── Premium Header ── */}
+      <LinearGradient
+        colors={['#4C1D95', '#6D28D9', '#7C3AED']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.header}
+      >
+        {/* Decorative circles */}
+        <View style={styles.headerDecor1} />
+        <View style={styles.headerDecor2} />
+
+        <View style={styles.headerContent}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.greeting}>{getTimeGreeting()},</Text>
+            <Text style={styles.userName} numberOfLines={1}>{user?.fullName || 'Owner'}</Text>
+            {facility && (
+              <View style={styles.facilityChip}>
+                <Ionicons name="business" size={11} color="rgba(255,255,255,0.9)" />
+                <Text style={styles.facilityChipText}>{facility.name}</Text>
+                <View style={[styles.statusDot, { backgroundColor: facility.status === 'ACTIVE' ? '#34D399' : '#FBBF24' }]} />
+              </View>
+            )}
+          </View>
+          <TouchableOpacity
+            style={styles.notifBtn}
+            onPress={() => { router.push('/notifications'); hapticLight(); }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="notifications" size={20} color="#FFF" />
+            {stats.pendingBookings > 0 && (
+              <View style={styles.notifBadge}>
+                <Text style={styles.notifBadgeText}>{stats.pendingBookings > 9 ? '9+' : stats.pendingBookings}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          style={styles.notifBtn}
-          onPress={() => { router.push('/notifications'); hapticLight(); }}
-        >
-          <Ionicons name="notifications-outline" size={22} color="#FFF" />
-        </TouchableOpacity>
       </LinearGradient>
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} tintColor="#7C3AED" />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => { setRefreshing(true); fetchData(); }}
+            tintColor={C.primary}
+            colors={[C.primary]}
+          />
+        }
       >
-        {/* Facility Badge */}
-        {facility && (
-          <View style={styles.facilityBadge}>
-            <View style={styles.facilityIcon}>
-              <Ionicons name="business" size={20} color="#7C3AED" />
+        <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+
+          {/* ── Capacity Card ── */}
+          {facility && (
+            <View style={styles.capacityCard}>
+              <LinearGradient
+                colors={['#F5F3FF', '#EDE9FE']}
+                style={styles.capacityGradient}
+              >
+                <View style={styles.capacityTop}>
+                  <View>
+                    <Text style={styles.capacityTitle}>Storage Capacity</Text>
+                    <Text style={styles.capacitySubtitle}>
+                      {facility.usedCapacityMt || 0} / {facility.totalCapacityMt} MT used
+                    </Text>
+                  </View>
+                  <View style={styles.capacityRing}>
+                    <Text style={styles.capacityPercent}>{capacityPercent}%</Text>
+                  </View>
+                </View>
+                {/* Progress bar */}
+                <View style={styles.progressTrack}>
+                  <LinearGradient
+                    colors={
+                      capacityPercent > 85
+                        ? ['#DC2626', '#EF4444']
+                        : capacityPercent > 60
+                        ? ['#D97706', '#F59E0B']
+                        : ['#059669', '#34D399']
+                    }
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[styles.progressFill, { width: `${Math.max(3, capacityPercent)}%` as any }]}
+                  />
+                </View>
+                <View style={styles.capacityMeta}>
+                  <View style={styles.capacityMetaItem}>
+                    <Ionicons name="layers-outline" size={14} color={C.primary} />
+                    <Text style={styles.capacityMetaText}>{facility.chamberCount || 0} Chambers</Text>
+                  </View>
+                  <View style={styles.capacityMetaItem}>
+                    <Ionicons name="cube-outline" size={14} color={C.primary} />
+                    <Text style={styles.capacityMetaText}>{stats.totalLots} Active Lots</Text>
+                  </View>
+                </View>
+              </LinearGradient>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.facilityName}>{facility.name}</Text>
-              <Text style={styles.facilityLocation}>{facility.city}, {facility.state}</Text>
-            </View>
-            <View style={[styles.statusPill, { backgroundColor: facility.status === 'ACTIVE' ? '#D1FAE5' : '#FEF3C7' }]}>
-              <Text style={{ fontSize: 10, fontWeight: '700', color: facility.status === 'ACTIVE' ? '#059669' : '#D97706' }}>
-                {facility.status}
+          )}
+
+          {/* ── Stats Grid ── */}
+          <Text style={styles.sectionTitle}>Booking Overview</Text>
+          <View style={styles.statsGrid}>
+            {[
+              { label: 'Pending', value: stats.pendingBookings, icon: 'time', color: C.warning, bg: C.warningSoft },
+              { label: 'Confirmed', value: stats.confirmedBookings, icon: 'checkmark-circle', color: C.success, bg: C.successSoft },
+              { label: 'At Facility', value: stats.todayArrivals, icon: 'location', color: C.blue, bg: C.blueSoft },
+              { label: 'Stored', value: stats.storedBookings, icon: 'cube', color: C.primary, bg: C.primarySoft },
+            ].map((s, i) => (
+              <TouchableOpacity
+                key={s.label}
+                style={styles.statCard}
+                onPress={() => { router.push('/(owner)/bookings'); hapticLight(); }}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.statIconWrap, { backgroundColor: s.bg }]}>
+                  <Ionicons name={s.icon as any} size={18} color={s.color} />
+                </View>
+                <Text style={styles.statValue}>{s.value}</Text>
+                <Text style={styles.statLabel}>{s.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* ── Quick Actions ── */}
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <View style={styles.actionsGrid}>
+            {quickActions.map(a => (
+              <TouchableOpacity
+                key={a.label}
+                style={styles.actionCard}
+                onPress={() => { router.push(a.route as any); hapticLight(); }}
+                activeOpacity={0.7}
+              >
+                <LinearGradient
+                  colors={a.gradient as any}
+                  style={styles.actionIcon}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <Ionicons name={a.icon as any} size={22} color="#FFF" />
+                </LinearGradient>
+                <Text style={styles.actionLabel}>{a.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* ── Recent Bookings ── */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Recent Activity</Text>
+            {recentBookings.length > 0 && (
+              <TouchableOpacity onPress={() => { router.push('/(owner)/bookings'); hapticLight(); }}>
+                <Text style={styles.seeAll}>See all →</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {recentBookings.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <View style={styles.emptyIconWrap}>
+                <Ionicons name="calendar-outline" size={36} color={C.subtle} />
+              </View>
+              <Text style={styles.emptyTitle}>No bookings yet</Text>
+              <Text style={styles.emptySubtext}>
+                Bookings from farmers will appear here once they start reserving storage.
               </Text>
             </View>
-          </View>
-        )}
+          ) : (
+            recentBookings.map((b, idx) => {
+              const st = STATUS_STYLE[b.status] || { bg: '#F1F5F9', text: C.muted, icon: 'ellipsis-horizontal' };
+              return (
+                <TouchableOpacity
+                  key={b.id}
+                  style={[styles.bookingCard, idx === recentBookings.length - 1 && { marginBottom: 8 }]}
+                  onPress={() => { router.push(`/booking/${b.id}` as any); hapticLight(); }}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.bookingIconWrap, { backgroundColor: st.bg }]}>
+                    <Ionicons name={st.icon as any} size={18} color={st.text} />
+                  </View>
+                  <View style={styles.bookingInfo}>
+                    <Text style={styles.bookingNumber}>#{b.bookingNumber}</Text>
+                    <Text style={styles.bookingMeta} numberOfLines={1}>
+                      {b.farmer?.fullName || 'Farmer'} • {b.commodityName || 'Commodity'} • {b.estimatedWeightKg || 0} Kg
+                    </Text>
+                  </View>
+                  <View style={styles.bookingRight}>
+                    <View style={[styles.bookingStatusPill, { backgroundColor: st.bg }]}>
+                      <Text style={[styles.bookingStatusText, { color: st.text }]}>
+                        {b.status?.replace(/_/g, ' ')}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={14} color={C.subtle} style={{ marginTop: 4 }} />
+                  </View>
+                </TouchableOpacity>
+              );
+            })
+          )}
 
-        {/* Stats Grid */}
-        <Text style={styles.sectionTitle}>Today's Overview</Text>
-        <View style={styles.statsGrid}>
-          {statCards.map(s => (
-            <View key={s.label} style={[styles.statCard, { borderLeftColor: s.color }]}>
-              <View style={[styles.statIconBox, { backgroundColor: s.bg }]}>
-                <Ionicons name={s.icon as any} size={18} color={s.color} />
-              </View>
-              <Text style={styles.statValue}>{loading ? '-' : s.value}</Text>
-              <Text style={styles.statLabel}>{s.label}</Text>
-            </View>
-          ))}
-        </View>
-
-        {/* Quick Actions */}
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
-        <View style={styles.actionsRow}>
-          <TouchableOpacity style={styles.actionCard} onPress={() => { router.push('/(owner)/scan'); hapticLight(); }}>
-            <LinearGradient colors={['#7C3AED', '#A78BFA']} style={styles.actionGradient}>
-              <Ionicons name="qr-code-outline" size={24} color="#FFF" />
-            </LinearGradient>
-            <Text style={styles.actionLabel}>Scan QR</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionCard} onPress={() => { router.push('/(owner)/bookings'); hapticLight(); }}>
-            <View style={[styles.actionGradient, { backgroundColor: '#F0FFF4' }]}>
-              <Ionicons name="calendar-outline" size={24} color="#059669" />
-            </View>
-            <Text style={styles.actionLabel}>Bookings</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionCard} onPress={() => { router.push('/settings'); hapticLight(); }}>
-            <View style={[styles.actionGradient, { backgroundColor: '#F9FAFB' }]}>
-              <Ionicons name="settings-outline" size={24} color="#6B7280" />
-            </View>
-            <Text style={styles.actionLabel}>Settings</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Recent Bookings */}
-        <Text style={styles.sectionTitle}>Recent Bookings</Text>
-        {loading ? (
-          <ActivityIndicator color="#7C3AED" style={{ marginVertical: 20 }} />
-        ) : recentBookings.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Ionicons name="calendar-outline" size={32} color="#D1D5DB" />
-            <Text style={styles.emptyText}>No bookings yet</Text>
-          </View>
-        ) : (
-          recentBookings.map(b => (
-            <TouchableOpacity
-              key={b.id}
-              style={styles.bookingRow}
-              onPress={() => { router.push(`/booking/${b.id}` as any); hapticLight(); }}
-            >
-              <View style={[styles.bookingDot, { backgroundColor: STATUS_COLOR[b.status] || '#9CA3AF' }]} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.bookingTitle}>#{b.bookingNumber} • {b.commodityName}</Text>
-                <Text style={styles.bookingMeta}>
-                  {b.farmer?.fullName} • {b.estimatedWeightKg} Kg
-                </Text>
-              </View>
-              <Text style={[styles.bookingStatus, { color: STATUS_COLOR[b.status] || '#9CA3AF' }]}>
-                {b.status.replace(/_/g, ' ')}
-              </Text>
-              <Ionicons name="chevron-forward" size={14} color="#D1D5DB" />
-            </TouchableOpacity>
-          ))
-        )}
-
-        <View style={{ height: 30 }} />
+          <View style={{ height: 40 }} />
+        </Animated.View>
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#F8F7FC' },
+  screen: { flex: 1, backgroundColor: C.bg },
+
+  // ── Header ──
   header: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingTop: Platform.OS === 'ios' ? 56 : 16, paddingBottom: 20, paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'ios' ? 58 : 20,
+    paddingBottom: 24,
+    paddingHorizontal: 20,
+    overflow: 'hidden',
   },
-  grainOverlay: {
-    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.03)',
+  headerDecor1: {
+    position: 'absolute', top: -40, right: -40,
+    width: 160, height: 160, borderRadius: 80,
+    backgroundColor: 'rgba(255,255,255,0.06)',
   },
-  greeting: { fontSize: 13, color: 'rgba(255,255,255,0.7)' },
-  userName: { fontSize: 22, fontWeight: '800', color: '#FFF' },
+  headerDecor2: {
+    position: 'absolute', bottom: -30, left: -20,
+    width: 120, height: 120, borderRadius: 60,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  headerContent: {
+    flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between',
+  },
+  greeting: {
+    fontSize: 14, color: 'rgba(255,255,255,0.7)', fontWeight: '500',
+  },
+  userName: {
+    fontSize: 24, fontWeight: '800', color: '#FFF', marginTop: 2,
+    letterSpacing: -0.3,
+  },
+  facilityChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    paddingHorizontal: 10, paddingVertical: 5,
+    borderRadius: 20, marginTop: 10, alignSelf: 'flex-start',
+  },
+  facilityChipText: {
+    fontSize: 12, color: 'rgba(255,255,255,0.9)', fontWeight: '600',
+  },
+  statusDot: {
+    width: 7, height: 7, borderRadius: 4,
+  },
   notifBtn: {
-    width: 40, height: 40, borderRadius: 12,
+    width: 44, height: 44, borderRadius: 14,
     backgroundColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center', justifyContent: 'center',
+    marginTop: 4,
   },
-  scrollContent: { padding: 20 },
-
-  // Facility badge
-  facilityBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#FFF', borderRadius: 18, padding: 16,
-    marginBottom: 20, ...Shadows.glass,
-    borderWidth: 1, borderColor: 'rgba(124, 58, 237, 0.06)',
+  notifBadge: {
+    position: 'absolute', top: -2, right: -2,
+    backgroundColor: '#EF4444', borderRadius: 10,
+    minWidth: 18, height: 18,
+    alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2, borderColor: '#6D28D9',
   },
-  facilityIcon: {
-    width: 40, height: 40, borderRadius: 12,
-    backgroundColor: '#F5F3FF', alignItems: 'center', justifyContent: 'center',
+  notifBadgeText: { fontSize: 10, fontWeight: '800', color: '#FFF' },
+
+  scrollContent: { padding: 20, paddingTop: 16 },
+
+  // ── Capacity Card ──
+  capacityCard: {
+    borderRadius: 20, overflow: 'hidden', marginBottom: 24,
+    backgroundColor: C.surface,
+    shadowColor: '#6D28D9', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08, shadowRadius: 12, elevation: 4,
   },
-  facilityName: { fontSize: 15, fontWeight: '700', color: '#1A1A2E' },
-  facilityLocation: { fontSize: 12, color: '#6B7280', marginTop: 2 },
-  statusPill: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  capacityGradient: {
+    padding: 20,
+  },
+  capacityTop: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    marginBottom: 16,
+  },
+  capacityTitle: {
+    fontSize: 16, fontWeight: '700', color: C.ink,
+  },
+  capacitySubtitle: {
+    fontSize: 13, color: C.muted, marginTop: 3, fontWeight: '500',
+  },
+  capacityRing: {
+    width: 52, height: 52, borderRadius: 26,
+    borderWidth: 3, borderColor: C.primary,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(109,40,217,0.06)',
+  },
+  capacityPercent: {
+    fontSize: 15, fontWeight: '800', color: C.primary,
+  },
+  progressTrack: {
+    height: 8, backgroundColor: 'rgba(109,40,217,0.1)',
+    borderRadius: 4, overflow: 'hidden',
+    marginBottom: 14,
+  },
+  progressFill: {
+    height: 8, borderRadius: 4,
+  },
+  capacityMeta: {
+    flexDirection: 'row', gap: 20,
+  },
+  capacityMetaItem: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+  },
+  capacityMetaText: {
+    fontSize: 12, color: C.muted, fontWeight: '600',
+  },
 
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A2E', marginBottom: 12 },
+  // ── Section ──
+  sectionTitle: {
+    fontSize: 17, fontWeight: '700', color: C.ink, marginBottom: 14,
+    letterSpacing: -0.2,
+  },
+  sectionHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    marginBottom: 14,
+  },
+  seeAll: {
+    fontSize: 13, fontWeight: '600', color: C.primary,
+    marginBottom: 14,
+  },
 
-  // Stats
-  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
+  // ── Stats ──
+  statsGrid: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 28,
+  },
   statCard: {
-    flex: 1, minWidth: '45%', backgroundColor: '#FFF', borderRadius: 18, padding: 16,
-    ...Shadows.glass, borderLeftWidth: 3,
-    borderWidth: 1, borderColor: 'rgba(124, 58, 237, 0.06)',
+    width: (SCREEN_W - 50) / 2,
+    backgroundColor: C.surface, borderRadius: 18, padding: 16,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,
   },
-  statIconBox: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  statValue: { fontSize: 24, fontWeight: '800', color: '#1A1A2E' },
-  statLabel: { fontSize: 11, color: '#9CA3AF', fontWeight: '600', marginTop: 2 },
+  statIconWrap: {
+    width: 36, height: 36, borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 10,
+  },
+  statValue: {
+    fontSize: 28, fontWeight: '800', color: C.ink,
+    letterSpacing: -0.5,
+  },
+  statLabel: {
+    fontSize: 12, color: C.muted, fontWeight: '600', marginTop: 2,
+  },
 
-  // Actions
-  actionsRow: { flexDirection: 'row', gap: 12, marginBottom: 24 },
-  actionCard: { flex: 1, alignItems: 'center', gap: 8 },
-  actionGradient: {
-    width: 56, height: 56, borderRadius: 16,
+  // ── Actions ──
+  actionsGrid: {
+    flexDirection: 'row', gap: 12, marginBottom: 28,
+  },
+  actionCard: {
+    flex: 1, alignItems: 'center', gap: 8,
+  },
+  actionIcon: {
+    width: 54, height: 54, borderRadius: 16,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1, shadowRadius: 6, elevation: 3,
+  },
+  actionLabel: {
+    fontSize: 12, fontWeight: '600', color: C.muted,
+  },
+
+  // ── Bookings ──
+  bookingCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: C.surface, borderRadius: 16, padding: 14,
+    marginBottom: 8,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03, shadowRadius: 6, elevation: 1,
+  },
+  bookingIconWrap: {
+    width: 40, height: 40, borderRadius: 12,
     alignItems: 'center', justifyContent: 'center',
   },
-  actionLabel: { fontSize: 12, fontWeight: '600', color: '#374151' },
-
-  // Bookings
-  bookingRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#FFF', borderRadius: 16, padding: 14, marginBottom: 8,
-    ...Shadows.glass,
-    borderWidth: 1, borderColor: 'rgba(124, 58, 237, 0.06)',
+  bookingInfo: { flex: 1 },
+  bookingNumber: { fontSize: 14, fontWeight: '700', color: C.ink },
+  bookingMeta: { fontSize: 12, color: C.muted, marginTop: 2, fontWeight: '500' },
+  bookingRight: { alignItems: 'flex-end' },
+  bookingStatusPill: {
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8,
   },
-  bookingDot: { width: 8, height: 8, borderRadius: 4 },
-  bookingTitle: { fontSize: 13, fontWeight: '700', color: '#1A1A2E' },
-  bookingMeta: { fontSize: 11, color: '#9CA3AF', marginTop: 2 },
-  bookingStatus: { fontSize: 9, fontWeight: '700', textTransform: 'uppercase', marginRight: 4 },
+  bookingStatusText: {
+    fontSize: 9, fontWeight: '700', textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
 
-  // Empty
+  // ── Empty ──
   emptyCard: {
-    alignItems: 'center', gap: 8, paddingVertical: 40,
-    backgroundColor: '#FFF', borderRadius: 18, ...Shadows.glass,
-    borderWidth: 1, borderColor: 'rgba(124, 58, 237, 0.06)',
+    alignItems: 'center', paddingVertical: 40, paddingHorizontal: 30,
+    backgroundColor: C.surface, borderRadius: 20,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,
   },
-  emptyText: { fontSize: 13, color: '#9CA3AF', fontWeight: '500' },
+  emptyIconWrap: {
+    width: 64, height: 64, borderRadius: 20,
+    backgroundColor: C.divider,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 14,
+  },
+  emptyTitle: {
+    fontSize: 16, fontWeight: '700', color: C.ink, marginBottom: 6,
+  },
+  emptySubtext: {
+    fontSize: 13, color: C.subtle, textAlign: 'center', lineHeight: 19,
+  },
 });

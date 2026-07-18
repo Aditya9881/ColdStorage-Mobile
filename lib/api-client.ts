@@ -6,8 +6,13 @@ import { Platform } from 'react-native';
 import { storage } from './storage';
 import { enqueue, generateIdempotencyKey } from './offline-queue';
 
-// Always use the deployed Render backend
-const API_BASE = 'https://coldstorage-api.onrender.com/api/v1';
+// ── API Base URL ──
+// Default: deployed Render backend (works for both Expo Go dev and production builds)
+// Override: set EXPO_PUBLIC_API_URL in .env for local backend development
+//   e.g. EXPO_PUBLIC_API_URL=http://localhost:4000/api/v1
+const CUSTOM_BASE = process.env.EXPO_PUBLIC_API_URL;
+
+export const API_BASE = CUSTOM_BASE || 'https://coldstorage-api.onrender.com/api/v1';
 
 const TOKEN_KEY = 'auth_access_token';
 const REFRESH_KEY = 'auth_refresh_token';

@@ -1,12 +1,3 @@
-/**
- * Invoice List Screen — Premium Farmer/Buyer invoice listing
- *
- * Fixed:
- * - Removes header/content gap
- * - Keeps back button icon only
- * - Uses a single FlatList for proper spacing
- * - Cleaner premium header and compact tabs
- */
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
@@ -21,7 +12,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect, Stack } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '@/lib/api-client';
 import StatusChip from '@/components/ui/StatusChip';
 import EmptyState from '@/components/ui/EmptyState';
@@ -45,21 +35,25 @@ const TABS = ['ALL', 'ISSUED', 'PAID', 'OVERDUE'] as const;
 type Tab = typeof TABS[number];
 
 const UI = {
-  bg: '#F7F5F0',
+  bg: '#F6F4EE',
   surface: '#FFFFFF',
+  surfaceAlt: '#FBF9F4',
+  surfaceSoft: '#F2EEE6',
   text: '#1B2230',
   textMuted: '#6F7785',
   textSoft: '#9AA3AF',
-  border: '#E9E4DB',
-  borderSoft: '#F1ECE4',
+  border: '#E7E1D7',
+  borderSoft: '#F0E9DF',
   forest: '#2F7654',
-  forestDeep: '#276847',
-  forestLight: '#3B8A64',
+  forestDeep: '#24563F',
+  forestSoft: '#EAF4EE',
   gold: '#D8A23C',
   goldSoft: '#FBF4E7',
   goldBorder: '#EED9A6',
   danger: '#D94B4B',
+  dangerSoft: '#FFF3F3',
   success: '#159A63',
+  successSoft: '#E9F8F1',
 };
 
 export default function InvoiceListScreen() {
@@ -101,22 +95,26 @@ export default function InvoiceListScreen() {
 
   const filtered = useMemo(() => {
     if (activeTab === 'ALL') return invoices;
-    return invoices.filter(i => i.status === activeTab);
+    return invoices.filter((i) => i.status === activeTab);
   }, [activeTab, invoices]);
 
   const counts = useMemo(() => {
     return {
       ALL: invoices.length,
-      ISSUED: invoices.filter(i => i.status === 'ISSUED').length,
-      PAID: invoices.filter(i => i.status === 'PAID').length,
-      OVERDUE: invoices.filter(i => i.status === 'OVERDUE').length,
+      ISSUED: invoices.filter((i) => i.status === 'ISSUED').length,
+      PAID: invoices.filter((i) => i.status === 'PAID').length,
+      OVERDUE: invoices.filter((i) => i.status === 'OVERDUE').length,
     };
   }, [invoices]);
 
   const totalUnpaid = useMemo(() => {
     return invoices
-      .filter(i => i.status !== 'PAID' && i.status !== 'CANCELLED')
+      .filter((i) => i.status !== 'PAID' && i.status !== 'CANCELLED')
       .reduce((sum, i) => sum + (i.totalAmount - i.paidAmount), 0);
+  }, [invoices]);
+
+  const totalPaid = useMemo(() => {
+    return invoices.reduce((sum, i) => sum + Number(i.paidAmount || 0), 0);
   }, [invoices]);
 
   const formatCurrency = (amount: number) =>
@@ -142,52 +140,98 @@ export default function InvoiceListScreen() {
 
     return (
       <TouchableOpacity
-        style={[styles.card, isOverdue && styles.cardOverdue]}
-        activeOpacity={0.84}
+        style={[
+          styles.card,
+          isOverdue && styles.cardOverdue,
+        ]}
+        activeOpacity={0.88}
         onPress={() => router.push(`/invoices/${item.id}`)}
       >
-        <View style={styles.cardHeader}>
-          <View style={styles.iconWrap}>
+        <View style={styles.cardTopRow}>
+          <View
+            style={[
+              styles.iconWrap,
+              isOverdue
+                ? styles.iconWrapDanger
+                : isSettled
+                ? styles.iconWrapSuccess
+                : styles.iconWrapDefault,
+            ]}
+          >
             <Ionicons
-              name={isOverdue ? 'alert-circle-outline' : 'receipt-outline'}
+              name={
+                isOverdue
+                  ? 'alert-circle-outline'
+                  : isSettled
+                  ? 'checkmark-done-outline'
+                  : 'receipt-outline'
+              }
               size={20}
-              color={isOverdue ? UI.danger : UI.forest}
+              color={isOverdue ? UI.danger : isSettled ? UI.success : UI.forest}
             />
           </View>
 
           <View style={styles.cardHeaderText}>
-            <Text style={styles.invoiceNumber}>{item.invoiceNumber}</Text>
+            <View style={styles.invoiceTitleRow}>
+              <Text style={styles.invoiceNumber} numberOfLines={1}>
+                {item.invoiceNumber}
+              </Text>
+              <StatusChip status={item.status} />
+            </View>
+
             <Text style={styles.facilityName} numberOfLines={1}>
               {facilityName}
             </Text>
           </View>
-
-          <StatusChip status={item.status} />
         </View>
 
-        <View style={styles.divider} />
-
-        <View style={styles.metricsRow}>
-          <View style={styles.metric}>
+        <View style={styles.metricStrip}>
+          <View style={styles.metricBox}>
             <Text style={styles.metricLabel}>Total</Text>
             <Text style={styles.metricValue}>{formatCurrency(item.totalAmount)}</Text>
           </View>
 
-          <View style={[styles.metric, styles.metricCenter]}>
-            <Text style={styles.metricLabel}>{isSettled ? 'Status' : 'Balance'}</Text>
+          <View style={styles.metricDivider} />
+
+          <View style={styles.metricBox}>
+            <Text style={styles.metricLabel}>
+              {isSettled ? 'Status' : 'Balance'}
+            </Text>
             <Text
               style={[
                 styles.metricValue,
-                { color: isSettled ? UI.success : isOverdue ? UI.danger : UI.gold },
+                isSettled
+                  ? styles.metricValueSuccess
+                  : isOverdue
+                  ? styles.metricValueDanger
+                  : styles.metricValueGold,
               ]}
             >
               {isSettled ? 'Settled' : formatCurrency(remaining)}
             </Text>
           </View>
 
-          <View style={[styles.metric, styles.metricRight]}>
+          <View style={styles.metricDivider} />
+
+          <View style={styles.metricBox}>
             <Text style={styles.metricLabel}>Date</Text>
             <Text style={styles.metricDate}>{formatDate(item.createdAt)}</Text>
+          </View>
+        </View>
+
+        <View style={styles.footerRow}>
+          <View style={styles.footerPill}>
+            <Ionicons name="calendar-outline" size={12} color={UI.textSoft} />
+            <Text style={styles.footerText}>
+              {item.dueDate ? `Due ${formatDate(item.dueDate)}` : 'No due date'}
+            </Text>
+          </View>
+
+          <View style={styles.footerPill}>
+            <Ionicons name="wallet-outline" size={12} color={UI.textSoft} />
+            <Text style={styles.footerText}>
+              Paid {formatCurrency(item.paidAmount || 0)}
+            </Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -195,61 +239,54 @@ export default function InvoiceListScreen() {
   };
 
   const Header = () => (
-    <>
-      <LinearGradient
-        colors={[UI.forestDeep, UI.forest, UI.forestLight]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}
-      >
-        <View style={styles.headerGlow} />
+    <View style={styles.headerWrap}>
+      <View style={{ height: Platform.OS === 'ios' ? 58 : 22 }} />
 
-        <View style={styles.headerRow}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            activeOpacity={0.82}
-            style={styles.backButton}
-          >
-            <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
-          </TouchableOpacity>
+      <View style={styles.topRow}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          activeOpacity={0.84}
+          style={styles.backButton}
+        >
+          <Ionicons name="chevron-back" size={20} color={UI.text} />
+        </TouchableOpacity>
 
-          <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle}>Invoices</Text>
-            <Text style={styles.headerSubtitle}>Billing overview and payment status</Text>
-          </View>
-
-          <View style={styles.rightSlot} />
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerKicker}>Billing</Text>
+          <Text style={styles.headerTitle}>Invoices</Text>
+          <Text style={styles.headerSubtitle}>Track issued, paid, and overdue bills</Text>
         </View>
 
-        <View style={styles.summaryStrip}>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>{counts.ALL}</Text>
-            <Text style={styles.summaryLabel}>TOTAL</Text>
+        <View style={styles.rightSlot} />
+      </View>
+
+      <View style={styles.summaryGrid}>
+        <View style={[styles.summaryCard, styles.summaryCardPrimary]}>
+          <Text style={styles.summaryCardLabel}>Outstanding</Text>
+          <Text style={styles.summaryCardValue}>{formatCurrency(totalUnpaid)}</Text>
+          <Text style={styles.summaryCardSub}>{counts.OVERDUE} overdue invoices</Text>
+        </View>
+
+        <View style={styles.summarySideCol}>
+          <View style={styles.summaryMiniCard}>
+            <Text style={styles.summaryMiniLabel}>Total invoices</Text>
+            <Text style={styles.summaryMiniValue}>{counts.ALL}</Text>
           </View>
 
-          <View style={styles.summaryDivider} />
-
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>{counts.OVERDUE}</Text>
-            <Text style={styles.summaryLabel}>OVERDUE</Text>
-          </View>
-
-          <View style={styles.summaryDivider} />
-
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue} numberOfLines={1}>
-              {formatCurrency(totalUnpaid)}
+          <View style={styles.summaryMiniCard}>
+            <Text style={styles.summaryMiniLabel}>Paid amount</Text>
+            <Text style={[styles.summaryMiniValue, { color: UI.success }]}>
+              {formatCurrency(totalPaid)}
             </Text>
-            <Text style={styles.summaryLabel}>OUTSTANDING</Text>
           </View>
         </View>
-      </LinearGradient>
+      </View>
 
       {totalUnpaid > 0 && (
         <View style={styles.alertBanner}>
-          <Ionicons name="alert-circle" size={18} color={UI.gold} />
+          <Ionicons name="alert-circle" size={17} color={UI.gold} />
           <Text style={styles.alertText}>
-            Outstanding: <Text style={styles.alertHighlight}>{formatCurrency(totalUnpaid)}</Text>
+            Outstanding amount <Text style={styles.alertHighlight}>{formatCurrency(totalUnpaid)}</Text>
           </Text>
         </View>
       )}
@@ -277,7 +314,12 @@ export default function InvoiceListScreen() {
 
                 {count > 0 && (
                   <View style={[styles.tabBadge, isActive && styles.tabBadgeActive]}>
-                    <Text style={[styles.tabBadgeText, isActive && styles.tabBadgeTextActive]}>
+                    <Text
+                      style={[
+                        styles.tabBadgeText,
+                        isActive && styles.tabBadgeTextActive,
+                      ]}
+                    >
                       {count}
                     </Text>
                   </View>
@@ -287,7 +329,13 @@ export default function InvoiceListScreen() {
           }}
         />
       </View>
-    </>
+
+      <View style={styles.resultsRow}>
+        <Text style={styles.resultsText}>
+          {filtered.length} invoice{filtered.length !== 1 ? 's' : ''}
+        </Text>
+      </View>
+    </View>
   );
 
   if (loading) {
@@ -295,15 +343,13 @@ export default function InvoiceListScreen() {
       <>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.loadingWrap}>
-          <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-          <LinearGradient
-            colors={[UI.forestDeep, UI.forest, UI.forestLight]}
-            style={styles.loadingHero}
-          >
-            <ActivityIndicator size="large" color="#FFFFFF" />
-            <Text style={styles.loadingTitle}>Loading invoices...</Text>
-            <Text style={styles.loadingSub}>Fetching your latest billing records</Text>
-          </LinearGradient>
+          <StatusBar barStyle="dark-content" backgroundColor={UI.bg} />
+          <View style={styles.loadingOrb}>
+            <Ionicons name="receipt-outline" size={28} color={UI.forest} />
+          </View>
+          <ActivityIndicator size="small" color={UI.forest} />
+          <Text style={styles.loadingTitle}>Loading invoices</Text>
+          <Text style={styles.loadingSub}>Fetching your latest billing records</Text>
         </View>
       </>
     );
@@ -313,7 +359,7 @@ export default function InvoiceListScreen() {
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.container}>
-        <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+        <StatusBar barStyle="dark-content" backgroundColor={UI.bg} />
 
         <FlatList
           data={filtered}
@@ -357,69 +403,61 @@ const styles = StyleSheet.create({
   loadingWrap: {
     flex: 1,
     backgroundColor: UI.bg,
-  },
-
-  loadingHero: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
 
+  loadingOrb: {
+    width: 82,
+    height: 82,
+    borderRadius: 28,
+    backgroundColor: UI.forestSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 18,
+  },
+
   loadingTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: UI.text,
     marginTop: 16,
   },
 
   loadingSub: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.66)',
+    color: UI.textMuted,
     marginTop: 6,
   },
 
-  header: {
-    paddingTop: Platform.OS === 'ios' ? 62 : 22,
-    paddingBottom: 16,
+  headerWrap: {
+    paddingBottom: 8,
+    backgroundColor: UI.bg,
+  },
+
+  topRow: {
     paddingHorizontal: 16,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    overflow: 'hidden',
-  },
-
-  headerGlow: {
-    position: 'absolute',
-    right: -36,
-    top: -18,
-    width: 170,
-    height: 170,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-  },
-
-  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 14,
   },
 
   backButton: {
     width: 42,
     height: 42,
-    borderRadius: 999,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
+    borderColor: UI.border,
   },
 
   headerCenter: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: 12,
   },
 
   rightSlot: {
@@ -427,57 +465,99 @@ const styles = StyleSheet.create({
     height: 42,
   },
 
-  headerTitle: {
-    fontSize: 19,
+  headerKicker: {
+    fontSize: 11,
     fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: -0.2,
+    color: UI.textSoft,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+
+  headerTitle: {
+    marginTop: 3,
+    fontSize: 24,
+    fontWeight: '800',
+    color: UI.text,
+    letterSpacing: -0.3,
   },
 
   headerSubtitle: {
     marginTop: 4,
     fontSize: 12,
     fontWeight: '500',
-    color: 'rgba(255,255,255,0.70)',
+    color: UI.textMuted,
     textAlign: 'center',
   },
 
-  summaryStrip: {
+  summaryGrid: {
+    marginTop: 18,
+    paddingHorizontal: 16,
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.10)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 20,
-    paddingVertical: 14,
-    paddingHorizontal: 10,
+    gap: 10,
   },
 
-  summaryItem: {
+  summaryCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+
+  summaryCardPrimary: {
+    flex: 1.15,
+    backgroundColor: UI.forest,
+    borderColor: UI.forest,
+    padding: 16,
+  },
+
+  summaryCardLabel: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.72)',
+    fontWeight: '600',
+  },
+
+  summaryCardValue: {
+    marginTop: 6,
+    fontSize: 27,
+    lineHeight: 31,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.4,
+  },
+
+  summaryCardSub: {
+    marginTop: 5,
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.72)',
+  },
+
+  summarySideCol: {
+    flex: 0.85,
+    gap: 10,
+  },
+
+  summaryMiniCard: {
     flex: 1,
-    alignItems: 'center',
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: UI.border,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
     justifyContent: 'center',
   },
 
-  summaryDivider: {
-    width: 1,
-    height: 34,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+  summaryMiniLabel: {
+    fontSize: 11,
+    color: UI.textSoft,
+    fontWeight: '600',
   },
 
-  summaryValue: {
+  summaryMiniValue: {
+    marginTop: 6,
     fontSize: 17,
+    color: UI.text,
     fontWeight: '800',
-    color: '#FFFFFF',
-    textAlign: 'center',
-  },
-
-  summaryLabel: {
-    marginTop: 4,
-    fontSize: 10,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.66)',
-    letterSpacing: 0.8,
+    letterSpacing: -0.2,
   },
 
   alertBanner: {
@@ -486,10 +566,9 @@ const styles = StyleSheet.create({
     gap: 8,
     marginHorizontal: 16,
     marginTop: 12,
-    marginBottom: 8,
     paddingHorizontal: 14,
-    paddingVertical: 14,
-    borderRadius: 18,
+    paddingVertical: 13,
+    borderRadius: 16,
     backgroundColor: UI.goldSoft,
     borderWidth: 1,
     borderColor: UI.goldBorder,
@@ -497,7 +576,7 @@ const styles = StyleSheet.create({
 
   alertText: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 13,
     color: UI.text,
     fontWeight: '500',
   },
@@ -508,19 +587,17 @@ const styles = StyleSheet.create({
   },
 
   tabsOuter: {
-    marginTop: 2,
-    marginBottom: 4,
+    marginTop: 12,
   },
 
   tabsRow: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
     gap: 10,
   },
 
   tab: {
-    height: 40,
-    paddingHorizontal: 16,
+    height: 38,
+    paddingHorizontal: 15,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: UI.border,
@@ -537,8 +614,8 @@ const styles = StyleSheet.create({
   },
 
   tabText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
     color: UI.textMuted,
   },
 
@@ -552,7 +629,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 999,
     alignItems: 'center',
-    backgroundColor: '#EEF3EF',
+    backgroundColor: UI.forestSoft,
   },
 
   tabBadgeActive: {
@@ -569,8 +646,20 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 
+  resultsRow: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+
+  resultsText: {
+    fontSize: 11,
+    color: UI.textSoft,
+    fontWeight: '600',
+  },
+
   listContent: {
-    paddingBottom: 40,
+    paddingBottom: 36,
   },
 
   card: {
@@ -578,46 +667,66 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: UI.border,
     borderRadius: 22,
-    padding: 16,
+    padding: 14,
     marginHorizontal: 16,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowColor: '#1D1D1D',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
     shadowRadius: 10,
     elevation: 2,
   },
 
   cardOverdue: {
-    borderColor: '#F4CACA',
-    backgroundColor: '#FFFCFC',
+    borderColor: '#F2C9C9',
+    backgroundColor: '#FFFDFD',
   },
 
-  cardHeader: {
+  cardTopRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
   },
 
   iconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: 46,
+    height: 46,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#EEF6F1',
+  },
+
+  iconWrapDefault: {
+    backgroundColor: UI.forestSoft,
+  },
+
+  iconWrapSuccess: {
+    backgroundColor: UI.successSoft,
+  },
+
+  iconWrapDanger: {
+    backgroundColor: UI.dangerSoft,
   },
 
   cardHeaderText: {
     flex: 1,
-    paddingRight: 8,
+    minWidth: 0,
+  },
+
+  invoiceTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 8,
   },
 
   invoiceNumber: {
+    flex: 1,
     fontSize: 16,
     fontWeight: '800',
     color: UI.forest,
     letterSpacing: -0.2,
+    paddingTop: 1,
   },
 
   facilityName: {
@@ -626,51 +735,92 @@ const styles = StyleSheet.create({
     color: UI.textMuted,
   },
 
-  divider: {
-    height: 1,
-    backgroundColor: UI.borderSoft,
-    marginVertical: 14,
-  },
-
-  metricsRow: {
+  metricStrip: {
+    marginTop: 14,
+    borderRadius: 16,
+    backgroundColor: UI.surfaceAlt,
+    borderWidth: 1,
+    borderColor: UI.borderSoft,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-  },
-
-  metric: {
-    flex: 1,
-  },
-
-  metricCenter: {
     alignItems: 'center',
   },
 
-  metricRight: {
-    alignItems: 'flex-end',
+  metricBox: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+
+  metricDivider: {
+    width: 1,
+    height: 34,
+    backgroundColor: UI.border,
   },
 
   metricLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: UI.textSoft,
-    marginBottom: 4,
-    fontWeight: '500',
+    marginBottom: 5,
+    fontWeight: '600',
   },
 
   metricValue: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     color: UI.text,
+    textAlign: 'center',
+  },
+
+  metricValueGold: {
+    color: UI.gold,
+  },
+
+  metricValueDanger: {
+    color: UI.danger,
+  },
+
+  metricValueSuccess: {
+    color: UI.success,
   },
 
   metricDate: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 13,
+    fontWeight: '600',
     color: UI.textMuted,
+    textAlign: 'center',
+  },
+
+  footerRow: {
+    marginTop: 12,
+    flexDirection: 'row',
+    gap: 8,
+  },
+
+  footerPill: {
+    flex: 1,
+    minHeight: 34,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: UI.borderSoft,
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+
+  footerText: {
+    flex: 1,
+    fontSize: 11,
+    color: UI.textMuted,
+    fontWeight: '600',
   },
 
   emptyWrap: {
-    paddingTop: 70,
+    paddingTop: 68,
     paddingHorizontal: 16,
   },
 });

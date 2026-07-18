@@ -1,12 +1,3 @@
-/**
- * Invoice Detail Screen — Premium full invoice view with line items + payment action
- *
- * Updated:
- * - Back button matches invoice list screen (icon only)
- * - Header layout aligned with list screen
- * - Cleaner centered title/subtitle
- * - Better hero spacing and balance
- */
 import React, { useState, useCallback } from 'react';
 import {
   View,
@@ -22,7 +13,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter, useFocusEffect, Stack } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '@/lib/api-client';
 import StatusChip from '@/components/ui/StatusChip';
 
@@ -60,17 +50,19 @@ interface InvoiceDetail {
 const UI = {
   bg: '#F7F5F0',
   surface: '#FFFFFF',
+  surfaceAlt: '#FCFAF6',
+  surfaceSoft: '#F4EFE7',
   text: '#1B2230',
   textMuted: '#6F7785',
   textSoft: '#9AA3AF',
   border: '#E9E4DB',
   borderSoft: '#F1ECE4',
   forest: '#2F7654',
-  forestDeep: '#276847',
-  forestLight: '#3B8A64',
+  forestDeep: '#24583F',
+  forestSoft: '#EAF6EF',
   success: '#159A63',
   successSoft: '#ECFDF5',
-  warning: '#D8A23C',
+  warning: '#C78A18',
   warningSoft: '#FBF4E7',
   danger: '#D94B4B',
   dangerSoft: '#FEF2F2',
@@ -173,12 +165,13 @@ export default function InvoiceDetailScreen() {
       <>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.loadingWrap}>
-          <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-          <LinearGradient colors={[UI.forestDeep, UI.forest, UI.forestLight]} style={styles.loadingHero}>
-            <ActivityIndicator size="large" color="#FFFFFF" />
-            <Text style={styles.loadingTitle}>Loading invoice...</Text>
-            <Text style={styles.loadingSub}>Fetching invoice details</Text>
-          </LinearGradient>
+          <StatusBar barStyle="dark-content" backgroundColor={UI.bg} />
+          <View style={styles.loadingOrb}>
+            <Ionicons name="document-text-outline" size={28} color={UI.forest} />
+          </View>
+          <ActivityIndicator size="small" color={UI.forest} />
+          <Text style={styles.loadingTitle}>Loading invoice</Text>
+          <Text style={styles.loadingSub}>Fetching invoice details</Text>
         </View>
       </>
     );
@@ -189,13 +182,17 @@ export default function InvoiceDetailScreen() {
       <>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.emptyScreen}>
-          <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+          <StatusBar barStyle="dark-content" backgroundColor={UI.bg} />
           <Ionicons name="document-text-outline" size={50} color="#C8CDD3" />
           <Text style={styles.emptyTitle}>Invoice not found</Text>
           <Text style={styles.emptyText}>
             We could not load this invoice right now.
           </Text>
-          <TouchableOpacity style={styles.emptyBtn} onPress={() => router.back()} activeOpacity={0.84}>
+          <TouchableOpacity
+            style={styles.emptyBtn}
+            onPress={() => router.back()}
+            activeOpacity={0.84}
+          >
             <Text style={styles.emptyBtnText}>Go Back</Text>
           </TouchableOpacity>
         </View>
@@ -215,89 +212,104 @@ export default function InvoiceDetailScreen() {
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.container}>
-        <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+        <StatusBar barStyle="dark-content" backgroundColor={UI.bg} />
 
-        <LinearGradient
-          colors={[UI.forestDeep, UI.forest, UI.forestLight]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.header}
-        >
-          <View style={styles.headerGlow} />
+        <View style={styles.headerWrap}>
+          <View style={{ height: Platform.OS === 'ios' ? 58 : 22 }} />
 
           <View style={styles.headerRow}>
             <TouchableOpacity
               onPress={() => router.back()}
-              activeOpacity={0.82}
-              style={styles.backButton}
+              activeOpacity={0.84}
+              style={styles.iconButton}
             >
-              <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
+              <Ionicons name="chevron-back" size={20} color={UI.text} />
             </TouchableOpacity>
 
             <View style={styles.headerCenter}>
+              <Text style={styles.headerKicker}>Billing</Text>
               <Text style={styles.headerTitle}>Invoice</Text>
-              <Text style={styles.headerSubtitle}>Billing details and payment status</Text>
+              <Text style={styles.headerSubtitle}>Details and payment status</Text>
             </View>
 
             <TouchableOpacity
               onPress={handleShare}
-              activeOpacity={0.82}
+              activeOpacity={0.84}
               style={styles.iconButton}
               disabled={sharing}
             >
               {sharing ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color={UI.forest} />
               ) : (
-                <Ionicons name="share-outline" size={19} color="#FFFFFF" />
+                <Ionicons name="share-outline" size={18} color={UI.text} />
               )}
             </TouchableOpacity>
           </View>
-
-          <View style={styles.heroCard}>
-            <View style={styles.heroTop}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.heroEyebrow}>INVOICE NUMBER</Text>
-                <Text style={styles.heroNumber}>{invoice.invoiceNumber}</Text>
-              </View>
-              <StatusChip status={invoice.status} size="md" />
-            </View>
-
-            <View style={styles.heroMetaRow}>
-              <View style={styles.heroMetaBox}>
-                <Text style={styles.heroMetaLabel}>Issued</Text>
-                <Text style={styles.heroMetaValue}>{formatDate(invoice.createdAt)}</Text>
-              </View>
-
-              <View style={styles.heroMetaBox}>
-                <Text style={styles.heroMetaLabel}>Due</Text>
-                <Text style={[styles.heroMetaValue, isOverdue && { color: '#FFE08A' }]}>
-                  {formatDate(invoice.dueDate)}
-                </Text>
-              </View>
-
-              <View style={styles.heroMetaBox}>
-                <Text style={styles.heroMetaLabel}>Balance</Text>
-                <Text style={styles.heroMetaValue}>{formatCurrency(remaining)}</Text>
-              </View>
-            </View>
-          </View>
-        </LinearGradient>
+        </View>
 
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
-          <View style={styles.summaryRow}>
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryLabel}>TOTAL</Text>
-              <Text style={styles.summaryValue}>{formatCurrency(invoice.totalAmount)}</Text>
+          <View style={styles.heroCard}>
+            <View style={styles.heroTop}>
+              <View style={{ flex: 1, paddingRight: 10 }}>
+                <Text style={styles.heroEyebrow}>Invoice Number</Text>
+                <Text style={styles.heroNumber}>{invoice.invoiceNumber}</Text>
+              </View>
+              <StatusChip status={invoice.status} size="md" />
             </View>
 
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryLabel}>PAID</Text>
-              <Text style={[styles.summaryValue, { color: UI.success }]}>
-                {formatCurrency(invoice.paidAmount)}
+            <View style={styles.amountPanel}>
+              <Text style={styles.amountPanelLabel}>Balance Due</Text>
+              <Text
+                style={[
+                  styles.amountPanelValue,
+                  { color: isOverdue ? UI.danger : UI.forest },
+                ]}
+              >
+                {formatCurrency(remaining)}
               </Text>
+
+              <View style={styles.amountMetaRow}>
+                <View style={styles.amountMetaPill}>
+                  <Text style={styles.amountMetaLabel}>Issued</Text>
+                  <Text style={styles.amountMetaValue}>{formatDate(invoice.createdAt)}</Text>
+                </View>
+
+                <View
+                  style={[
+                    styles.amountMetaPill,
+                    isOverdue && { backgroundColor: UI.dangerSoft },
+                  ]}
+                >
+                  <Text style={styles.amountMetaLabel}>Due</Text>
+                  <Text
+                    style={[
+                      styles.amountMetaValue,
+                      isOverdue && { color: UI.danger },
+                    ]}
+                  >
+                    {formatDate(invoice.dueDate)}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.heroStatsRow}>
+              <View style={styles.heroStatCard}>
+                <Text style={styles.heroStatLabel}>Total</Text>
+                <Text style={styles.heroStatValue}>
+                  {formatCurrency(invoice.totalAmount)}
+                </Text>
+              </View>
+
+              <View style={styles.heroStatCard}>
+                <Text style={styles.heroStatLabel}>Paid</Text>
+                <Text style={[styles.heroStatValue, { color: UI.success }]}>
+                  {formatCurrency(invoice.paidAmount)}
+                </Text>
+              </View>
             </View>
           </View>
 
@@ -306,7 +318,9 @@ export default function InvoiceDetailScreen() {
               <Text style={styles.sectionTitle}>Facility</Text>
               <Text style={styles.primaryText}>{invoice.facility.name}</Text>
               <Text style={styles.secondaryText}>
-                {[invoice.facility.addressLine1, invoice.facility.city].filter(Boolean).join(', ') || '—'}
+                {[invoice.facility.addressLine1, invoice.facility.city]
+                  .filter(Boolean)
+                  .join(', ') || '—'}
               </Text>
             </View>
           )}
@@ -314,10 +328,12 @@ export default function InvoiceDetailScreen() {
           {invoice.depositor && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Depositor</Text>
+
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Name</Text>
                 <Text style={styles.detailValue}>{invoice.depositor.fullName}</Text>
               </View>
+
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Phone</Text>
                 <Text style={styles.detailValue}>{invoice.depositor.phone}</Text>
@@ -329,16 +345,21 @@ export default function InvoiceDetailScreen() {
             <TouchableOpacity
               style={[styles.section, styles.linkCard]}
               onPress={() => router.push(`/lots/${invoice.lot!.id}`)}
-              activeOpacity={0.82}
+              activeOpacity={0.84}
             >
               <View style={{ flex: 1 }}>
                 <Text style={styles.sectionTitle}>Linked Lot</Text>
-                <Text style={[styles.primaryText, { color: UI.forest }]}>{invoice.lot.lotNumber}</Text>
+                <Text style={[styles.primaryText, { color: UI.forest }]}>
+                  {invoice.lot.lotNumber}
+                </Text>
                 {invoice.lot.commodityName ? (
                   <Text style={styles.secondaryText}>{invoice.lot.commodityName}</Text>
                 ) : null}
               </View>
-              <Ionicons name="chevron-forward" size={18} color="#A5AFB8" />
+
+              <View style={styles.linkArrowWrap}>
+                <Ionicons name="chevron-forward" size={16} color={UI.textSoft} />
+              </View>
             </TouchableOpacity>
           )}
 
@@ -371,7 +392,7 @@ export default function InvoiceDetailScreen() {
               </View>
             ))}
 
-            <View style={styles.totalsSection}>
+            <View style={styles.totalsCard}>
               <View style={styles.totalRow}>
                 <Text style={styles.totalLabel}>Subtotal</Text>
                 <Text style={styles.totalValue}>{formatCurrency(invoice.subtotal)}</Text>
@@ -388,7 +409,9 @@ export default function InvoiceDetailScreen() {
 
               <View style={[styles.totalRow, styles.totalBreak]}>
                 <Text style={styles.grandTotalLabel}>Total</Text>
-                <Text style={styles.grandTotalValue}>{formatCurrency(invoice.totalAmount)}</Text>
+                <Text style={styles.grandTotalValue}>
+                  {formatCurrency(invoice.totalAmount)}
+                </Text>
               </View>
 
               {invoice.paidAmount > 0 && (
@@ -404,7 +427,10 @@ export default function InvoiceDetailScreen() {
                     <Text
                       style={[
                         styles.totalLabel,
-                        { color: isOverdue ? UI.danger : UI.warning, fontWeight: '700' },
+                        {
+                          color: isOverdue ? UI.danger : UI.warning,
+                          fontWeight: '800',
+                        },
                       ]}
                     >
                       Balance Due
@@ -412,7 +438,10 @@ export default function InvoiceDetailScreen() {
                     <Text
                       style={[
                         styles.totalValue,
-                        { color: isOverdue ? UI.danger : UI.warning, fontWeight: '800' },
+                        {
+                          color: isOverdue ? UI.danger : UI.warning,
+                          fontWeight: '900',
+                        },
                       ]}
                     >
                       {formatCurrency(remaining)}
@@ -430,17 +459,17 @@ export default function InvoiceDetailScreen() {
             </View>
           ) : null}
 
-          <View style={{ height: 110 }} />
+          <View style={{ height: 112 }} />
         </ScrollView>
 
         <View style={styles.bottomBar}>
           <TouchableOpacity
-            style={styles.shareBtn}
+            style={[styles.shareBtn, !canPay && { flex: 1 }]}
             onPress={handleShare}
             activeOpacity={0.82}
             disabled={sharing}
           >
-            <Ionicons name="share-outline" size={20} color={UI.forest} />
+            <Ionicons name="share-outline" size={18} color={UI.forest} />
             <Text style={styles.shareBtnText}>Share</Text>
           </TouchableOpacity>
 
@@ -450,7 +479,7 @@ export default function InvoiceDetailScreen() {
               onPress={handlePayment}
               activeOpacity={0.86}
             >
-              <Ionicons name="card-outline" size={20} color="#FFF" />
+              <Ionicons name="card-outline" size={18} color="#FFF" />
               <Text style={styles.payBtnText}>Pay {formatCurrency(remaining)}</Text>
             </TouchableOpacity>
           )}
@@ -468,26 +497,32 @@ const styles = StyleSheet.create({
 
   loadingWrap: {
     flex: 1,
-    backgroundColor: UI.bg,
-  },
-
-  loadingHero: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: UI.bg,
     paddingHorizontal: 24,
+  },
+
+  loadingOrb: {
+    width: 84,
+    height: 84,
+    borderRadius: 28,
+    backgroundColor: UI.forestSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 18,
   },
 
   loadingTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: UI.text,
     marginTop: 16,
   },
 
   loadingSub: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.68)',
+    color: UI.textMuted,
     marginTop: 6,
   },
 
@@ -528,82 +563,77 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 
-  header: {
-    paddingTop: Platform.OS === 'ios' ? 62 : 22,
-    paddingBottom: 18,
-    paddingHorizontal: 16,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    overflow: 'hidden',
-  },
-
-  headerGlow: {
-    position: 'absolute',
-    right: -36,
-    top: -18,
-    width: 170,
-    height: 170,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+  headerWrap: {
+    backgroundColor: UI.bg,
+    paddingBottom: 8,
   },
 
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 14,
+    paddingHorizontal: 16,
+    gap: 12,
   },
 
-  backButton: {
+  iconButton: {
     width: 42,
     height: 42,
-    borderRadius: 999,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: UI.border,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.14)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
   },
 
   headerCenter: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
+  },
+
+  headerKicker: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: UI.textSoft,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
 
   headerTitle: {
-    fontSize: 19,
+    marginTop: 3,
+    fontSize: 22,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: UI.text,
     letterSpacing: -0.2,
   },
 
   headerSubtitle: {
-    marginTop: 4,
+    marginTop: 3,
     fontSize: 12,
     fontWeight: '500',
-    color: 'rgba(255,255,255,0.70)',
+    color: UI.textMuted,
     textAlign: 'center',
   },
 
-  iconButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.14)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
-    alignItems: 'center',
-    justifyContent: 'center',
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 122,
   },
 
   heroCard: {
-    marginTop: 4,
-    backgroundColor: 'rgba(255,255,255,0.10)',
-    borderRadius: 22,
-    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 18,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: UI.borderSoft,
+    shadowColor: '#1E2B22',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.05,
+    shadowRadius: 14,
+    elevation: 3,
+    marginBottom: 14,
   },
 
   heroTop: {
@@ -615,76 +645,101 @@ const styles = StyleSheet.create({
 
   heroEyebrow: {
     fontSize: 11,
-    color: 'rgba(255,255,255,0.68)',
-    fontWeight: '700',
-    letterSpacing: 1,
+    color: UI.textSoft,
+    fontWeight: '800',
+    letterSpacing: 0.9,
+    textTransform: 'uppercase',
   },
 
   heroNumber: {
-    marginTop: 4,
-    fontSize: 22,
+    marginTop: 5,
+    fontSize: 24,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: UI.forestDeep,
     letterSpacing: -0.3,
   },
 
-  heroMetaRow: {
-    flexDirection: 'row',
-    gap: 10,
+  amountPanel: {
     marginTop: 16,
-  },
-
-  heroMetaBox: {
-    flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 16,
-    padding: 12,
-  },
-
-  heroMetaLabel: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.64)',
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-
-  heroMetaValue: {
-    fontSize: 13,
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 120,
-  },
-
-  summaryRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 14,
-    marginTop: 2,
-  },
-
-  summaryCard: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
+    backgroundColor: UI.surfaceAlt,
+    borderRadius: 20,
     padding: 16,
     borderWidth: 1,
     borderColor: UI.borderSoft,
   },
 
-  summaryLabel: {
-    fontSize: 11,
+  amountPanelLabel: {
+    fontSize: 12,
     fontWeight: '700',
-    letterSpacing: 0.8,
-    color: UI.textSoft,
-    marginBottom: 6,
+    color: UI.textMuted,
   },
 
-  summaryValue: {
-    fontSize: 18,
+  amountPanelValue: {
+    marginTop: 6,
+    fontSize: 30,
+    lineHeight: 34,
+    fontWeight: '900',
+    letterSpacing: -0.6,
+  },
+
+  amountMetaRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 14,
+  },
+
+  amountMetaPill: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingVertical: 11,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: UI.borderSoft,
+  },
+
+  amountMetaLabel: {
+    fontSize: 11,
+    color: UI.textSoft,
+    fontWeight: '700',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+
+  amountMetaValue: {
+    fontSize: 13,
+    color: UI.text,
+    fontWeight: '800',
+  },
+
+  heroStatsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 14,
+  },
+
+  heroStatCard: {
+    flex: 1,
+    backgroundColor: UI.surfaceAlt,
+    borderRadius: 18,
+    paddingVertical: 13,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: UI.borderSoft,
+  },
+
+  heroStatLabel: {
+    fontSize: 11,
+    color: UI.textSoft,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 5,
+  },
+
+  heroStatValue: {
+    fontSize: 16,
     fontWeight: '800',
     color: UI.text,
   },
@@ -698,7 +753,7 @@ const styles = StyleSheet.create({
     borderColor: UI.borderSoft,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.04,
+    shadowOpacity: 0.035,
     shadowRadius: 10,
     elevation: 2,
   },
@@ -730,11 +785,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
+  linkArrowWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    backgroundColor: UI.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 10,
+  },
+
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 14,
-    paddingVertical: 6,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F5F1EA',
   },
 
   detailLabel: {
@@ -788,11 +855,13 @@ const styles = StyleSheet.create({
     color: UI.text,
   },
 
-  totalsSection: {
-    borderTopWidth: 1,
-    borderTopColor: UI.border,
-    marginTop: 6,
-    paddingTop: 12,
+  totalsCard: {
+    marginTop: 8,
+    backgroundColor: UI.surfaceAlt,
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: UI.borderSoft,
   },
 
   totalRow: {
@@ -815,6 +884,8 @@ const styles = StyleSheet.create({
   totalBreak: {
     marginTop: 6,
     paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: UI.border,
   },
 
   grandTotalLabel: {
@@ -843,8 +914,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 28,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 16,
     backgroundColor: 'rgba(247,245,240,0.98)',
     borderTopWidth: 1,
     borderTopColor: UI.border,

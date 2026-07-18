@@ -42,7 +42,6 @@ const SC: Record<string, { bg: string; text: string; icon: string }> = {
 
 export default function OwnerBookingsScreen() {
   const router = useRouter();
-  const [facilityId, setFacilityId] = useState<string | null>(null);
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -50,26 +49,14 @@ export default function OwnerBookingsScreen() {
   const [statusFilter, setStatusFilter] = useState('');
   const [total, setTotal] = useState(0);
 
-  // First fetch facility ID
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await api.get<any>('/facilities?ownerId=me&limit=1');
-        if (res.success && res.data?.facilities?.[0]) {
-          setFacilityId(res.data.facilities[0].id);
-        }
-      } catch {}
-    })();
-  }, []);
-
   const fetchBookings = useCallback(async () => {
-    if (!facilityId) return;
     try {
       const params = new URLSearchParams();
       params.set('limit', '30');
       if (statusFilter) params.set('status', statusFilter);
 
-      const res = await api.get<any>(`/bookings/facility/${facilityId}?${params.toString()}`);
+      // Use /facility/mine — auto-resolves owner's facility on backend
+      const res = await api.get<any>(`/bookings/facility/mine?${params.toString()}`);
       if (res.success && res.data) {
         setBookings(res.data.bookings || []);
         setTotal(res.data.total || 0);
@@ -80,14 +67,12 @@ export default function OwnerBookingsScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [facilityId, statusFilter]);
+  }, [statusFilter]);
 
   useEffect(() => {
-    if (facilityId) {
-      setLoading(true);
-      fetchBookings();
-    }
-  }, [facilityId, statusFilter]);
+    setLoading(true);
+    fetchBookings();
+  }, [statusFilter]);
 
   const handleAction = async (bookingId: string, status: string, extra?: any) => {
     setActionLoading(bookingId);

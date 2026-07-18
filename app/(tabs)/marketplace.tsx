@@ -1,14 +1,3 @@
-/**
- * ColdStorage — Premium Marketplace Screen
- *
- * Premium redesign:
- * - Elegant custom hero header
- * - Segmented browse / my listings control
- * - Refined search area
- * - Premium marketplace cards with better hierarchy
- * - Warm agri-fintech styling
- * - All API calls unchanged
- */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
@@ -19,24 +8,23 @@ import {
   TouchableOpacity,
   Platform,
   StatusBar,
+  TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '@/lib/api-client';
 import { SkeletonList } from '@/components/ui/Skeleton';
 import ErrorState from '@/components/ui/ErrorState';
 import EmptyState from '@/components/ui/EmptyState';
-import SearchBar from '@/components/ui/SearchBar';
 import { hapticLight, hapticSelection } from '@/lib/haptics';
 
 const STATUS_CONFIGS: Record<
   string,
   { label: string; color: string; bg: string; border: string }
 > = {
-  ACTIVE: { label: 'Active', color: '#086C4B', bg: '#E8F7EF', border: '#BFE6CE' },
+  ACTIVE: { label: 'Open', color: '#086C4B', bg: '#E8F7EF', border: '#BFE6CE' },
   SOLD: { label: 'Sold', color: '#155E75', bg: '#E7F9FD', border: '#BDECF7' },
-  EXPIRED: { label: 'Expired', color: '#55616C', bg: '#F3F5F7', border: '#E5E9ED' },
+  EXPIRED: { label: 'Ended', color: '#55616C', bg: '#F3F5F7', border: '#E5E9ED' },
   CANCELLED: { label: 'Cancelled', color: '#A33434', bg: '#FFF0F0', border: '#F6C9C9' },
 };
 
@@ -44,27 +32,23 @@ const GRADE_LABELS: Record<
   string,
   { label: string; color: string; bg: string; border: string }
 > = {
-  A: { label: 'Premium', color: '#8A5A0F', bg: '#FFF6E1', border: '#F1DEAD' },
-  B: { label: 'Grade A', color: '#086C4B', bg: '#E8F7EF', border: '#BFE6CE' },
-  C: { label: 'Standard', color: '#55616C', bg: '#F3F5F7', border: '#E5E9ED' },
+  A: { label: 'Best', color: '#8A5A0F', bg: '#FFF6E1', border: '#F1DEAD' },
+  B: { label: 'Good', color: '#086C4B', bg: '#E8F7EF', border: '#BFE6CE' },
+  C: { label: 'Regular', color: '#55616C', bg: '#F3F5F7', border: '#E5E9ED' },
 };
 
 const UI = {
-  canvas: '#F5F7F4',
+  canvas: '#F4F5F1',
   surface: '#FFFFFF',
-  surfaceAlt: '#F9FBF8',
-  border: '#E2E9E3',
-  text: '#16241D',
-  textMuted: '#708078',
-  textSoft: '#95A19B',
-  forest: '#103E34',
-  forestDeep: '#082B24',
-  teal: '#0D8D8A',
-  tealSoft: '#E8F9F7',
-  emerald: '#17A56D',
-  emeraldSoft: '#E8F7EF',
-  gold: '#D29424',
-  goldSoft: '#FFF6E1',
+  surfaceAlt: '#F8FAF7',
+  surfaceMuted: '#EEF3EE',
+  border: '#E1E7E1',
+  text: '#17231D',
+  textMuted: '#6F7C75',
+  textSoft: '#97A39C',
+  forest: '#103F35',
+  forestSoft: '#EAF5EF',
+  gold: '#D39E36',
 };
 
 export default function MarketplaceScreen() {
@@ -88,10 +72,14 @@ export default function MarketplaceScreen() {
 
       if (browseRes.success) {
         setListings(browseRes.data?.listings || []);
+      } else {
+        setListings([]);
       }
 
       if (myRes.success) {
         setMyListings(myRes.data || []);
+      } else {
+        setMyListings([]);
       }
     } catch (err) {
       console.error('Marketplace fetch error:', err);
@@ -138,20 +126,21 @@ export default function MarketplaceScreen() {
       <>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.container}>
-          <StatusBar
-            barStyle="light-content"
-            translucent
-            backgroundColor="transparent"
-          />
-          <LinearGradient
-            colors={[UI.forestDeep, UI.forest, '#087B73']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.heroLoading}
-          >
-            <View style={{ height: Platform.OS === 'ios' ? 54 : 34 }} />
-            <Text style={styles.heroLoadingTitle}>Marketplace</Text>
-          </LinearGradient>
+          <StatusBar barStyle="dark-content" backgroundColor={UI.canvas} />
+          <View style={styles.topSpacer} />
+
+          <View style={styles.topBar}>
+            <TouchableOpacity style={styles.iconBtn} onPress={() => router.back()}>
+              <Ionicons name="arrow-back" size={19} color={UI.text} />
+            </TouchableOpacity>
+
+            <View style={styles.titleWrap}>
+              <Text style={styles.screenTitle}>Sell Crops</Text>
+            </View>
+
+            <View style={styles.topActionGhost} />
+          </View>
+
           <SkeletonList count={4} />
         </View>
       </>
@@ -169,7 +158,7 @@ export default function MarketplaceScreen() {
     );
   }
 
-  const renderListing = ({ item }: { item: any }) => {
+  const renderListing = ({ item, index }: { item: any; index: number }) => {
     const statusConfig = STATUS_CONFIGS[item.status] || STATUS_CONFIGS.ACTIVE;
     const grade = item.lot?.qualityGrade || '—';
     const gradeConfig = GRADE_LABELS[grade];
@@ -178,6 +167,9 @@ export default function MarketplaceScreen() {
     const pricePerKg = Number(item.askingPricePerKg || 0);
     const totalValue = pricePerKg * weight;
 
+    const iconTone =
+      index % 3 === 0 ? '#1AA56F' : index % 3 === 1 ? '#D39E36' : '#2D98C0';
+
     return (
       <TouchableOpacity
         style={styles.card}
@@ -185,98 +177,90 @@ export default function MarketplaceScreen() {
           router.push(`/listing/${item.id}`);
           hapticLight();
         }}
-        activeOpacity={0.82}
+        activeOpacity={0.9}
       >
         <View style={styles.cardHeader}>
-          <View
-            style={[
-              styles.commodityIcon,
-              { backgroundColor: `${statusConfig.color}12` },
-            ]}
-          >
-            <Ionicons name="leaf-outline" size={22} color={statusConfig.color} />
+          <View style={[styles.commodityIconWrap, { borderColor: `${iconTone}25` }]}>
+            <View style={[styles.commodityIconInner, { backgroundColor: iconTone }]}>
+              <Ionicons name="leaf-outline" size={18} color="#FFFFFF" />
+            </View>
           </View>
 
           <View style={styles.cardTitleWrap}>
-            <Text style={styles.commodityName} numberOfLines={1}>
-              {item.lot?.commodityName || 'Unknown'}
-            </Text>
-            <Text style={styles.lotNumber}>
+            <View style={styles.titleRow}>
+              <Text style={styles.commodityName} numberOfLines={1}>
+                {item.lot?.commodityName || 'Unknown'}
+              </Text>
+
+              <View style={styles.priceWrap}>
+                <Text style={styles.priceValue}>
+                  ₹{pricePerKg.toLocaleString('en-IN')}
+                </Text>
+                <Text style={styles.priceUnit}>per kg</Text>
+              </View>
+            </View>
+
+            <Text style={styles.lotNumber} numberOfLines={1}>
               Lot #{item.lot?.lotNumber || '—'}
             </Text>
           </View>
-
-          <View style={styles.priceWrap}>
-            <Text style={styles.priceValue}>
-              ₹{pricePerKg.toLocaleString('en-IN')}
-            </Text>
-            <Text style={styles.priceUnit}>per kg</Text>
-          </View>
         </View>
 
-        <View style={styles.metaStrip}>
-          <View style={styles.metaBlock}>
-            <Text style={styles.metaLabel}>WEIGHT</Text>
-            <Text style={styles.metaValue}>{(weight / 1000).toFixed(1)} MT</Text>
+        <View style={styles.mainInfoCard}>
+          <View style={styles.mainInfoLeft}>
+            <Text style={styles.mainInfoLabel}>Quantity</Text>
+            <Text style={styles.mainInfoValue}>
+              {(weight / 1000).toFixed(1)} MT
+            </Text>
           </View>
 
-          <View style={styles.metaDivider} />
+          <View style={styles.mainInfoDivider} />
 
-          <View style={styles.metaBlock}>
-            <Text style={styles.metaLabel}>VALUE</Text>
-            <Text style={styles.metaValue}>
+          <View style={styles.mainInfoRight}>
+            <Text style={styles.mainInfoLabel}>Total amount</Text>
+            <Text style={styles.mainInfoValueGold}>
               ₹{Math.round(totalValue).toLocaleString('en-IN')}
             </Text>
           </View>
-
-          <View style={styles.metaDivider} />
-
-          <View style={styles.metaBlock}>
-            <Text style={styles.metaLabel}>POSTED</Text>
-            <Text style={styles.metaValue}>{days > 0 ? `${days}d ago` : 'Today'}</Text>
-          </View>
         </View>
 
-        <View style={styles.chipsRow}>
-          {gradeConfig ? (
+        <View style={styles.bottomRow}>
+          <View style={styles.badgesRow}>
+            {gradeConfig ? (
+              <View
+                style={[
+                  styles.badge,
+                  {
+                    backgroundColor: gradeConfig.bg,
+                    borderColor: gradeConfig.border,
+                  },
+                ]}
+              >
+                <Text style={[styles.badgeText, { color: gradeConfig.color }]}>
+                  {gradeConfig.label}
+                </Text>
+              </View>
+            ) : null}
+
             <View
               style={[
-                styles.chip,
+                styles.badge,
                 {
-                  backgroundColor: gradeConfig.bg,
-                  borderColor: gradeConfig.border,
+                  backgroundColor: statusConfig.bg,
+                  borderColor: statusConfig.border,
                 },
               ]}
             >
-              <Text style={[styles.chipText, { color: gradeConfig.color }]}>
-                {gradeConfig.label}
+              <Text style={[styles.badgeText, { color: statusConfig.color }]}>
+                {statusConfig.label}
               </Text>
             </View>
-          ) : null}
-
-          <View
-            style={[
-              styles.chip,
-              {
-                backgroundColor: statusConfig.bg,
-                borderColor: statusConfig.border,
-              },
-            ]}
-          >
-            <Text style={[styles.chipText, { color: statusConfig.color }]}>
-              {statusConfig.label}
-            </Text>
           </View>
 
-          <View style={styles.chip}>
-            <Ionicons
-              name="cube-outline"
-              size={11}
-              color={UI.textSoft}
-              style={{ marginRight: 4 }}
-            />
-            <Text style={[styles.chipText, { color: UI.textMuted }]}>
-              Ready to trade
+          <View style={styles.postedWrap}>
+            <Ionicons name="time-outline" size={11} color={UI.textSoft} />
+            <Text style={styles.postedText}>
+              {days > 0 ? `${days} days ago` : 'Today'}
             </Text>
           </View>
         </View>
@@ -288,84 +272,61 @@ export default function MarketplaceScreen() {
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.container}>
-        <StatusBar
-          barStyle="light-content"
-          translucent
-          backgroundColor="transparent"
-        />
+        <StatusBar barStyle="dark-content" backgroundColor={UI.canvas} />
 
-        <LinearGradient
-          colors={[UI.forestDeep, UI.forest, '#087B73']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.hero}
-        >
-          <View style={styles.heroGlowTop} />
-          <View style={styles.heroGlowBottom} />
+        <View style={styles.topSpacer} />
 
-          <View
-            style={{
-              height: Platform.OS === 'ios' ? 58 : 34,
+        <View style={styles.topBar}>
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => {
+              router.back();
+              hapticLight();
             }}
-          />
+          >
+            <Ionicons name="arrow-back" size={19} color={UI.text} />
+          </TouchableOpacity>
 
-          <View style={styles.heroContent}>
-            <View style={styles.heroTopRow}>
-              <View>
-                <Text style={styles.heroEyebrow}>TRADING DESK</Text>
-                <Text style={styles.heroTitle}>Marketplace</Text>
-                <Text style={styles.heroSubtitle}>
-                  Discover produce listings or manage your active offers.
-                </Text>
-              </View>
-
-              {tab === 'mine' ? (
-                <TouchableOpacity
-                  style={styles.createBtn}
-                  activeOpacity={0.82}
-                  onPress={() => {
-                    router.push('/listing/create');
-                    hapticLight();
-                  }}
-                >
-                  <Ionicons name="add" size={16} color="#FFFFFF" />
-                  <Text style={styles.createBtnText}>New</Text>
-                </TouchableOpacity>
-              ) : null}
-            </View>
-
-            <View style={styles.heroStatsStrip}>
-              <View style={styles.heroStatItem}>
-                <Text style={styles.heroStatValue}>{listings.length}</Text>
-                <Text style={styles.heroStatLabel}>LIVE LISTINGS</Text>
-              </View>
-
-              <View style={styles.heroStatDivider} />
-
-              <View style={styles.heroStatItem}>
-                <Text style={styles.heroStatValue}>{myListings.length}</Text>
-                <Text style={styles.heroStatLabel}>MY LISTINGS</Text>
-              </View>
-
-              <View style={styles.heroStatDivider} />
-
-              <View style={styles.heroStatItem}>
-                <Text style={styles.heroStatValue}>
-                  {tab === 'browse' ? 'Browse' : 'Manage'}
-                </Text>
-                <Text style={styles.heroStatLabel}>MODE</Text>
-              </View>
-            </View>
-
-            <View style={styles.searchWrap}>
-              <SearchBar
-                value={search}
-                onChangeText={setSearch}
-                placeholder="Search commodity, lot number..."
-              />
-            </View>
+          <View style={styles.titleWrap}>
+            <Text style={styles.screenTitle}>Sell Crops</Text>
+            <Text style={styles.screenSub}>
+              Browse crop posts or manage your own selling posts
+            </Text>
           </View>
-        </LinearGradient>
+
+          {tab === 'mine' ? (
+            <TouchableOpacity
+              style={styles.topActionBtn}
+              activeOpacity={0.86}
+              onPress={() => {
+                router.push('/listing/create');
+                hapticLight();
+              }}
+            >
+              <Ionicons name="add" size={16} color="#FFFFFF" />
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.topActionGhost} />
+          )}
+        </View>
+
+        <View style={styles.searchSection}>
+          <View style={styles.searchBox}>
+            <Ionicons name="search-outline" size={18} color="#9CA3AF" />
+            <TextInput
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Search crop or lot number..."
+              placeholderTextColor="#98A2B3"
+              style={styles.searchInput}
+            />
+            {search.length > 0 ? (
+              <TouchableOpacity onPress={() => setSearch('')} activeOpacity={0.84}>
+                <Ionicons name="close-circle" size={17} color="#A0A8B5" />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </View>
 
         <View style={styles.segmentWrap}>
           <View style={styles.segmentControl}>
@@ -375,7 +336,7 @@ export default function MarketplaceScreen() {
                 <TouchableOpacity
                   key={t}
                   style={[styles.segmentBtn, active && styles.segmentBtnActive]}
-                  activeOpacity={0.82}
+                  activeOpacity={0.84}
                   onPress={() => {
                     setTab(t);
                     hapticSelection();
@@ -383,24 +344,28 @@ export default function MarketplaceScreen() {
                 >
                   <Ionicons
                     name={t === 'browse' ? 'storefront-outline' : 'pricetag-outline'}
-                    size={15}
+                    size={14}
                     color={active ? UI.forest : UI.textSoft}
                     style={{ marginRight: 6 }}
                   />
                   <Text
-                    style={[
-                      styles.segmentText,
-                      active && styles.segmentTextActive,
-                    ]}
+                    style={[styles.segmentText, active && styles.segmentTextActive]}
+                    numberOfLines={1}
                   >
                     {t === 'browse'
-                      ? `Browse (${listings.length})`
-                      : `My Listings (${myListings.length})`}
+                      ? `Buy (${listings.length})`
+                      : `My Posts (${myListings.length})`}
                   </Text>
                 </TouchableOpacity>
               );
             })}
           </View>
+        </View>
+
+        <View style={styles.countRow}>
+          <Text style={styles.countText}>
+            {data.length} post{data.length !== 1 ? 's' : ''} found
+          </Text>
         </View>
 
         <FlatList
@@ -421,22 +386,22 @@ export default function MarketplaceScreen() {
               icon={tab === 'mine' ? 'pricetag-outline' : 'storefront-outline'}
               title={
                 search
-                  ? 'No matching listings'
+                  ? 'No matching posts'
                   : tab === 'mine'
-                  ? 'No listings yet'
-                  : 'No listings available'
+                  ? 'No sell posts yet'
+                  : 'No crops available'
               }
               subtitle={
                 search
-                  ? 'Try a different commodity or lot number.'
+                  ? 'Try a different crop or lot number.'
                   : tab === 'mine'
-                  ? 'Create your first listing to start reaching buyers.'
-                  : 'Check back soon for fresh produce listings.'
+                  ? 'Add your first crop post to start selling.'
+                  : 'Please check again later.'
               }
               action={
                 tab === 'mine'
                   ? {
-                      label: 'Create Listing',
+                      label: 'Add Post',
                       onPress: () => router.push('/listing/create'),
                     }
                   : undefined
@@ -455,160 +420,122 @@ const styles = StyleSheet.create({
     backgroundColor: UI.canvas,
   },
 
-  heroLoading: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+  topSpacer: {
+    height: Platform.OS === 'ios' ? 62 : 24,
   },
 
-  heroLoadingTitle: {
-    color: '#FFFFFF',
-    fontSize: 28,
-    fontWeight: '800',
-    letterSpacing: -0.4,
-  },
-
-  hero: {
-    paddingBottom: 22,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    overflow: 'hidden',
-  },
-
-  heroGlowTop: {
-    position: 'absolute',
-    top: -90,
-    right: -70,
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: 'rgba(42, 199, 171, 0.14)',
-  },
-
-  heroGlowBottom: {
-    position: 'absolute',
-    bottom: -120,
-    left: -90,
-    width: 260,
-    height: 180,
-    borderRadius: 130,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-  },
-
-  heroContent: {
+  topBar: {
     paddingHorizontal: 16,
-  },
-
-  heroTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-
-  heroEyebrow: {
-    color: 'rgba(255,255,255,0.65)',
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 1,
-  },
-
-  heroTitle: {
-    marginTop: 6,
-    color: '#FFFFFF',
-    fontSize: 30,
-    fontWeight: '800',
-    letterSpacing: -0.7,
-  },
-
-  heroSubtitle: {
-    marginTop: 8,
-    maxWidth: '88%',
-    color: 'rgba(255,255,255,0.72)',
-    fontSize: 13,
-    lineHeight: 20,
-  },
-
-  createBtn: {
-    marginTop: 2,
-    minHeight: 40,
-    paddingHorizontal: 14,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.14)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
+    paddingTop: 8,
+    paddingBottom: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 12,
   },
 
-  createBtnText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-
-  heroStatsStrip: {
-    marginTop: 22,
-    minHeight: 82,
-    borderRadius: 20,
-    paddingHorizontal: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.12)',
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 13,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.13)',
-  },
-
-  heroStatItem: {
-    flex: 1,
+    borderColor: '#E5EBE6',
     alignItems: 'center',
     justifyContent: 'center',
   },
 
-  heroStatValue: {
-    color: '#FFFFFF',
-    fontSize: 17,
+  titleWrap: {
+    flex: 1,
+    minHeight: 40,
+    justifyContent: 'center',
+  },
+
+  screenTitle: {
+    fontSize: 24,
+    lineHeight: 28,
     fontWeight: '800',
-    letterSpacing: -0.25,
+    color: UI.text,
+    letterSpacing: -0.4,
   },
 
-  heroStatLabel: {
-    marginTop: 5,
-    color: 'rgba(255,255,255,0.56)',
-    fontSize: 8,
-    fontWeight: '900',
-    letterSpacing: 0.6,
+  screenSub: {
+    fontSize: 11,
+    lineHeight: 15,
+    color: UI.textMuted,
+    marginTop: 2,
   },
 
-  heroStatDivider: {
-    width: 1,
-    height: 34,
-    backgroundColor: 'rgba(255,255,255,0.16)',
+  topActionBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 13,
+    backgroundColor: UI.forest,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: UI.forest,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.14,
+    shadowRadius: 10,
+    elevation: 3,
   },
 
-  searchWrap: {
-    marginTop: 16,
+  topActionGhost: {
+    width: 40,
+    height: 40,
+  },
+
+  searchSection: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 2,
+  },
+
+  searchBox: {
+    minHeight: 50,
+    borderRadius: 17,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderColor: '#E4E8E4',
+    shadowColor: '#173528',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.035,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+
+  searchInput: {
+    flex: 1,
+    color: '#23323D',
+    fontSize: 15,
+    fontWeight: '500',
+    paddingVertical: Platform.OS === 'ios' ? 13 : 9,
   },
 
   segmentWrap: {
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 12,
     paddingBottom: 6,
   },
 
   segmentControl: {
     backgroundColor: '#ECF1EC',
-    borderRadius: 18,
-    padding: 5,
+    borderRadius: 16,
+    padding: 4,
     flexDirection: 'row',
   },
 
   segmentBtn: {
     flex: 1,
-    minHeight: 46,
-    borderRadius: 14,
+    minHeight: 42,
+    borderRadius: 13,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 8,
   },
 
   segmentBtnActive: {
@@ -622,7 +549,7 @@ const styles = StyleSheet.create({
 
   segmentText: {
     color: UI.textSoft,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
   },
 
@@ -630,16 +557,28 @@ const styles = StyleSheet.create({
     color: UI.forest,
   },
 
+  countRow: {
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 8,
+  },
+
+  countText: {
+    fontSize: 11,
+    color: '#7C8A9F',
+    fontWeight: '600',
+  },
+
   list: {
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 2,
     paddingBottom: Platform.OS === 'ios' ? 108 : 90,
   },
 
   card: {
-    marginBottom: 14,
-    padding: 16,
-    borderRadius: 22,
+    marginBottom: 10,
+    padding: 14,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: UI.border,
     backgroundColor: UI.surface,
@@ -655,33 +594,52 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  commodityIcon: {
-    width: 48,
-    height: 48,
+  commodityIconWrap: {
+    width: 46,
+    height: 46,
     borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F7FAF8',
+  },
+
+  commodityIconInner: {
+    width: 38,
+    height: 38,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   cardTitleWrap: {
     flex: 1,
-    marginLeft: 12,
-    marginRight: 10,
+    marginLeft: 10,
+    minWidth: 0,
+  },
+
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 8,
   },
 
   commodityName: {
+    flex: 1,
     color: UI.text,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     letterSpacing: -0.2,
+    paddingRight: 4,
   },
 
   lotNumber: {
-    marginTop: 4,
+    marginTop: 3,
     color: UI.textSoft,
-    fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 0.35,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
 
   priceWrap: {
@@ -690,25 +648,25 @@ const styles = StyleSheet.create({
 
   priceValue: {
     color: UI.gold,
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '800',
-    letterSpacing: -0.6,
+    letterSpacing: -0.35,
   },
 
   priceUnit: {
     marginTop: 2,
     color: UI.textSoft,
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
     textTransform: 'uppercase',
-    letterSpacing: 0.55,
+    letterSpacing: 0.4,
   },
 
-  metaStrip: {
-    marginTop: 16,
+  mainInfoCard: {
+    marginTop: 14,
     borderRadius: 16,
     paddingVertical: 12,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     backgroundColor: UI.surfaceAlt,
     borderWidth: 1,
     borderColor: '#EDF1ED',
@@ -716,51 +674,83 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  metaBlock: {
+  mainInfoLeft: {
     flex: 1,
-    alignItems: 'center',
   },
 
-  metaLabel: {
-    color: UI.textSoft,
-    fontSize: 9,
-    fontWeight: '900',
-    letterSpacing: 0.7,
+  mainInfoRight: {
+    flex: 1,
+    alignItems: 'flex-end',
   },
 
-  metaValue: {
-    marginTop: 5,
-    color: UI.text,
-    fontSize: 13,
-    fontWeight: '800',
-  },
-
-  metaDivider: {
+  mainInfoDivider: {
     width: 1,
-    height: 28,
-    backgroundColor: '#E4EAE4',
+    height: 34,
+    backgroundColor: '#E3E9E3',
+    marginHorizontal: 12,
   },
 
-  chipsRow: {
-    marginTop: 14,
+  mainInfoLabel: {
+    color: UI.textSoft,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+
+  mainInfoValue: {
+    marginTop: 4,
+    color: UI.text,
+    fontSize: 17,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+
+  mainInfoValueGold: {
+    marginTop: 4,
+    color: UI.gold,
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+
+  bottomRow: {
+    marginTop: 12,
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     gap: 8,
   },
 
-  chip: {
-    minHeight: 30,
+  badgesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 7,
+    flex: 1,
+  },
+
+  badge: {
+    minHeight: 28,
     paddingHorizontal: 10,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E4EAE4',
-    backgroundColor: '#FAFCFA',
-    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FAFCFA',
   },
 
-  chipText: {
-    fontSize: 11,
+  badgeText: {
+    fontSize: 10,
     fontWeight: '700',
+  },
+
+  postedWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+
+  postedText: {
+    color: UI.textMuted,
+    fontSize: 10,
+    fontWeight: '600',
   },
 });

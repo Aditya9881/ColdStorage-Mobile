@@ -120,6 +120,19 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
+        name="bookings"
+        options={{
+          title: 'Bookings',
+          headerShown: false,
+          tabBarIcon: ({ color, focused }) => (
+            <View style={focused ? tabS.activePill : undefined}>
+              <Ionicons name={focused ? 'calendar' : 'calendar-outline'} size={22} color={color} />
+            </View>
+          ),
+        }}
+      />
+
+      <Tabs.Screen
         name="discover"
         options={{
           title: 'Discover',

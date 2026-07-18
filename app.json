@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "ColdStorage",
+    "slug": "coldstorage",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "mobile",
+    "scheme": "coldstorage",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,

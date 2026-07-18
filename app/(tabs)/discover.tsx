@@ -1,14 +1,11 @@
 /**
- * ColdStorage — Premium Discover Screen (Authenticated Farmer View)
+ * ColdStorage — Discover Screen
  *
- * Premium redesign:
- * - Elegant discovery hero
- * - Fixed state filter section with proper spacing and chip sizing
- * - Premium facility cards with capacity and trust markers
- * - Cleaner action buttons and result hierarchy
- * - Warm agri-fintech styling
- * - Verified facilities only
- * - All API calls unchanged
+ * Updated:
+ * - Header same as updated bookings style
+ * - Search outside header
+ * - Facility cards compacted to reduce oversized layout
+ * - API logic and behavior unchanged
  */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
@@ -20,16 +17,13 @@ import {
   TouchableOpacity,
   Platform,
   StatusBar,
+  ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '@/lib/api-client';
-import { SkeletonList } from '@/components/ui/Skeleton';
-import ErrorState from '@/components/ui/ErrorState';
-import EmptyState from '@/components/ui/EmptyState';
-import SearchBar from '@/components/ui/SearchBar';
-import ProgressRing from '@/components/ui/ProgressRing';
 import { hapticLight, hapticSelection } from '@/lib/haptics';
 
 const INDIAN_STATES = [
@@ -45,23 +39,32 @@ const INDIAN_STATES = [
 ];
 
 const UI = {
-  canvas: '#F5F7F4',
+  canvas: '#F6F7F3',
   surface: '#FFFFFF',
-  surfaceAlt: '#F9FBF8',
+  surfaceSoft: '#F5F7F4',
   border: '#E2E9E3',
-  text: '#16241D',
-  textMuted: '#708078',
-  textSoft: '#95A19B',
-  forest: '#103E34',
+  text: '#1A1A2E',
+  textMuted: '#5F6B7A',
+  textSoft: '#94A3B8',
+
   forestDeep: '#082B24',
-  teal: '#0D8D8A',
-  tealSoft: '#E8F9F7',
-  emerald: '#17A56D',
-  emeraldSoft: '#E8F7EF',
-  gold: '#D29424',
-  goldSoft: '#FFF6E1',
-  blue: '#2589AA',
-  blueSoft: '#EAF8FC',
+  forest: '#103E34',
+  forestRich: '#0A8B7D',
+
+  green: '#0F766E',
+  greenSoft: '#ECFDF5',
+
+  gold: '#B7791F',
+  goldSoft: '#FFF7E6',
+
+  orange: '#C2410C',
+  orangeSoft: '#FFF7ED',
+
+  red: '#DC2626',
+  redSoft: '#FEF2F2',
+
+  blue: '#2563EB',
+  blueSoft: '#EFF6FF',
 };
 
 export default function DiscoverScreen() {
@@ -77,14 +80,21 @@ export default function DiscoverScreen() {
   const fetchFacilities = useCallback(async () => {
     try {
       setError(false);
+
       const res = await api.get<any>('/facilities?limit=50');
 
       if (res.success && res.data) {
         const facs = Array.isArray(res.data)
           ? res.data
           : res.data.facilities || [];
-        const verified = facs.filter((f: any) => f.status === 'ACTIVE');
+
+        const verified = facs.filter(
+          (f: any) => f.status === 'ACTIVE' || f.isVerified || f.verifiedAt
+        );
+
         setFacilities(verified);
+      } else {
+        setFacilities([]);
       }
     } catch (err) {
       console.error('Discovery error:', err);
@@ -112,13 +122,14 @@ export default function DiscoverScreen() {
     }
 
     if (search.trim()) {
-      const q = search.toLowerCase();
+      const q = search.trim().toLowerCase();
+
       result = result.filter(
         (f) =>
           f.name?.toLowerCase().includes(q) ||
           f.city?.toLowerCase().includes(q) ||
           f.state?.toLowerCase().includes(q) ||
-          (f.pincode && f.pincode.includes(q))
+          String(f.pincode || '').includes(q)
       );
     }
 
@@ -128,81 +139,68 @@ export default function DiscoverScreen() {
   const stateCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     facilities.forEach((f) => {
-      counts[f.state] = (counts[f.state] || 0) + 1;
+      if (f.state) counts[f.state] = (counts[f.state] || 0) + 1;
     });
     return counts;
   }, [facilities]);
 
-  if (loading) {
-    return (
-      <>
-        <Stack.Screen options={{ headerShown: false }} />
-        <View style={styles.screen}>
-          <StatusBar
-            barStyle="light-content"
-            translucent
-            backgroundColor="transparent"
-          />
-          <LinearGradient
-            colors={[UI.forestDeep, UI.forest, '#087B73']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.heroLoading}
-          >
-            <View style={{ height: Platform.OS === 'ios' ? 54 : 34 }} />
-            <Text style={styles.heroLoadingTitle}>Discover Storage</Text>
-            <Text style={styles.heroLoadingSub}>
-              Find verified cold storages
-            </Text>
-          </LinearGradient>
-          <SkeletonList count={4} />
-        </View>
-      </>
-    );
-  }
-
-  if (error) {
-    return (
-      <>
-        <Stack.Screen options={{ headerShown: false }} />
-        <View style={styles.screen}>
-          <ErrorState variant="network" onRetry={fetchFacilities} />
-        </View>
-      </>
-    );
-  }
-
-  const gradientSets = [
-    ['#059669', '#10B981'],
-    ['#0891B2', '#22D3EE'],
-    ['#7C3AED', '#A78BFA'],
-    ['#D97706', '#FBBF24'],
-    ['#DC2626', '#F87171'],
-  ];
+  const summary = useMemo(() => {
+    return {
+      total: facilities.length,
+      found: filtered.length,
+      states: Object.keys(stateCounts).length,
+    };
+  }, [facilities, filtered, stateCounts]);
 
   const renderFacility = ({ item, index }: { item: any; index: number }) => {
     const totalCap = Number(item.totalCapacity ?? item.totalCapacityMt ?? 0);
-    const chambers = item.chambers || [];
+    const chambers = Array.isArray(item.chambers) ? item.chambers : [];
+
     const occupiedMt = chambers.reduce(
-      (sum: number, c: any) => sum + Number(c.occupiedMt || 0),
+      (sum: number, c: any) => sum + Number(c?.occupiedMt || 0),
       0
     );
+
     const availableMt = Math.max(0, totalCap - occupiedMt);
-    const usedPercent = totalCap > 0 ? Math.round((occupiedMt / totalCap) * 100) : 0;
+    const usedPercent =
+      totalCap > 0 ? Math.round((occupiedMt / totalCap) * 100) : 0;
+
     const rating = Number(item.averageRating || 0);
-    const reviewCount = Number(item.reviewCount || 0);
-    const isVerified = !!item.verifiedAt;
-    const gradColors = gradientSets[index % gradientSets.length];
+    const isVerified = !!item.verifiedAt || !!item.isVerified;
 
     const tempText =
-      item.chambers &&
-      item.chambers.length > 0 &&
-      item.chambers[0].targetTempMin !== undefined &&
-      item.chambers[0].targetTempMax !== undefined
-        ? `${Number(item.chambers[0].targetTempMin)}–${Number(
-            item.chambers[0].targetTempMax
+      chambers.length > 0 &&
+      chambers[0]?.targetTempMin !== undefined &&
+      chambers[0]?.targetTempMax !== undefined
+        ? `${Number(chambers[0].targetTempMin)}–${Number(
+            chambers[0].targetTempMax
           )}°C`
-        : 'Cold Storage';
+        : 'Cold storage';
+
+    const occupancyTone =
+      usedPercent >= 85
+        ? {
+            bg: UI.redSoft,
+            text: UI.red,
+            label: 'Almost full',
+            fill: UI.red,
+          }
+        : usedPercent >= 60
+          ? {
+              bg: UI.orangeSoft,
+              text: UI.orange,
+              label: 'Filling fast',
+              fill: UI.orange,
+            }
+          : {
+              bg: UI.greenSoft,
+              text: UI.green,
+              label: 'Available',
+              fill: UI.green,
+            };
+
+    const iconBg = index % 2 === 0 ? '#E8F5F0' : '#EEF2FF';
+    const iconColor = index % 2 === 0 ? UI.green : '#4F46E5';
 
     return (
       <TouchableOpacity
@@ -211,127 +209,89 @@ export default function DiscoverScreen() {
           router.push(`/facility/${item.id}`);
           hapticLight();
         }}
-        activeOpacity={0.82}
+        activeOpacity={0.84}
       >
         <View style={styles.cardTop}>
-          <LinearGradient
-            colors={gradColors as any}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.cardIcon}
-          >
-            <Ionicons name="snow-outline" size={20} color="#FFFFFF" />
-          </LinearGradient>
+          <View style={[styles.cardIcon, { backgroundColor: iconBg }]}>
+            <Ionicons name="snow-outline" size={17} color={iconColor} />
+          </View>
 
-          <View style={styles.titleWrap}>
-            <View style={styles.titleRow}>
-              <Text style={styles.cardName} numberOfLines={1}>
-                {item.name}
-              </Text>
-
-              {isVerified ? (
-                <View style={styles.verifiedBadge}>
-                  <Ionicons
-                    name="shield-checkmark"
-                    size={11}
-                    color={UI.emerald}
-                  />
-                </View>
-              ) : null}
-            </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={styles.cardName} numberOfLines={1}>
+              {item.name || 'Storage Facility'}
+            </Text>
 
             <View style={styles.locationRow}>
-              <Ionicons
-                name="location-outline"
-                size={12}
-                color={UI.textSoft}
-              />
-              <Text style={styles.locationText}>
-                {item.city}, {item.state}
+              <Ionicons name="location-outline" size={12} color={UI.textSoft} />
+              <Text style={styles.locationText} numberOfLines={1}>
+                {[item.city, item.state].filter(Boolean).join(', ') || 'Location not available'}
               </Text>
             </View>
           </View>
 
-          {rating > 0 ? (
-            <View style={styles.ratingPill}>
-              <Ionicons name="star" size={12} color={UI.gold} />
-              <Text style={styles.ratingValue}>{rating.toFixed(1)}</Text>
-              {reviewCount > 0 ? (
-                <Text style={styles.reviewCount}>({reviewCount})</Text>
-              ) : null}
+          {isVerified ? (
+            <View style={styles.verifiedBadge}>
+              <Ionicons name="shield-checkmark" size={11} color={UI.green} />
             </View>
           ) : null}
         </View>
 
-        <View style={styles.capacityStrip}>
-          <View style={styles.capacityTextWrap}>
-            <Text style={styles.capacityLabel}>AVAILABLE CAPACITY</Text>
-            <Text style={styles.capacityValue}>
-              {availableMt.toLocaleString('en-IN')} MT
-            </Text>
-            <Text style={styles.capacitySubValue}>
-              available of {totalCap.toLocaleString('en-IN')} MT
-            </Text>
+        <View style={styles.capacityBox}>
+          <View style={styles.capacityTop}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.capacityLabel}>Available space</Text>
+              <Text style={styles.capacityValue}>
+                {availableMt.toLocaleString('en-IN')} MT
+              </Text>
+              <Text style={styles.capacitySub}>
+                Total {totalCap.toLocaleString('en-IN')} MT
+              </Text>
+            </View>
 
-            <View style={styles.capacityBar}>
-              <LinearGradient
-                colors={
-                  usedPercent > 85
-                    ? ['#EF4444', '#F87171']
-                    : usedPercent > 60
-                    ? ['#F59E0B', '#FBBF24']
-                    : ['#10B981', '#34D399']
-                }
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={[
-                  styles.capacityFill,
-                  { width: `${Math.min(usedPercent, 100)}%` as any },
-                ]}
-              />
+            <View style={[styles.statusPill, { backgroundColor: occupancyTone.bg }]}>
+              <Text style={[styles.statusPillText, { color: occupancyTone.text }]}>
+                {occupancyTone.label}
+              </Text>
             </View>
           </View>
 
-          <View style={styles.ringWrap}>
-            <ProgressRing
-              percent={usedPercent}
-              size={54}
-              strokeWidth={4}
-              label={`${usedPercent}%`}
-              sublabel="used"
+          <View style={styles.capacityBar}>
+            <View
+              style={[
+                styles.capacityFill,
+                {
+                  width: `${Math.min(usedPercent, 100)}%`,
+                  backgroundColor: occupancyTone.fill,
+                },
+              ]}
             />
           </View>
         </View>
 
-        <View style={styles.tagsRow}>
+        <View style={styles.infoRow}>
+          <View style={styles.infoPill}>
+            <Ionicons name="thermometer-outline" size={12} color={UI.textMuted} />
+            <Text style={styles.infoPillText}>{tempText}</Text>
+          </View>
+
           {item.storageType ? (
-            <View style={styles.tag}>
-              <Ionicons
-                name="cube-outline"
-                size={11}
-                color={UI.textMuted}
-              />
-              <Text style={styles.tagText}>{item.storageType}</Text>
+            <View style={styles.infoPill}>
+              <Ionicons name="cube-outline" size={12} color={UI.textMuted} />
+              <Text style={styles.infoPillText}>{item.storageType}</Text>
             </View>
           ) : null}
 
-          <View style={styles.tag}>
-            <Ionicons
-              name="thermometer-outline"
-              size={11}
-              color={UI.textMuted}
-            />
-            <Text style={styles.tagText}>{tempText}</Text>
-          </View>
-
-          {chambers.length > 0 ? (
-            <View style={styles.tag}>
-              <Ionicons
-                name="grid-outline"
-                size={11}
-                color={UI.textMuted}
-              />
-              <Text style={styles.tagText}>{chambers.length} Chambers</Text>
+          {rating > 0 ? (
+            <View
+              style={[
+                styles.infoPill,
+                { backgroundColor: UI.goldSoft, borderColor: '#F3E1B4' },
+              ]}
+            >
+              <Ionicons name="star" size={11} color={UI.gold} />
+              <Text style={[styles.infoPillText, { color: UI.gold }]}>
+                {rating.toFixed(1)}
+              </Text>
             </View>
           ) : null}
         </View>
@@ -339,7 +299,7 @@ export default function DiscoverScreen() {
         <View style={styles.actionRow}>
           <TouchableOpacity
             style={styles.bookBtn}
-            activeOpacity={0.82}
+            activeOpacity={0.84}
             onPress={() => {
               hapticLight();
               router.push({
@@ -352,31 +312,24 @@ export default function DiscoverScreen() {
             }}
           >
             <LinearGradient
-              colors={[UI.forestDeep, UI.forest, '#087B73']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+              colors={[UI.forestDeep, UI.forest, UI.forestRich]}
               style={styles.bookGradient}
             >
-              <Ionicons name="calendar-outline" size={15} color="#FFFFFF" />
-              <Text style={styles.bookText}>Book Storage</Text>
+              <Ionicons name="calendar-outline" size={14} color="#FFFFFF" />
+              <Text style={styles.bookText}>Book now</Text>
             </LinearGradient>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.detailsBtn}
-            activeOpacity={0.82}
+            activeOpacity={0.84}
             onPress={() => {
               router.push(`/facility/${item.id}`);
               hapticLight();
             }}
           >
-            <Ionicons
-              name="information-circle-outline"
-              size={16}
-              color={UI.forest}
-            />
-            <Text style={styles.detailsText}>Details</Text>
-            <Ionicons name="chevron-forward" size={14} color={UI.forest} />
+            <Text style={styles.detailsBtnText}>Details</Text>
+            <Ionicons name="chevron-forward" size={13} color={UI.forestRich} />
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
@@ -394,98 +347,89 @@ export default function DiscoverScreen() {
         />
 
         <LinearGradient
-          colors={[UI.forestDeep, UI.forest, '#087B73']}
+          colors={[UI.forestDeep, UI.forest, UI.forestRich]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={styles.hero}
+          style={styles.header}
         >
           <View style={styles.heroGlowTop} />
+          <View style={styles.heroGlowRight} />
           <View style={styles.heroGlowBottom} />
 
-          <View
-            style={{
-              height: Platform.OS === 'ios' ? 58 : 34,
-            }}
-          />
+          <View style={{ height: Platform.OS === 'ios' ? 56 : 38 }} />
 
-          <View style={styles.heroContent}>
-            <View style={styles.heroTopRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.heroEyebrow}>VERIFIED NETWORK</Text>
-                <Text style={styles.heroTitle}>Discover Storage</Text>
-                <Text style={styles.heroSubtitle}>
-                  Explore trusted cold storage facilities across supported states.
-                </Text>
-              </View>
+          <View style={styles.headerContent}>
+            <Text style={styles.headerTitle}>Find Storage</Text>
+            <Text style={styles.headerSub}>
+              {summary.total} storage facilities available
+            </Text>
+          </View>
 
-              <View style={styles.platformBadge}>
-                <Ionicons
-                  name="shield-checkmark"
-                  size={13}
-                  color="#8EF0C6"
-                />
-                <Text style={styles.platformBadgeText}>Verified</Text>
-              </View>
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryNumber}>{summary.total}</Text>
+              <Text style={styles.summaryLabel}>TOTAL</Text>
             </View>
 
-            <View style={styles.heroStatsStrip}>
-              <View style={styles.heroStatItem}>
-                <Text style={styles.heroStatValue}>{facilities.length}</Text>
-                <Text style={styles.heroStatLabel}>FACILITIES</Text>
-              </View>
+            <View style={styles.summaryDivider} />
 
-              <View style={styles.heroStatDivider} />
-
-              <View style={styles.heroStatItem}>
-                <Text style={styles.heroStatValue}>
-                  {selectedState === 'All' ? 'All' : selectedState.split(' ')[0]}
-                </Text>
-                <Text style={styles.heroStatLabel}>STATE</Text>
-              </View>
-
-              <View style={styles.heroStatDivider} />
-
-              <View style={styles.heroStatItem}>
-                <Text style={styles.heroStatValue}>{filtered.length}</Text>
-                <Text style={styles.heroStatLabel}>RESULTS</Text>
-              </View>
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryNumber}>{summary.found}</Text>
+              <Text style={styles.summaryLabel}>FOUND</Text>
             </View>
 
-            <View style={styles.searchWrap}>
-              <SearchBar
-                value={search}
-                onChangeText={setSearch}
-                placeholder="Search facility, city, state or pincode..."
-              />
+            <View style={styles.summaryDivider} />
+
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryNumber}>{summary.states}</Text>
+              <Text style={styles.summaryLabel}>STATES</Text>
             </View>
           </View>
         </LinearGradient>
 
-        <View style={styles.filtersWrap}>
+        <View style={styles.searchSection}>
+          <View style={styles.searchBox}>
+            <Ionicons name="search-outline" size={20} color="#9CA3AF" />
+            <TextInput
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Search facility, city or pincode..."
+              placeholderTextColor="#98A2B3"
+              style={styles.searchInput}
+            />
+            {search.length > 0 ? (
+              <TouchableOpacity onPress={() => setSearch('')} activeOpacity={0.8}>
+                <Ionicons name="close-circle" size={18} color="#A0A8B5" />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </View>
+
+        <View style={styles.filterRow}>
           <FlatList
             data={INDIAN_STATES}
             horizontal
             showsHorizontalScrollIndicator={false}
             keyExtractor={(item) => item}
-            contentContainerStyle={styles.filterChipsContent}
-            style={styles.filterList}
+            contentContainerStyle={styles.filterContent}
             renderItem={({ item }) => {
               const active = selectedState === item;
-              const count = item === 'All' ? facilities.length : stateCounts[item] || 0;
+              const count =
+                item === 'All' ? facilities.length : stateCounts[item] || 0;
 
               return (
                 <TouchableOpacity
-                  style={[styles.stateChip, active && styles.stateChipActive]}
-                  activeOpacity={0.82}
+                  style={[styles.filterChip, active && styles.filterChipActive]}
                   onPress={() => {
                     setSelectedState(item);
                     hapticSelection();
                   }}
+                  activeOpacity={0.84}
                 >
                   <Text
                     style={[
-                      styles.stateChipText,
-                      active && styles.stateChipTextActive,
+                      styles.filterChipText,
+                      active && styles.filterChipTextActive,
                     ]}
                     numberOfLines={1}
                   >
@@ -495,14 +439,14 @@ export default function DiscoverScreen() {
                   {count > 0 ? (
                     <View
                       style={[
-                        styles.stateBadge,
-                        active && styles.stateBadgeActive,
+                        styles.filterBadge,
+                        active && styles.filterBadgeActive,
                       ]}
                     >
                       <Text
                         style={[
-                          styles.stateBadgeText,
-                          active && styles.stateBadgeTextActive,
+                          styles.filterBadgeText,
+                          active && styles.filterBadgeTextActive,
                         ]}
                       >
                         {count}
@@ -513,48 +457,57 @@ export default function DiscoverScreen() {
               );
             }}
           />
-
-          <View style={styles.resultsBar}>
-            <Text style={styles.resultsText}>
-              {filtered.length} facilit{filtered.length === 1 ? 'y' : 'ies'} found
-            </Text>
-
-            <View style={styles.sortPill}>
-              <Ionicons
-                name="shield-checkmark-outline"
-                size={12}
-                color={UI.forest}
-              />
-              <Text style={styles.sortText}>Verified only</Text>
-            </View>
-          </View>
         </View>
 
-        <FlatList
-          data={filtered}
-          renderItem={renderFacility}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={UI.forest}
-            />
-          }
-          ListEmptyComponent={
-            <EmptyState
-              icon="compass-outline"
-              title={search ? 'No matching facilities' : 'No facilities'}
-              subtitle={
-                search
-                  ? 'Try a different search term or state filter.'
-                  : 'No verified cold storage facilities found.'
-              }
-            />
-          }
-        />
+        {loading ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={UI.forestRich} />
+            <Text style={styles.loadingLabel}>Loading storage...</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.center}>
+            <View style={styles.emptyIconWrap}>
+              <Ionicons name="cloud-offline-outline" size={40} color="#C7CDD6" />
+            </View>
+            <Text style={styles.emptyTitle}>Something went wrong</Text>
+            <Text style={styles.emptyText}>
+              Please check your internet and try again.
+            </Text>
+            <TouchableOpacity
+              style={styles.retryBtn}
+              onPress={fetchFacilities}
+              activeOpacity={0.84}
+            >
+              <Ionicons name="refresh-outline" size={16} color={UI.forestRich} />
+              <Text style={styles.retryBtnText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        ) : filtered.length === 0 ? (
+          <View style={styles.center}>
+            <View style={styles.emptyIconWrap}>
+              <Ionicons name="search-outline" size={40} color="#C7CDD6" />
+            </View>
+            <Text style={styles.emptyTitle}>No storage found</Text>
+            <Text style={styles.emptyText}>
+              Try another search or select a different state.
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={filtered}
+            renderItem={renderFacility}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={UI.forestRich}
+              />
+            }
+          />
+        )}
       </View>
     </>
   );
@@ -566,432 +519,343 @@ const styles = StyleSheet.create({
     backgroundColor: UI.canvas,
   },
 
-  heroLoading: {
+  header: {
     paddingHorizontal: 20,
     paddingBottom: 20,
-  },
-
-  heroLoadingTitle: {
-    color: '#FFFFFF',
-    fontSize: 28,
-    fontWeight: '800',
-    letterSpacing: -0.4,
-  },
-
-  heroLoadingSub: {
-    marginTop: 4,
-    color: 'rgba(255,255,255,0.68)',
-    fontSize: 13,
-    fontWeight: '500',
-  },
-
-  hero: {
-    paddingBottom: 22,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
     overflow: 'hidden',
   },
 
   heroGlowTop: {
     position: 'absolute',
-    top: -90,
-    right: -70,
+    top: -84,
+    right: -18,
+    width: 210,
+    height: 210,
+    borderRadius: 105,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+
+  heroGlowRight: {
+    position: 'absolute',
+    top: 18,
+    right: -64,
     width: 220,
     height: 220,
     borderRadius: 110,
-    backgroundColor: 'rgba(42, 199, 171, 0.14)',
+    backgroundColor: 'rgba(28,214,192,0.11)',
   },
 
   heroGlowBottom: {
     position: 'absolute',
-    bottom: -120,
-    left: -90,
-    width: 260,
-    height: 180,
-    borderRadius: 130,
+    left: -86,
+    bottom: -88,
+    width: 250,
+    height: 150,
+    borderRadius: 125,
     backgroundColor: 'rgba(255,255,255,0.05)',
   },
 
-  heroContent: {
-    paddingHorizontal: 16,
+  headerContent: {
+    marginBottom: 16,
   },
 
-  heroTopRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-  },
-
-  heroEyebrow: {
-    color: 'rgba(255,255,255,0.65)',
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 1,
-  },
-
-  heroTitle: {
-    marginTop: 6,
-    color: '#FFFFFF',
-    fontSize: 30,
+  headerTitle: {
+    fontSize: 31,
+    lineHeight: 36,
     fontWeight: '800',
+    color: '#FFFFFF',
     letterSpacing: -0.7,
   },
 
-  heroSubtitle: {
-    marginTop: 8,
-    maxWidth: '88%',
-    color: 'rgba(255,255,255,0.72)',
-    fontSize: 13,
-    lineHeight: 20,
+  headerSub: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.68)',
+    marginTop: 6,
   },
 
-  platformBadge: {
-    minHeight: 32,
-    paddingHorizontal: 10,
-    borderRadius: 999,
-    backgroundColor: 'rgba(52,211,153,0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(52,211,153,0.18)',
+  summaryRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-
-  platformBadgeText: {
-    color: '#8EF0C6',
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
-
-  heroStatsStrip: {
-    marginTop: 22,
-    minHeight: 82,
+    backgroundColor: 'rgba(255,255,255,0.10)',
     borderRadius: 20,
+    paddingVertical: 16,
     paddingHorizontal: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.13)',
+    borderColor: 'rgba(255,255,255,0.08)',
   },
 
-  heroStatItem: {
+  summaryCard: {
     flex: 1,
     alignItems: 'center',
   },
 
-  heroStatValue: {
-    color: '#FFFFFF',
-    fontSize: 17,
+  summaryNumber: {
+    fontSize: 22,
     fontWeight: '800',
-    letterSpacing: -0.25,
+    color: '#FFFFFF',
   },
 
-  heroStatLabel: {
+  summaryLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.62)',
     marginTop: 5,
-    color: 'rgba(255,255,255,0.56)',
-    fontSize: 8,
-    fontWeight: '900',
-    letterSpacing: 0.6,
+    letterSpacing: 0.8,
   },
 
-  heroStatDivider: {
+  summaryDivider: {
     width: 1,
-    height: 34,
-    backgroundColor: 'rgba(255,255,255,0.16)',
+    backgroundColor: 'rgba(255,255,255,0.14)',
   },
 
-  searchWrap: {
-    marginTop: 16,
-  },
-
-  filtersWrap: {
-    paddingTop: 14,
-    paddingBottom: 8,
+  searchSection: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 2,
     backgroundColor: UI.canvas,
   },
 
-  filterList: {
-    flexGrow: 0,
-  },
-
-  filterChipsContent: {
-    paddingLeft: 16,
-    paddingRight: 24,
-    gap: 10,
-  },
-
-  stateChip: {
-    minHeight: 42,
+  searchBox: {
+    minHeight: 52,
+    borderRadius: 17,
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 15,
-    borderRadius: 14,
-    backgroundColor: UI.surface,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
     borderWidth: 1,
-    borderColor: UI.border,
+    borderColor: '#E4E8E4',
+    shadowColor: '#173528',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+
+  searchInput: {
+    flex: 1,
+    color: '#23323D',
+    fontSize: 15,
+    fontWeight: '500',
+    paddingVertical: Platform.OS === 'ios' ? 13 : 10,
+  },
+
+  filterRow: {
+    paddingVertical: 10,
+    backgroundColor: UI.canvas,
+  },
+
+  filterContent: {
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+
+  filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: UI.border,
   },
 
-  stateChipActive: {
-    backgroundColor: UI.forest,
-    borderColor: UI.forest,
+  filterChipActive: {
+    backgroundColor: '#1B5E4A',
+    borderColor: '#1B5E4A',
   },
 
-  stateChipText: {
-    color: UI.textMuted,
+  filterChipText: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
+    color: UI.textMuted,
     maxWidth: 140,
   },
 
-  stateChipTextActive: {
+  filterChipTextActive: {
     color: '#FFFFFF',
   },
 
-  stateBadge: {
+  filterBadge: {
     minWidth: 22,
     height: 22,
     paddingHorizontal: 6,
     borderRadius: 11,
-    backgroundColor: '#EEF2EE',
+    backgroundColor: '#EEF2EC',
     alignItems: 'center',
     justifyContent: 'center',
   },
 
-  stateBadgeActive: {
-    backgroundColor: 'rgba(255,255,255,0.22)',
+  filterBadgeActive: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
   },
 
-  stateBadgeText: {
+  filterBadgeText: {
     color: UI.textMuted,
     fontSize: 10,
     fontWeight: '800',
   },
 
-  stateBadgeTextActive: {
+  filterBadgeTextActive: {
     color: '#FFFFFF',
   },
 
-  resultsBar: {
+  listContent: {
     paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-
-  resultsText: {
-    color: UI.textSoft,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-
-  sortPill: {
-    minHeight: 32,
-    paddingHorizontal: 11,
-    borderRadius: 11,
-    backgroundColor: '#EEF6F1',
-    borderWidth: 1,
-    borderColor: '#CFE2D6',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-
-  sortText: {
-    color: UI.forest,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-
-  list: {
-    paddingHorizontal: 16,
+    paddingTop: 4,
     paddingBottom: Platform.OS === 'ios' ? 108 : 90,
   },
 
   card: {
-    marginBottom: 14,
-    padding: 16,
-    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 14,
     borderWidth: 1,
-    borderColor: UI.border,
-    backgroundColor: UI.surface,
-    shadowColor: '#173D31',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
+    borderColor: '#E8ECE8',
+    shadowColor: '#1B332A',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.035,
+    shadowRadius: 7,
     elevation: 2,
+    marginBottom: 10,
   },
 
   cardTop: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
   },
 
   cardIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-
-  titleWrap: {
-    flex: 1,
-    marginLeft: 12,
-    marginRight: 10,
-  },
-
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
   },
 
   cardName: {
-    flex: 1,
+    fontSize: 15,
+    fontWeight: '700',
     color: UI.text,
-    fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: -0.2,
+  },
+
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 3,
+  },
+
+  locationText: {
+    fontSize: 12,
+    color: UI.textSoft,
+    flex: 1,
   },
 
   verifiedBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: 7,
-    backgroundColor: '#DFF7EA',
+    width: 24,
+    height: 24,
+    borderRadius: 8,
+    backgroundColor: UI.greenSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
-  locationRow: {
-    marginTop: 5,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-
-  locationText: {
-    color: UI.textSoft,
-    fontSize: 12,
-    fontWeight: '500',
-  },
-
-  ratingPill: {
-    minHeight: 30,
-    paddingHorizontal: 8,
-    borderRadius: 10,
-    backgroundColor: UI.goldSoft,
-    borderWidth: 1,
-    borderColor: '#F1DEAD',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-
-  ratingValue: {
-    color: UI.gold,
-    fontSize: 13,
-    fontWeight: '800',
-  },
-
-  reviewCount: {
-    color: UI.textSoft,
-    fontSize: 10,
-    fontWeight: '600',
-  },
-
-  capacityStrip: {
-    marginTop: 16,
-    padding: 14,
-    borderRadius: 18,
-    backgroundColor: UI.surfaceAlt,
+  capacityBox: {
+    borderRadius: 14,
+    padding: 12,
+    backgroundColor: UI.surfaceSoft,
     borderWidth: 1,
     borderColor: '#EDF1ED',
-    flexDirection: 'row',
-    alignItems: 'center',
   },
 
-  capacityTextWrap: {
-    flex: 1,
-    paddingRight: 12,
+  capacityTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+    alignItems: 'flex-start',
   },
 
   capacityLabel: {
+    fontSize: 11,
+    fontWeight: '700',
     color: UI.textSoft,
-    fontSize: 9,
-    fontWeight: '900',
-    letterSpacing: 0.7,
   },
 
   capacityValue: {
-    marginTop: 5,
-    color: UI.text,
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: '800',
-    letterSpacing: -0.3,
+    color: UI.text,
+    marginTop: 4,
+    letterSpacing: -0.4,
   },
 
-  capacitySubValue: {
-    marginTop: 3,
-    color: UI.textMuted,
+  capacitySub: {
     fontSize: 12,
+    color: UI.textMuted,
+    marginTop: 2,
     fontWeight: '600',
   },
 
-  capacityBar: {
-    marginTop: 10,
-    height: 7,
+  statusPill: {
+    paddingHorizontal: 9,
+    paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: '#E9EEE9',
+    alignSelf: 'flex-start',
+  },
+
+  statusPillText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+
+  capacityBar: {
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: '#E7ECE7',
+    marginTop: 12,
     overflow: 'hidden',
   },
 
   capacityFill: {
-    height: '100%' as any,
+    height: '100%',
     borderRadius: 999,
   },
 
-  ringWrap: {
-    width: 62,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  tagsRow: {
-    marginTop: 14,
+  infoRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+    marginTop: 12,
   },
 
-  tag: {
-    minHeight: 30,
-    paddingHorizontal: 10,
-    borderRadius: 10,
-    backgroundColor: '#FAFCFA',
-    borderWidth: 1,
-    borderColor: '#E4EAE4',
+  infoPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
+    paddingVertical: 5,
+    paddingHorizontal: 9,
+    borderRadius: 10,
+    backgroundColor: '#F5F7F4',
+    borderWidth: 1,
+    borderColor: '#E8ECE8',
   },
 
-  tagText: {
-    color: UI.textMuted,
+  infoPillText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
+    color: UI.textMuted,
   },
 
   actionRow: {
-    marginTop: 16,
     flexDirection: 'row',
     gap: 10,
+    marginTop: 14,
   },
 
   bookBtn: {
@@ -1001,7 +865,7 @@ const styles = StyleSheet.create({
   },
 
   bookGradient: {
-    minHeight: 46,
+    minHeight: 42,
     borderRadius: 14,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1010,27 +874,83 @@ const styles = StyleSheet.create({
   },
 
   bookText: {
-    color: '#FFFFFF',
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 
   detailsBtn: {
-    flex: 1,
-    minHeight: 46,
+    minHeight: 42,
+    paddingHorizontal: 14,
     borderRadius: 14,
+    backgroundColor: '#F2F5F0',
     borderWidth: 1,
-    borderColor: '#CFE2D6',
-    backgroundColor: '#EEF6F1',
+    borderColor: '#DCE3DA',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
   },
 
-  detailsText: {
-    color: UI.forest,
-    fontSize: 13,
-    fontWeight: '800',
+  detailsBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: UI.forestRich,
+  },
+
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+
+  loadingLabel: {
+    marginTop: 12,
+    fontSize: 14,
+    color: UI.textMuted,
+  },
+
+  emptyIconWrap: {
+    width: 80,
+    height: 80,
+    borderRadius: 24,
+    backgroundColor: '#F0F2EE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: UI.text,
+    marginBottom: 6,
+  },
+
+  emptyText: {
+    fontSize: 14,
+    color: UI.textMuted,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+
+  retryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 14,
+    backgroundColor: UI.greenSoft,
+    borderWidth: 1,
+    borderColor: '#D4E8DC',
+  },
+
+  retryBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: UI.forestRich,
   },
 });

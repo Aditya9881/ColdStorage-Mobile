@@ -1,6 +1,3 @@
-/**
- * Receipt Detail Screen — Premium eNWR view with QR code, pledge status, and share
- */
 import React, { useState, useCallback } from 'react';
 import {
   View,
@@ -15,7 +12,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter, useFocusEffect, Stack } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import QRCode from 'react-native-qrcode-svg';
 import { api } from '@/lib/api-client';
 import StatusChip from '@/components/ui/StatusChip';
@@ -48,17 +44,24 @@ interface ReceiptDetail {
 const UI = {
   bg: '#F6F7F3',
   surface: '#FFFFFF',
+  surfaceAlt: '#FAFBF8',
+  surfaceSoft: '#EEF3ED',
   text: '#18212F',
   textMuted: '#6B7280',
   textSoft: '#9CA3AF',
-  border: '#E9ECE6',
+  border: '#E7ECE4',
+  borderSoft: '#EEF1EA',
   forest: '#2D6A4F',
   forestDeep: '#163528',
-  forestMid: '#1F513B',
+  forestSoft: '#ECF8F1',
   success: '#059669',
+  successSoft: '#ECFDF5',
   warning: '#D97706',
+  warningSoft: '#FFFBEB',
   violet: '#7C3AED',
+  violetSoft: '#F5F3FF',
   danger: '#DC2626',
+  dangerSoft: '#FEF2F2',
 };
 
 export default function ReceiptDetailScreen() {
@@ -127,7 +130,11 @@ export default function ReceiptDetailScreen() {
           `Receipt: ${receipt.receiptNumber}`,
           `Status: ${receipt.status}`,
           `Commodity: ${receipt.lot?.commodityName || 'N/A'}`,
-          `Weight: ${receipt.lot?.currentWeightKg ? formatWeight(receipt.lot.currentWeightKg) : 'N/A'}`,
+          `Weight: ${
+            receipt.lot?.currentWeightKg
+              ? formatWeight(receipt.lot.currentWeightKg)
+              : 'N/A'
+          }`,
           `Facility: ${receipt.facility?.name || 'N/A'}`,
           `Issued: ${formatDate(receipt.createdAt)}`,
           receipt.isPledged ? `Pledged to: ${receipt.pledgedTo || 'N/A'}` : '',
@@ -147,12 +154,13 @@ export default function ReceiptDetailScreen() {
       <>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.loadingWrap}>
-          <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-          <LinearGradient colors={[UI.forestDeep, UI.forestMid, UI.forest]} style={styles.loadingHero}>
-            <ActivityIndicator size="large" color="#FFFFFF" />
-            <Text style={styles.loadingTitle}>Loading receipt...</Text>
-            <Text style={styles.loadingSub}>Fetching latest eNWR details</Text>
-          </LinearGradient>
+          <StatusBar barStyle="dark-content" backgroundColor={UI.bg} />
+          <View style={styles.loadingOrb}>
+            <Ionicons name="document-text-outline" size={28} color={UI.forest} />
+          </View>
+          <ActivityIndicator size="small" color={UI.forest} />
+          <Text style={styles.loadingTitle}>Loading receipt</Text>
+          <Text style={styles.loadingSub}>Fetching latest eNWR details</Text>
         </View>
       </>
     );
@@ -163,13 +171,17 @@ export default function ReceiptDetailScreen() {
       <>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.emptyScreen}>
-          <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+          <StatusBar barStyle="dark-content" backgroundColor={UI.bg} />
           <Ionicons name="document-outline" size={52} color="#C4CBD3" />
           <Text style={styles.emptyTitle}>Receipt not found</Text>
           <Text style={styles.emptyText}>
             We could not load this warehouse receipt.
           </Text>
-          <TouchableOpacity style={styles.emptyBtn} onPress={() => router.back()} activeOpacity={0.84}>
+          <TouchableOpacity
+            style={styles.emptyBtn}
+            onPress={() => router.back()}
+            activeOpacity={0.84}
+          >
             <Text style={styles.emptyBtnText}>Go Back</Text>
           </TouchableOpacity>
         </View>
@@ -184,6 +196,8 @@ export default function ReceiptDetailScreen() {
       done: true,
       icon: 'document-text-outline' as const,
       meta: null,
+      tone: UI.forest,
+      bg: UI.forestSoft,
     },
     {
       label: 'Pledged',
@@ -191,6 +205,8 @@ export default function ReceiptDetailScreen() {
       done: receipt.isPledged,
       icon: 'lock-closed-outline' as const,
       meta: receipt.pledgedTo ? `To: ${receipt.pledgedTo}` : null,
+      tone: UI.violet,
+      bg: UI.violetSoft,
     },
     {
       label: 'Redeemed',
@@ -198,6 +214,8 @@ export default function ReceiptDetailScreen() {
       done: !!receipt.redeemedAt,
       icon: 'lock-open-outline' as const,
       meta: null,
+      tone: UI.success,
+      bg: UI.successSoft,
     },
     ...(receipt.expiresAt
       ? [
@@ -207,6 +225,8 @@ export default function ReceiptDetailScreen() {
             done: new Date(receipt.expiresAt) < new Date(),
             icon: 'time-outline' as const,
             meta: null,
+            tone: UI.warning,
+            bg: UI.warningSoft,
           },
         ]
       : []),
@@ -216,96 +236,121 @@ export default function ReceiptDetailScreen() {
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.container}>
-        <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+        <StatusBar barStyle="dark-content" backgroundColor={UI.bg} />
 
-        <LinearGradient colors={[UI.forestDeep, UI.forestMid, UI.forest]} style={styles.header}>
-          <View style={styles.heroGlowA} />
-          <View style={styles.heroGlowB} />
+        <View style={styles.headerWrap}>
+          <View style={{ height: Platform.OS === 'ios' ? 58 : 22 }} />
 
-          <View style={styles.headerTop}>
+          <View style={styles.topBar}>
             <TouchableOpacity
               onPress={() => router.back()}
-              style={styles.backBtn}
-              activeOpacity={0.82}
+              style={styles.iconBtn}
+              activeOpacity={0.84}
             >
-              <Ionicons name="arrow-back" size={22} color="#FFF" />
+              <Ionicons name="chevron-back" size={20} color={UI.text} />
             </TouchableOpacity>
 
-            <View style={{ flex: 1 }}>
-              <Text style={styles.headerTitle}>eNWR Receipt</Text>
+            <View style={styles.headerCenter}>
+              <Text style={styles.headerKicker}>eNWR</Text>
+              <Text style={styles.headerTitle}>Warehouse Receipt</Text>
               <Text style={styles.headerSub} numberOfLines={1}>
                 {receipt.receiptNumber}
               </Text>
             </View>
 
             <TouchableOpacity
-              style={styles.shareIconBtn}
+              style={styles.iconBtn}
               onPress={handleShare}
-              activeOpacity={0.82}
+              activeOpacity={0.84}
               disabled={sharing}
             >
               {sharing ? (
-                <ActivityIndicator size="small" color="#FFF" />
+                <ActivityIndicator size="small" color={UI.forest} />
               ) : (
-                <Ionicons name="share-social-outline" size={20} color="#FFF" />
+                <Ionicons name="share-social-outline" size={18} color={UI.text} />
               )}
             </TouchableOpacity>
           </View>
-
-          <View style={styles.headerMetaRow}>
-            <View style={styles.headerMetaChip}>
-              <Ionicons name="calendar-outline" size={13} color="#D1FAE5" />
-              <Text style={styles.headerMetaText}>Issued {formatDate(receipt.createdAt)}</Text>
-            </View>
-
-            <View style={styles.headerMetaChip}>
-              <Ionicons
-                name={receipt.isPledged ? 'lock-closed-outline' : 'shield-checkmark-outline'}
-                size={13}
-                color="#D1FAE5"
-              />
-              <Text style={styles.headerMetaText}>{getPledgeLabel()}</Text>
-            </View>
-          </View>
-        </LinearGradient>
+        </View>
 
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
-          <View style={styles.qrCard}>
-            <View style={styles.qrFrame}>
-              <QRCode
-                value={receipt.receiptNumber}
-                size={176}
-                backgroundColor="#FFFFFF"
-                color="#15202B"
-              />
+          <View style={styles.certificateCard}>
+            <View style={styles.certificateTopRow}>
+              <View>
+                <Text style={styles.certificateEyebrow}>Electronic Warehouse Receipt</Text>
+                <Text style={styles.certificateNumber}>{receipt.receiptNumber}</Text>
+              </View>
+
+              <View style={styles.certificateStamp}>
+                <Ionicons name="shield-checkmark-outline" size={18} color={UI.forest} />
+              </View>
             </View>
 
-            <Text style={styles.receiptEyebrow}>Electronic Warehouse Receipt</Text>
-            <Text style={styles.receiptNumber}>{receipt.receiptNumber}</Text>
+            <View style={styles.qrWrap}>
+              <View style={styles.qrFrame}>
+                <QRCode
+                  value={receipt.receiptNumber}
+                  size={176}
+                  backgroundColor="#FFFFFF"
+                  color="#15202B"
+                />
+              </View>
+            </View>
 
             <View style={styles.statusRow}>
               <StatusChip status={receipt.status} size="md" />
               {receipt.isNegotiable && (
-                <StatusChip status="ACTIVE" size="md" label="Negotiable" />
+                <View style={[styles.inlineStatus, { backgroundColor: UI.successSoft }]}>
+                  <Ionicons
+                    name="swap-horizontal-outline"
+                    size={13}
+                    color={UI.forest}
+                  />
+                  <Text style={[styles.inlineStatusText, { color: UI.forest }]}>
+                    Negotiable
+                  </Text>
+                </View>
               )}
             </View>
 
+            <View style={styles.certificateMetaStrip}>
+              <View style={styles.metaPill}>
+                <Ionicons name="calendar-outline" size={13} color={UI.textSoft} />
+                <Text style={styles.metaPillText}>
+                  Issued {formatDate(receipt.createdAt)}
+                </Text>
+              </View>
+
+              <View style={styles.metaPill}>
+                <Ionicons
+                  name={
+                    receipt.isPledged
+                      ? 'lock-closed-outline'
+                      : 'shield-checkmark-outline'
+                  }
+                  size={13}
+                  color={UI.textSoft}
+                />
+                <Text style={styles.metaPillText}>{getPledgeLabel()}</Text>
+              </View>
+            </View>
+
             <Text style={styles.qrHint}>
-              Scan this QR code to verify receipt identity and receipt number.
+              Scan this QR code to verify receipt identity and warehouse receipt number.
             </Text>
           </View>
 
           <View style={styles.summaryGrid}>
             <View style={styles.summaryTile}>
-              <Text style={styles.summaryLabel}>STATUS</Text>
+              <Text style={styles.summaryLabel}>Status</Text>
               <Text style={styles.summaryValue}>{receipt.status}</Text>
             </View>
 
             <View style={styles.summaryTile}>
-              <Text style={styles.summaryLabel}>PLEDGE</Text>
+              <Text style={styles.summaryLabel}>Pledge</Text>
               <Text
                 style={[
                   styles.summaryValue,
@@ -323,11 +368,14 @@ export default function ReceiptDetailScreen() {
             <TouchableOpacity
               style={styles.section}
               onPress={() => router.push(`/lots/${receipt.lot!.id}`)}
-              activeOpacity={0.82}
+              activeOpacity={0.84}
             >
               <View style={styles.sectionHead}>
                 <Text style={styles.sectionTitle}>Lot Details</Text>
-                <Text style={styles.linkHint}>View lot</Text>
+                <View style={styles.linkPill}>
+                  <Text style={styles.linkHint}>View lot</Text>
+                  <Ionicons name="chevron-forward" size={13} color={UI.forest} />
+                </View>
               </View>
 
               <View style={styles.detailRow}>
@@ -347,14 +395,18 @@ export default function ReceiptDetailScreen() {
               {receipt.lot.intakeWeightKg !== undefined && (
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Intake Weight</Text>
-                  <Text style={styles.detailValue}>{formatWeight(receipt.lot.intakeWeightKg)}</Text>
+                  <Text style={styles.detailValue}>
+                    {formatWeight(receipt.lot.intakeWeightKg)}
+                  </Text>
                 </View>
               )}
 
               {receipt.lot.currentWeightKg !== undefined && (
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Current Weight</Text>
-                  <Text style={styles.detailValue}>{formatWeight(receipt.lot.currentWeightKg)}</Text>
+                  <Text style={styles.detailValue}>
+                    {formatWeight(receipt.lot.currentWeightKg)}
+                  </Text>
                 </View>
               )}
 
@@ -379,7 +431,9 @@ export default function ReceiptDetailScreen() {
               <Text style={styles.sectionTitle}>Facility</Text>
               <Text style={styles.facilityName}>{receipt.facility.name}</Text>
               <Text style={styles.facilityMeta}>
-                {[receipt.facility.city, receipt.facility.state].filter(Boolean).join(', ') || '—'}
+                {[receipt.facility.city, receipt.facility.state]
+                  .filter(Boolean)
+                  .join(', ') || '—'}
               </Text>
             </View>
           )}
@@ -387,10 +441,12 @@ export default function ReceiptDetailScreen() {
           {receipt.depositor && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Depositor</Text>
+
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Name</Text>
                 <Text style={styles.detailValue}>{receipt.depositor.fullName}</Text>
               </View>
+
               {receipt.depositor.phone ? (
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Phone</Text>
@@ -410,18 +466,20 @@ export default function ReceiptDetailScreen() {
                     style={[
                       styles.timelineDot,
                       {
-                        backgroundColor: step.done ? UI.forest : '#EEF1EA',
+                        backgroundColor: step.done ? step.bg : UI.surfaceSoft,
                       },
                     ]}
                   >
                     <Ionicons
                       name={step.icon}
                       size={14}
-                      color={step.done ? '#FFF' : '#97A2AE'}
+                      color={step.done ? step.tone : '#97A2AE'}
                     />
                   </View>
 
-                  {idx < timelineSteps.length - 1 && <View style={styles.timelineLine} />}
+                  {idx < timelineSteps.length - 1 && (
+                    <View style={styles.timelineLine} />
+                  )}
                 </View>
 
                 <View style={styles.timelineRight}>
@@ -448,7 +506,7 @@ export default function ReceiptDetailScreen() {
             ))}
           </View>
 
-          <View style={{ height: 96 }} />
+          <View style={{ height: 92 }} />
         </ScrollView>
 
         <View style={styles.bottomBar}>
@@ -458,10 +516,14 @@ export default function ReceiptDetailScreen() {
             activeOpacity={0.84}
             disabled={sharing}
           >
-            <Ionicons name="share-outline" size={20} color={UI.forest} />
-            <Text style={styles.shareBtnText}>
-              {sharing ? 'Sharing...' : 'Share Receipt'}
-            </Text>
+            {sharing ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <>
+                <Ionicons name="share-outline" size={18} color="#FFFFFF" />
+                <Text style={styles.shareBtnText}>Share Receipt</Text>
+              </>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -478,25 +540,31 @@ const styles = StyleSheet.create({
   loadingWrap: {
     flex: 1,
     backgroundColor: UI.bg,
-  },
-
-  loadingHero: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
 
+  loadingOrb: {
+    width: 84,
+    height: 84,
+    borderRadius: 28,
+    backgroundColor: UI.forestSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 18,
+  },
+
   loadingTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: UI.text,
     marginTop: 16,
   },
 
   loadingSub: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.62)',
+    color: UI.textMuted,
     marginTop: 6,
   },
 
@@ -537,152 +605,172 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 
-  header: {
-    paddingTop: Platform.OS === 'ios' ? 58 : 22,
-    paddingBottom: 22,
-    paddingHorizontal: 20,
-    overflow: 'hidden',
+  headerWrap: {
+    backgroundColor: UI.bg,
+    paddingBottom: 8,
   },
 
-  heroGlowA: {
-    position: 'absolute',
-    top: -70,
-    right: -30,
-    width: 180,
-    height: 180,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-  },
-
-  heroGlowB: {
-    position: 'absolute',
-    bottom: -60,
-    left: -20,
-    width: 150,
-    height: 150,
-    borderRadius: 999,
-    backgroundColor: 'rgba(52,211,153,0.10)',
-  },
-
-  headerTop: {
+  topBar: {
+    paddingHorizontal: 16,
+    paddingTop: 2,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginBottom: 14,
   },
 
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+  iconBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: UI.border,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
   },
 
-  shareIconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+  headerCenter: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
+    paddingHorizontal: 4,
+  },
+
+  headerKicker: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: UI.textSoft,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
 
   headerTitle: {
+    marginTop: 3,
     fontSize: 22,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: UI.text,
     letterSpacing: -0.3,
+    textAlign: 'center',
   },
 
   headerSub: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.66)',
     marginTop: 3,
-    fontWeight: '500',
-  },
-
-  headerMetaRow: {
-    flexDirection: 'row',
-    gap: 10,
-    flexWrap: 'wrap',
-  },
-
-  headerMetaChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(255,255,255,0.10)',
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-
-  headerMetaText: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    color: UI.textMuted,
+    fontWeight: '500',
+    textAlign: 'center',
   },
 
   scrollContent: {
     padding: 16,
-    paddingBottom: 110,
+    paddingBottom: 104,
   },
 
-  qrCard: {
+  certificateCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
-    padding: 20,
-    alignItems: 'center',
+    padding: 18,
     borderWidth: 1,
-    borderColor: '#EEF1EA',
+    borderColor: UI.borderSoft,
     shadowColor: '#163C2D',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.06,
+    shadowOpacity: 0.055,
     shadowRadius: 14,
     elevation: 3,
     marginBottom: 14,
+  },
+
+  certificateTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+
+  certificateEyebrow: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: UI.textSoft,
+    letterSpacing: 0.9,
+    textTransform: 'uppercase',
+  },
+
+  certificateNumber: {
+    fontSize: 21,
+    fontWeight: '800',
+    color: UI.forest,
+    marginTop: 6,
+    letterSpacing: 0.25,
+  },
+
+  certificateStamp: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: UI.forestSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  qrWrap: {
+    alignItems: 'center',
+    marginTop: 18,
   },
 
   qrFrame: {
     padding: 14,
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    marginBottom: 16,
     borderWidth: 1,
     borderColor: '#F1F3EF',
-  },
-
-  receiptEyebrow: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: UI.textSoft,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-
-  receiptNumber: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: UI.forest,
-    marginTop: 6,
-    letterSpacing: 0.4,
-    textAlign: 'center',
   },
 
   statusRow: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 12,
+    marginTop: 16,
     flexWrap: 'wrap',
     justifyContent: 'center',
+  },
+
+  inlineStatus: {
+    minHeight: 32,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+
+  inlineStatusText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  certificateMetaStrip: {
+    marginTop: 16,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'center',
+  },
+
+  metaPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: UI.surfaceAlt,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: UI.borderSoft,
+  },
+
+  metaPillText: {
+    fontSize: 12,
+    color: UI.textMuted,
+    fontWeight: '700',
   },
 
   qrHint: {
@@ -690,7 +778,7 @@ const styles = StyleSheet.create({
     color: UI.textSoft,
     lineHeight: 18,
     textAlign: 'center',
-    marginTop: 12,
+    marginTop: 14,
   },
 
   summaryGrid: {
@@ -703,21 +791,22 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
-    padding: 16,
+    padding: 15,
     borderWidth: 1,
-    borderColor: '#EEF1EA',
+    borderColor: UI.borderSoft,
   },
 
   summaryLabel: {
     fontSize: 11,
     fontWeight: '700',
     color: UI.textSoft,
-    letterSpacing: 0.8,
+    letterSpacing: 0.7,
     marginBottom: 6,
+    textTransform: 'uppercase',
   },
 
   summaryValue: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     color: UI.text,
   },
@@ -728,10 +817,10 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#EEF1EA',
+    borderColor: UI.borderSoft,
     shadowColor: '#163C2D',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
+    shadowOpacity: 0.035,
     shadowRadius: 12,
     elevation: 2,
   },
@@ -740,7 +829,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 10,
   },
 
   sectionTitle: {
@@ -748,7 +837,16 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: UI.text,
     letterSpacing: -0.1,
-    marginBottom: 12,
+  },
+
+  linkPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: UI.forestSoft,
   },
 
   linkHint: {
@@ -762,7 +860,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     gap: 16,
-    paddingVertical: 7,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F4F6F2',
   },
 
   detailLabel: {
@@ -798,7 +898,7 @@ const styles = StyleSheet.create({
 
   timelineItem: {
     flexDirection: 'row',
-    minHeight: 56,
+    minHeight: 54,
   },
 
   timelineLeft: {
@@ -824,7 +924,7 @@ const styles = StyleSheet.create({
 
   timelineRight: {
     flex: 1,
-    paddingBottom: 14,
+    paddingBottom: 12,
   },
 
   timelineLabel: {
@@ -856,28 +956,32 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    padding: 16,
-    paddingBottom: 28,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 16,
     backgroundColor: 'rgba(246,247,243,0.96)',
     borderTopWidth: 1,
-    borderTopColor: '#E9ECE6',
+    borderTopColor: UI.border,
   },
 
   shareBtn: {
+    minHeight: 52,
+    borderRadius: 16,
+    backgroundColor: UI.forest,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 15,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: '#D9E6DE',
-    backgroundColor: '#FFFFFF',
+    shadowColor: UI.forest,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    elevation: 3,
   },
 
   shareBtnText: {
     fontSize: 15,
     fontWeight: '800',
-    color: UI.forest,
+    color: '#FFFFFF',
   },
 });

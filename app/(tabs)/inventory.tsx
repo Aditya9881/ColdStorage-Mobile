@@ -1,14 +1,3 @@
-/**
- * ColdStorage — Premium Pocket Ledger (Inventory) Screen
- *
- * Premium redesign:
- * - Rich custom hero header
- * - Better summary strip for active lots, weight, and rent
- * - Premium filter chips + sort pills
- * - Refined lot cards with stronger hierarchy
- * - Warm agri-fintech product styling
- * - All API calls unchanged
- */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
@@ -19,15 +8,14 @@ import {
   TouchableOpacity,
   Platform,
   StatusBar,
+  TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '@/lib/api-client';
 import { SkeletonList } from '@/components/ui/Skeleton';
 import ErrorState from '@/components/ui/ErrorState';
 import EmptyState from '@/components/ui/EmptyState';
-import SearchBar from '@/components/ui/SearchBar';
 import { hapticLight, hapticSelection } from '@/lib/haptics';
 
 const COMMODITY_ICON: Record<string, string> = {
@@ -46,70 +34,68 @@ const STATUS_CONFIG: Record<
   { label: string; color: string; bg: string; border: string; icon: string }
 > = {
   STORED: {
-    label: 'Stored',
-    color: '#086C4B',
-    bg: '#E8F7EF',
-    border: '#BFE6CE',
+    label: 'In storage',
+    color: '#0B7450',
+    bg: '#E9F7EF',
+    border: '#C9E9D7',
     icon: 'checkmark-circle',
   },
   PARTIALLY_RELEASED: {
-    label: 'Partial',
-    color: '#8A5A0F',
-    bg: '#FFF6E1',
-    border: '#F1DEAD',
+    label: 'Partly taken out',
+    color: '#926214',
+    bg: '#FFF5DF',
+    border: '#F0DEB0',
     icon: 'pie-chart-outline',
   },
   FULLY_RELEASED: {
-    label: 'Released',
-    color: '#55616C',
+    label: 'Taken out',
+    color: '#5E6A74',
     bg: '#F3F5F7',
-    border: '#E5E9ED',
+    border: '#E3E8ED',
     icon: 'exit-outline',
   },
   INTAKE_PENDING: {
-    label: 'Pending',
-    color: '#155E75',
-    bg: '#E7F9FD',
-    border: '#BDECF7',
+    label: 'Waiting',
+    color: '#15617A',
+    bg: '#E9F8FD',
+    border: '#C7EAF4',
     icon: 'time-outline',
   },
   EXPIRED: {
     label: 'Expired',
-    color: '#A33434',
+    color: '#A43939',
     bg: '#FFF0F0',
-    border: '#F6C9C9',
+    border: '#F2CCCC',
     icon: 'alert-circle-outline',
   },
 };
 
 const FILTERS = [
   { key: 'All', label: 'All', status: '' },
-  { key: 'Stored', label: 'Stored', status: 'STORED' },
-  { key: 'Partial', label: 'Partial', status: 'PARTIALLY_RELEASED' },
-  { key: 'Pending', label: 'Pending', status: 'INTAKE_PENDING' },
-  { key: 'Released', label: 'Released', status: 'FULLY_RELEASED' },
+  { key: 'Stored', label: 'In storage', status: 'STORED' },
+  { key: 'Partial', label: 'Partly out', status: 'PARTIALLY_RELEASED' },
+  { key: 'Pending', label: 'Waiting', status: 'INTAKE_PENDING' },
+  { key: 'Released', label: 'Taken out', status: 'FULLY_RELEASED' },
 ] as const;
 
 const SORT_OPTIONS = [
-  { key: 'newest', label: 'Newest', icon: 'time-outline' },
-  { key: 'weight', label: 'Heaviest', icon: 'scale-outline' },
-  { key: 'rent', label: 'Most Rent', icon: 'wallet-outline' },
+  { key: 'newest', label: 'Latest', icon: 'time-outline' },
+  { key: 'weight', label: 'More stock', icon: 'scale-outline' },
+  { key: 'rent', label: 'More charges', icon: 'wallet-outline' },
 ] as const;
 
 const UI = {
-  canvas: '#F5F7F4',
+  canvas: '#F4F5F1',
   surface: '#FFFFFF',
-  surfaceAlt: '#F9FBF8',
-  border: '#E2E9E3',
-  text: '#16241D',
-  textMuted: '#708078',
-  textSoft: '#95A19B',
-  forest: '#103E34',
-  forestDeep: '#082B24',
-  teal: '#0D8D8A',
-  emerald: '#17A56D',
-  gold: '#D29424',
-  goldSoft: '#FFF6E1',
+  surfaceSoft: '#F8F8F4',
+  surfaceMuted: '#F1F4EF',
+  border: '#E1E6DE',
+  text: '#18231D',
+  textMuted: '#6F7C75',
+  textSoft: '#98A39C',
+  forest: '#104036',
+  forestSoft: '#EAF5EF',
+  gold: '#D3A03A',
 };
 
 export default function InventoryScreen() {
@@ -128,6 +114,8 @@ export default function InventoryScreen() {
       const res = await api.get<any>('/inventory/my-lots?limit=100');
       if (res.success && res.data?.lots) {
         setLots(res.data.lots);
+      } else {
+        setLots([]);
       }
     } catch (err) {
       console.error('Fetch lots error:', err);
@@ -180,37 +168,24 @@ export default function InventoryScreen() {
     return result;
   }, [lots, activeFilter, search, sortBy]);
 
-  const summary = useMemo(() => {
-    const active = lots.filter(
-      (l) => l.status === 'STORED' || l.status === 'PARTIALLY_RELEASED'
-    );
-
-    return {
-      count: active.length,
-      weight: active.reduce((s, l) => s + Number(l.currentWeightKg || 0), 0),
-      rent: active.reduce((s, l) => s + (l.estimatedRent || 0), 0),
-    };
-  }, [lots]);
-
   if (loading) {
     return (
       <>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.container}>
-          <StatusBar
-            barStyle="light-content"
-            translucent
-            backgroundColor="transparent"
-          />
-          <LinearGradient
-            colors={[UI.forestDeep, UI.forest, '#087B73']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.heroLoading}
-          >
-            <View style={{ height: Platform.OS === 'ios' ? 54 : 34 }} />
-            <Text style={styles.heroLoadingTitle}>Pocket Ledger</Text>
-          </LinearGradient>
+          <StatusBar barStyle="dark-content" backgroundColor={UI.canvas} />
+          <View style={styles.topSpacer} />
+          <View style={styles.topBar}>
+            <TouchableOpacity style={styles.iconBtn} onPress={() => router.back()}>
+              <Ionicons name="arrow-back" size={19} color={UI.text} />
+            </TouchableOpacity>
+
+            <View style={styles.titleWrap}>
+              <Text style={styles.screenTitle}>My Storage</Text>
+            </View>
+
+            <View style={styles.iconBtnGhost} />
+          </View>
           <SkeletonList count={4} />
         </View>
       </>
@@ -228,15 +203,17 @@ export default function InventoryScreen() {
     );
   }
 
-  const renderLot = ({ item }: { item: any }) => {
+  const renderLot = ({ item, index }: { item: any; index: number }) => {
     const status = STATUS_CONFIG[item.status] || STATUS_CONFIG.STORED;
     const weight = Number(item.currentWeightKg || 0);
     const intakeWeight = Number(item.intakeWeightKg || weight);
-    const weightPercent =
+    const stockLeftPercent =
       intakeWeight > 0 ? Math.min(100, (weight / intakeWeight) * 100) : 100;
     const days = item.daysSinceIntake || 0;
-    const commodityIcon =
-      COMMODITY_ICON[item.commodityCategory] || 'cube-outline';
+    const commodityIcon = COMMODITY_ICON[item.commodityCategory] || 'cube-outline';
+
+    const iconTone =
+      index % 3 === 0 ? '#12A66D' : index % 3 === 1 ? '#D2A03A' : '#2C9BC3';
 
     return (
       <TouchableOpacity
@@ -245,97 +222,95 @@ export default function InventoryScreen() {
           router.push(`/lots/${item.id}`);
           hapticLight();
         }}
-        activeOpacity={0.82}
+        activeOpacity={0.9}
       >
-        <View style={styles.lotCardTop}>
-          <View
-            style={[
-              styles.commodityIcon,
-              { backgroundColor: `${status.color}12` },
-            ]}
-          >
-            <Ionicons name={commodityIcon as any} size={22} color={status.color} />
+        <View style={styles.cardTop}>
+          <View style={[styles.commodityIconWrap, { borderColor: `${iconTone}25` }]}>
+            <View style={[styles.commodityIconInner, { backgroundColor: iconTone }]}>
+              <Ionicons name={commodityIcon as any} size={18} color="#FFFFFF" />
+            </View>
           </View>
 
           <View style={styles.lotTextWrap}>
-            <Text style={styles.lotCommodity} numberOfLines={1}>
-              {item.commodityName || 'Unknown'}
-            </Text>
-            <Text style={styles.lotNumber}>{item.lotNumber || '—'}</Text>
-          </View>
+            <View style={styles.titleRow}>
+              <Text style={styles.lotCommodity} numberOfLines={1}>
+                {item.commodityName || 'Unknown'}
+              </Text>
 
-          <View
-            style={[
-              styles.statusBadge,
-              {
-                backgroundColor: status.bg,
-                borderColor: status.border,
-              },
-            ]}
-          >
-            <Ionicons name={status.icon as any} size={11} color={status.color} />
-            <Text style={[styles.statusText, { color: status.color }]}>
-              {status.label}
+              <View
+                style={[
+                  styles.statusBadge,
+                  {
+                    backgroundColor: status.bg,
+                    borderColor: status.border,
+                  },
+                ]}
+              >
+                <Ionicons name={status.icon as any} size={10} color={status.color} />
+                <Text style={[styles.statusText, { color: status.color }]}>
+                  {status.label}
+                </Text>
+              </View>
+            </View>
+
+            <Text style={styles.lotNumber} numberOfLines={1}>
+              {item.lotNumber || '—'}
             </Text>
           </View>
         </View>
 
-        <View style={styles.metricStrip}>
-          <View style={styles.metricItem}>
-            <Text style={styles.metricLabel}>CURRENT</Text>
-            <Text style={styles.metricValue}>
+        <View style={styles.metricsRow}>
+          <View style={styles.metricPrimaryCard}>
+            <Text style={styles.metricPrimaryLabel}>Current stock</Text>
+            <Text style={styles.metricPrimaryValue}>
               {(weight / 1000).toFixed(2)} MT
             </Text>
           </View>
 
-          <View style={styles.metricDivider} />
+          <View style={styles.metricSideCol}>
+            <View style={styles.metricMiniCard}>
+              <Text style={styles.metricMiniLabel}>Initial</Text>
+              <Text style={styles.metricMiniValue}>
+                {(intakeWeight / 1000).toFixed(2)} MT
+              </Text>
+            </View>
 
-          <View style={styles.metricItem}>
-            <Text style={styles.metricLabel}>INTAKE</Text>
-            <Text style={styles.metricValue}>
-              {(intakeWeight / 1000).toFixed(2)} MT
-            </Text>
-          </View>
-
-          <View style={styles.metricDivider} />
-
-          <View style={styles.metricItem}>
-            <Text style={styles.metricLabel}>RENT</Text>
-            <Text style={styles.metricValueGold}>
-              ₹{(item.estimatedRent || 0).toLocaleString('en-IN')}
-            </Text>
+            <View style={styles.metricMiniCard}>
+              <Text style={styles.metricMiniLabel}>Charges</Text>
+              <Text style={styles.metricMiniValueGold}>
+                ₹{(item.estimatedRent || 0).toLocaleString('en-IN')}
+              </Text>
+            </View>
           </View>
         </View>
 
-        <View style={styles.progressWrap}>
+        <View style={styles.progressSection}>
           <View style={styles.progressTopRow}>
-            <Text style={styles.progressTitle}>Weight retained</Text>
-            <Text style={styles.progressValue}>{weightPercent.toFixed(0)}%</Text>
+            <Text style={styles.progressTitle}>Stock left</Text>
+            <Text style={styles.progressValue}>{stockLeftPercent.toFixed(0)}%</Text>
           </View>
 
           <View style={styles.weightBar}>
-            <LinearGradient
-              colors={
-                weightPercent < 50
-                  ? ['#EF4444', '#F87171']
-                  : weightPercent < 80
-                  ? ['#F59E0B', '#FBBF24']
-                  : ['#10B981', '#34D399']
-              }
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={[styles.weightFill, { width: `${weightPercent}%` as any }]}
+            <View
+              style={[
+                styles.weightFill,
+                {
+                  width: `${stockLeftPercent}%`,
+                  backgroundColor:
+                    stockLeftPercent < 50
+                      ? '#E4584D'
+                      : stockLeftPercent < 80
+                      ? '#D69B2D'
+                      : '#17A26B',
+                },
+              ]}
             />
           </View>
         </View>
 
         <View style={styles.footerRow}>
           <View style={styles.footerItem}>
-            <Ionicons
-              name="business-outline"
-              size={12}
-              color={UI.textSoft}
-            />
+            <Ionicons name="business-outline" size={11} color={UI.textSoft} />
             <Text style={styles.footerText} numberOfLines={1}>
               {item.facility?.name || '—'}
             </Text>
@@ -344,10 +319,8 @@ export default function InventoryScreen() {
           <View style={styles.footerDot} />
 
           <View style={styles.footerItem}>
-            <Ionicons name="time-outline" size={12} color={UI.textSoft} />
-            <Text style={styles.footerText}>
-              {days}d in storage
-            </Text>
+            <Ionicons name="time-outline" size={11} color={UI.textSoft} />
+            <Text style={styles.footerText}>{days} days</Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -358,68 +331,48 @@ export default function InventoryScreen() {
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.container}>
-        <StatusBar
-          barStyle="light-content"
-          translucent
-          backgroundColor="transparent"
-        />
+        <StatusBar barStyle="dark-content" backgroundColor={UI.canvas} />
 
-        <LinearGradient
-          colors={[UI.forestDeep, UI.forest, '#087B73']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.hero}
-        >
-          <View style={styles.heroGlowTop} />
-          <View style={styles.heroGlowBottom} />
+        <View style={styles.topSpacer} />
 
-          <View
-            style={{
-              height: Platform.OS === 'ios' ? 58 : 34,
+        <View style={styles.topBar}>
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => {
+              router.back();
+              hapticLight();
             }}
-          />
+          >
+            <Ionicons name="arrow-back" size={19} color={UI.text} />
+          </TouchableOpacity>
 
-          <View style={styles.heroContent}>
-            <Text style={styles.heroEyebrow}>INVENTORY OVERVIEW</Text>
-            <Text style={styles.heroTitle}>Pocket Ledger</Text>
-            <Text style={styles.heroSubtitle}>
-              Track stored lots, retained weight, and running rental exposure.
+          <View style={styles.titleWrap}>
+            <Text style={styles.screenTitle}>My Storage</Text>
+            <Text style={styles.screenSub}>
+              Check stored crops, stock left, and charges
             </Text>
-
-            <View style={styles.searchWrap}>
-              <SearchBar
-                value={search}
-                onChangeText={setSearch}
-                placeholder="Search lots, commodity, facility..."
-              />
-            </View>
-
-            <View style={styles.summaryStrip}>
-              <View style={styles.summaryItem}>
-                <Text style={styles.summaryValue}>{summary.count}</Text>
-                <Text style={styles.summaryLabel}>ACTIVE LOTS</Text>
-              </View>
-
-              <View style={styles.summaryDivider} />
-
-              <View style={styles.summaryItem}>
-                <Text style={styles.summaryValue}>
-                  {(summary.weight / 1000).toFixed(1)} MT
-                </Text>
-                <Text style={styles.summaryLabel}>STORED</Text>
-              </View>
-
-              <View style={styles.summaryDivider} />
-
-              <View style={styles.summaryItem}>
-                <Text style={styles.summaryValueGold}>
-                  ₹{summary.rent.toLocaleString('en-IN')}
-                </Text>
-                <Text style={styles.summaryLabel}>RENT</Text>
-              </View>
-            </View>
           </View>
-        </LinearGradient>
+
+          <View style={styles.iconBtnGhost} />
+        </View>
+
+        <View style={styles.searchSection}>
+          <View style={styles.searchBox}>
+            <Ionicons name="search-outline" size={18} color="#9CA3AF" />
+            <TextInput
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Search crop, lot, or storage..."
+              placeholderTextColor="#98A2B3"
+              style={styles.searchInput}
+            />
+            {search.length > 0 ? (
+              <TouchableOpacity onPress={() => setSearch('')} activeOpacity={0.84}>
+                <Ionicons name="close-circle" size={17} color="#A0A8B5" />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </View>
 
         <View style={styles.controlsWrap}>
           <FlatList
@@ -433,7 +386,7 @@ export default function InventoryScreen() {
               return (
                 <TouchableOpacity
                   style={[styles.filterChip, active && styles.filterChipActive]}
-                  activeOpacity={0.82}
+                  activeOpacity={0.84}
                   onPress={() => {
                     setActiveFilter(item.key);
                     hapticSelection();
@@ -459,7 +412,7 @@ export default function InventoryScreen() {
                 <TouchableOpacity
                   key={opt.key}
                   style={[styles.sortPill, active && styles.sortPillActive]}
-                  activeOpacity={0.82}
+                  activeOpacity={0.84}
                   onPress={() => {
                     setSortBy(opt.key);
                     hapticSelection();
@@ -471,10 +424,7 @@ export default function InventoryScreen() {
                     color={active ? UI.forest : UI.textSoft}
                   />
                   <Text
-                    style={[
-                      styles.sortPillText,
-                      active && styles.sortPillTextActive,
-                    ]}
+                    style={[styles.sortPillText, active && styles.sortPillTextActive]}
                   >
                     {opt.label}
                   </Text>
@@ -482,6 +432,12 @@ export default function InventoryScreen() {
               );
             })}
           </View>
+        </View>
+
+        <View style={styles.countRow}>
+          <Text style={styles.countText}>
+            {filteredLots.length} lot{filteredLots.length !== 1 ? 's' : ''} found
+          </Text>
         </View>
 
         <FlatList
@@ -500,11 +456,11 @@ export default function InventoryScreen() {
           ListEmptyComponent={
             <EmptyState
               icon="cube-outline"
-              title={search ? 'No matching lots' : 'No lots yet'}
+              title={search ? 'No matching crops' : 'No crops yet'}
               subtitle={
                 search
-                  ? 'Try a different lot number, commodity, or facility.'
-                  : 'Your inventory lots will appear here once produce is stored at a facility.'
+                  ? 'Try a different crop, lot, or storage name.'
+                  : 'Your stored crops will appear here.'
               }
               action={
                 search
@@ -528,123 +484,89 @@ const styles = StyleSheet.create({
     backgroundColor: UI.canvas,
   },
 
-  heroLoading: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+  topSpacer: {
+    height: Platform.OS === 'ios' ? 62 : 24,
   },
 
-  heroLoadingTitle: {
-    color: '#FFFFFF',
-    fontSize: 28,
+  topBar: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 13,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5EBE6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  iconBtnGhost: {
+    width: 40,
+    height: 40,
+  },
+
+  titleWrap: {
+    flex: 1,
+    minHeight: 40,
+    justifyContent: 'center',
+  },
+
+  screenTitle: {
+    fontSize: 24,
+    lineHeight: 28,
     fontWeight: '800',
+    color: UI.text,
     letterSpacing: -0.4,
   },
 
-  hero: {
-    paddingBottom: 22,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    overflow: 'hidden',
+  screenSub: {
+    fontSize: 11,
+    lineHeight: 15,
+    color: UI.textMuted,
+    marginTop: 2,
   },
 
-  heroGlowTop: {
-    position: 'absolute',
-    top: -90,
-    right: -70,
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: 'rgba(42, 199, 171, 0.14)',
-  },
-
-  heroGlowBottom: {
-    position: 'absolute',
-    bottom: -120,
-    left: -90,
-    width: 260,
-    height: 180,
-    borderRadius: 130,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-  },
-
-  heroContent: {
+  searchSection: {
     paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 2,
   },
 
-  heroEyebrow: {
-    color: 'rgba(255,255,255,0.65)',
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 1,
-  },
-
-  heroTitle: {
-    marginTop: 6,
-    color: '#FFFFFF',
-    fontSize: 30,
-    fontWeight: '800',
-    letterSpacing: -0.7,
-  },
-
-  heroSubtitle: {
-    marginTop: 8,
-    maxWidth: '88%',
-    color: 'rgba(255,255,255,0.72)',
-    fontSize: 13,
-    lineHeight: 20,
-  },
-
-  searchWrap: {
-    marginTop: 16,
-  },
-
-  summaryStrip: {
-    marginTop: 18,
-    minHeight: 84,
-    borderRadius: 20,
-    paddingHorizontal: 8,
+  searchBox: {
+    minHeight: 50,
+    borderRadius: 17,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 15,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    gap: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.13)',
+    borderColor: '#E4E8E4',
+    shadowColor: '#173528',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.035,
+    shadowRadius: 8,
+    elevation: 2,
   },
 
-  summaryItem: {
+  searchInput: {
     flex: 1,
-    alignItems: 'center',
-  },
-
-  summaryValue: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '800',
-    letterSpacing: -0.3,
-  },
-
-  summaryValueGold: {
-    color: '#F0C56B',
-    fontSize: 17,
-    fontWeight: '800',
-    letterSpacing: -0.3,
-  },
-
-  summaryLabel: {
-    marginTop: 5,
-    color: 'rgba(255,255,255,0.56)',
-    fontSize: 8,
-    fontWeight: '900',
-    letterSpacing: 0.6,
-  },
-
-  summaryDivider: {
-    width: 1,
-    height: 34,
-    backgroundColor: 'rgba(255,255,255,0.16)',
+    color: '#23323D',
+    fontSize: 15,
+    fontWeight: '500',
+    paddingVertical: Platform.OS === 'ios' ? 13 : 9,
   },
 
   controlsWrap: {
-    paddingTop: 16,
+    paddingTop: 12,
     paddingBottom: 4,
   },
 
@@ -654,7 +576,7 @@ const styles = StyleSheet.create({
   },
 
   filterChip: {
-    minHeight: 38,
+    minHeight: 40,
     paddingHorizontal: 14,
     borderRadius: 12,
     backgroundColor: UI.surface,
@@ -687,12 +609,12 @@ const styles = StyleSheet.create({
   },
 
   sortPill: {
-    minHeight: 32,
-    paddingHorizontal: 10,
-    borderRadius: 10,
+    minHeight: 34,
+    paddingHorizontal: 11,
+    borderRadius: 11,
     borderWidth: 1,
-    borderColor: '#E6ECE6',
-    backgroundColor: UI.surfaceAlt,
+    borderColor: '#E5EBE4',
+    backgroundColor: UI.surfaceSoft,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
@@ -700,7 +622,7 @@ const styles = StyleSheet.create({
 
   sortPillActive: {
     backgroundColor: '#EEF6F1',
-    borderColor: '#BFD9CA',
+    borderColor: '#BED8C8',
   },
 
   sortPillText: {
@@ -713,62 +635,93 @@ const styles = StyleSheet.create({
     color: UI.forest,
   },
 
+  countRow: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 8,
+  },
+
+  countText: {
+    fontSize: 11,
+    color: '#7C8A9F',
+    fontWeight: '600',
+  },
+
   listContent: {
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 2,
     paddingBottom: Platform.OS === 'ios' ? 108 : 90,
   },
 
   lotCard: {
-    marginBottom: 14,
-    borderRadius: 22,
+    marginBottom: 10,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: UI.border,
     backgroundColor: UI.surface,
-    padding: 16,
-    shadowColor: '#173D31',
+    padding: 14,
+    shadowColor: '#162C22',
     shadowOffset: { width: 0, height: 5 },
     shadowOpacity: 0.04,
     shadowRadius: 10,
     elevation: 2,
   },
 
-  lotCardTop: {
+  cardTop: {
     flexDirection: 'row',
     alignItems: 'center',
   },
 
-  commodityIcon: {
-    width: 48,
-    height: 48,
+  commodityIconWrap: {
+    width: 46,
+    height: 46,
     borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F7FAF8',
+  },
+
+  commodityIconInner: {
+    width: 38,
+    height: 38,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   lotTextWrap: {
     flex: 1,
-    marginLeft: 12,
-    marginRight: 10,
+    marginLeft: 10,
+    minWidth: 0,
+  },
+
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 8,
   },
 
   lotCommodity: {
+    flex: 1,
     color: UI.text,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     letterSpacing: -0.2,
+    paddingRight: 4,
   },
 
   lotNumber: {
-    marginTop: 4,
+    marginTop: 3,
     color: UI.textSoft,
-    fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 0.35,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
 
   statusBadge: {
-    minHeight: 30,
+    minHeight: 28,
     paddingHorizontal: 9,
     borderRadius: 10,
     borderWidth: 1,
@@ -778,62 +731,84 @@ const styles = StyleSheet.create({
   },
 
   statusText: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.45,
-    textTransform: 'uppercase',
-  },
-
-  metricStrip: {
-    marginTop: 16,
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    backgroundColor: UI.surfaceAlt,
-    borderWidth: 1,
-    borderColor: '#EDF1ED',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  metricItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-
-  metricLabel: {
-    color: UI.textSoft,
     fontSize: 9,
-    fontWeight: '900',
-    letterSpacing: 0.7,
+    fontWeight: '800',
+    letterSpacing: 0.2,
   },
 
-  metricValue: {
-    marginTop: 5,
+  metricsRow: {
+    marginTop: 14,
+    flexDirection: 'row',
+    gap: 8,
+  },
+
+  metricPrimaryCard: {
+    flex: 1.05,
+    borderRadius: 16,
+    paddingVertical: 13,
+    paddingHorizontal: 13,
+    backgroundColor: UI.surfaceSoft,
+    borderWidth: 1,
+    borderColor: '#ECEFE9',
+    justifyContent: 'center',
+  },
+
+  metricPrimaryLabel: {
+    color: UI.textSoft,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+
+  metricPrimaryValue: {
+    marginTop: 6,
+    color: UI.text,
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.4,
+  },
+
+  metricSideCol: {
+    flex: 0.95,
+    gap: 8,
+  },
+
+  metricMiniCard: {
+    flex: 1,
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    backgroundColor: '#FAFBF8',
+    borderWidth: 1,
+    borderColor: '#ECEFE9',
+    justifyContent: 'center',
+  },
+
+  metricMiniLabel: {
+    color: UI.textSoft,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+
+  metricMiniValue: {
+    marginTop: 4,
     color: UI.text,
     fontSize: 13,
     fontWeight: '800',
   },
 
-  metricValueGold: {
-    marginTop: 5,
+  metricMiniValueGold: {
+    marginTop: 4,
     color: UI.gold,
     fontSize: 13,
     fontWeight: '800',
   },
 
-  metricDivider: {
-    width: 1,
-    height: 28,
-    backgroundColor: '#E4EAE4',
-  },
-
-  progressWrap: {
-    marginTop: 16,
+  progressSection: {
+    marginTop: 14,
   },
 
   progressTopRow: {
-    marginBottom: 7,
+    marginBottom: 6,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -841,31 +816,31 @@ const styles = StyleSheet.create({
 
   progressTitle: {
     color: UI.textMuted,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
   },
 
   progressValue: {
     color: UI.text,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
   },
 
   weightBar: {
     height: 7,
     borderRadius: 999,
-    backgroundColor: '#EDF1ED',
+    backgroundColor: '#ECF0EB',
     overflow: 'hidden',
   },
 
   weightFill: {
-    height: '100%' as any,
+    height: '100%',
     borderRadius: 999,
   },
 
   footerRow: {
-    marginTop: 15,
-    paddingTop: 14,
+    marginTop: 13,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#EDF1ED',
     flexDirection: 'row',
@@ -883,15 +858,15 @@ const styles = StyleSheet.create({
 
   footerText: {
     color: UI.textMuted,
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
-    maxWidth: 180,
+    maxWidth: 170,
   },
 
   footerDot: {
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#D2D9D3',
+    backgroundColor: '#D3DAD4',
   },
 });
