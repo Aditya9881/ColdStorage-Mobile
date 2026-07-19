@@ -10,6 +10,7 @@ import {
   StatusBar,
   Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect, Stack } from 'expo-router';
 import { api } from '@/lib/api-client';
@@ -59,6 +60,7 @@ const UI = {
 };
 
 export default function ReceiptListScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
 
   const [receipts, setReceipts] = useState<Receipt[]>([]);
@@ -245,7 +247,7 @@ export default function ReceiptListScreen() {
 
   const Header = () => (
     <View style={styles.headerWrap}>
-      <View style={{ height: Platform.OS === 'ios' ? 58 : 22 }} />
+      <View style={{ height: insets.top + 8 }} />
 
       <View style={styles.topRow}>
         <TouchableOpacity

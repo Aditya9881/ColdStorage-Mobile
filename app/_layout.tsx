@@ -1,4 +1,5 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
@@ -126,15 +127,17 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
-    <SyncProvider>
-      <AuthProvider>
-        <NotificationProvider>
-          <ToastProvider>
-            <RootLayoutNav />
-            <StatusBar style="light" />
-          </ToastProvider>
-        </NotificationProvider>
-      </AuthProvider>
-    </SyncProvider>
+    <SafeAreaProvider>
+      <SyncProvider>
+        <AuthProvider>
+          <NotificationProvider>
+            <ToastProvider>
+              <RootLayoutNav />
+              <StatusBar style="light" />
+            </ToastProvider>
+          </NotificationProvider>
+        </AuthProvider>
+      </SyncProvider>
+    </SafeAreaProvider>
   );
 }

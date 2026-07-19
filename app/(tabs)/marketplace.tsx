@@ -10,6 +10,7 @@ import {
   StatusBar,
   TextInput,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { api } from '@/lib/api-client';
@@ -52,6 +53,7 @@ const UI = {
 };
 
 export default function MarketplaceScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const [tab, setTab] = useState<'browse' | 'mine'>('browse');
   const [listings, setListings] = useState<any[]>([]);
@@ -127,7 +129,7 @@ export default function MarketplaceScreen() {
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.container}>
           <StatusBar barStyle="dark-content" backgroundColor={UI.canvas} />
-          <View style={styles.topSpacer} />
+          <View style={[styles.topSpacer, { height: insets.top + 8 }]} />
 
           <View style={styles.topBar}>
             <TouchableOpacity style={styles.iconBtn} onPress={() => router.back()}>
@@ -274,7 +276,7 @@ export default function MarketplaceScreen() {
       <View style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor={UI.canvas} />
 
-        <View style={styles.topSpacer} />
+        <View style={[styles.topSpacer, { height: insets.top + 8 }]} />
 
         <View style={styles.topBar}>
           <TouchableOpacity
@@ -421,7 +423,7 @@ const styles = StyleSheet.create({
   },
 
   topSpacer: {
-    height: Platform.OS === 'ios' ? 62 : 24,
+    height: 24,
   },
 
   topBar: {

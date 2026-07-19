@@ -10,6 +10,7 @@ import {
   useColorScheme,
   Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -135,6 +136,7 @@ function getStatusMeta(status: string, palette: typeof UI.light) {
 }
 
 export default function OrderDetailScreen() {
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const router = useRouter();
@@ -862,7 +864,7 @@ const styles = StyleSheet.create({
   },
 
   heroWrap: {
-    paddingTop: Platform.OS === 'ios' ? 56 : 38,
+    paddingTop: 12,
     paddingHorizontal: 16,
   },
 

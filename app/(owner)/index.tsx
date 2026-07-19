@@ -13,6 +13,7 @@ import {
   View, Text, ScrollView, StyleSheet, RefreshControl,
   TouchableOpacity, Platform, ActivityIndicator, Animated, Dimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -71,6 +72,7 @@ interface DashStats {
 export default function OwnerDashboardScreen() {
   const { user } = useAuth();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [facility, setFacility] = useState<FacilityInfo | null>(null);
   const [stats, setStats] = useState<DashStats>({
     pendingBookings: 0, confirmedBookings: 0, todayArrivals: 0,
@@ -201,7 +203,7 @@ export default function OwnerDashboardScreen() {
         colors={['#4C1D95', '#6D28D9', '#7C3AED']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={styles.header}
+        style={[styles.header, { paddingTop: insets.top + 12 }]}
       >
         {/* Decorative circles */}
         <View style={styles.headerDecor1} />
@@ -406,7 +408,7 @@ const styles = StyleSheet.create({
 
   // ── Header ──
   header: {
-    paddingTop: Platform.OS === 'ios' ? 58 : 20,
+    paddingTop: 12, // overridden inline with insets.top
     paddingBottom: 24,
     paddingHorizontal: 20,
     overflow: 'hidden',

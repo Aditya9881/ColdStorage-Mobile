@@ -9,6 +9,7 @@ import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
   Platform, RefreshControl, ActivityIndicator, Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -42,6 +43,7 @@ const SC: Record<string, { bg: string; text: string; icon: string }> = {
 
 export default function OwnerBookingsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -235,7 +237,7 @@ export default function OwnerBookingsScreen() {
 
   return (
     <View style={styles.screen}>
-      <LinearGradient colors={['#4C1D95', '#7C3AED']} style={styles.header}>
+      <LinearGradient colors={['#4C1D95', '#7C3AED']} style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Manage Bookings</Text>
           <Text style={styles.headerSub}>{total} total</Text>
@@ -286,7 +288,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 8 },
 
   header: {
-    paddingTop: Platform.OS === 'ios' ? 56 : 16, paddingBottom: 16, paddingHorizontal: 20,
+    paddingTop: 12, paddingBottom: 16, paddingHorizontal: 20,
   },
   headerTitle: { fontSize: 22, fontWeight: '800', color: '#FFF' },
   headerSub: { fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 2 },

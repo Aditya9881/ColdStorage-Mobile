@@ -9,6 +9,7 @@ import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
   Platform, Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -18,6 +19,7 @@ import { hapticLight } from '@/lib/haptics';
 
 export default function OwnerProfileScreen() {
   const { user, logout } = useAuth();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
 
   const handleLogout = () => {
@@ -28,8 +30,9 @@ export default function OwnerProfileScreen() {
   };
 
   const menuItems = [
-    { icon: 'business-outline', label: 'My Facility', route: '/settings', color: '#7C3AED' },
-    { icon: 'people-outline', label: 'Staff Management', route: '/settings', color: '#059669' },
+    { icon: 'grid-outline', label: 'Dashboard', route: '/(owner)', color: '#7C3AED' },
+    { icon: 'calendar-outline', label: 'Manage Bookings', route: '/(owner)/bookings', color: '#059669' },
+    { icon: 'scan-outline', label: 'QR Scanner', route: '/(owner)/scan', color: '#2563EB' },
     { icon: 'notifications-outline', label: 'Notifications', route: '/notifications', color: '#F59E0B' },
     { icon: 'settings-outline', label: 'Settings', route: '/settings', color: '#6B7280' },
     { icon: 'help-circle-outline', label: 'Help & Support', route: '/settings', color: '#3B82F6' },
@@ -37,7 +40,7 @@ export default function OwnerProfileScreen() {
 
   return (
     <View style={styles.screen}>
-      <LinearGradient colors={['#4C1D95', '#7C3AED']} style={styles.header}>
+      <LinearGradient colors={['#4C1D95', '#7C3AED']} style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{user?.fullName?.[0] || 'O'}</Text>
         </View>
@@ -88,7 +91,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#F8F7FC' },
   header: {
     alignItems: 'center', gap: 6,
-    paddingTop: Platform.OS === 'ios' ? 56 : 16, paddingBottom: 24,
+    paddingTop: 16, paddingBottom: 24,
   },
   avatar: {
     width: 72, height: 72, borderRadius: 36,

@@ -21,10 +21,12 @@ import {
   StatusBar,
   ActivityIndicator,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, Stack } from 'expo-router';
 import { api } from '@/lib/api-client';
+import { useAuth } from '@/contexts/AuthContext';
 import { SkeletonList } from '@/components/ui/Skeleton';
 import ErrorState from '@/components/ui/ErrorState';
 import EmptyState from '@/components/ui/EmptyState';
@@ -63,6 +65,14 @@ const UI = {
   unreadBorder: '#D6F1DF',
 };
 
+// Role-based gradient colors
+const ROLE_GRADIENTS: Record<string, [string, string, string]> = {
+  OWNER: ['#4C1D95', '#6D28D9', '#7C3AED'],
+  BUYER: ['#0B3B36', '#0F766E', '#14B8A6'],
+  FARMER: [UI.forestDeep, UI.forestMid, UI.forest],
+  STAFF: ['#4C1D95', '#6D28D9', '#7C3AED'],
+};
+
 function getTimeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
@@ -86,7 +96,10 @@ function getDayGroup(dateStr: string): string {
 }
 
 export default function NotificationsScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { user } = useAuth();
+  const gradientColors = ROLE_GRADIENTS[user?.role || 'FARMER'] || ROLE_GRADIENTS.FARMER;
 
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -183,7 +196,7 @@ export default function NotificationsScreen() {
         <Stack.Screen options={{ headerShown: false }} />
         <View style={[styles.container, { backgroundColor: UI.bg }]}>
           <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-          <LinearGradient colors={[UI.forestDeep, UI.forestMid, UI.forest]} style={styles.header}>
+          <LinearGradient colors={gradientColors} style={[styles.header, { paddingTop: insets.top + 12 }]}>
             <Text style={styles.headerTitle}>Notifications</Text>
             <Text style={styles.headerSub}>Loading updates...</Text>
           </LinearGradient>
@@ -201,7 +214,7 @@ export default function NotificationsScreen() {
         <Stack.Screen options={{ headerShown: false }} />
         <View style={[styles.container, { backgroundColor: UI.bg }]}>
           <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-          <LinearGradient colors={[UI.forestDeep, UI.forestMid, UI.forest]} style={styles.header}>
+          <LinearGradient colors={gradientColors} style={[styles.header, { paddingTop: insets.top + 12 }]}>
             <View style={styles.headerTop}>
               <TouchableOpacity
                 onPress={() => router.back()}
@@ -272,7 +285,7 @@ export default function NotificationsScreen() {
       <View style={[styles.container, { backgroundColor: UI.bg }]}>
         <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-        <LinearGradient colors={[UI.forestDeep, UI.forestMid, UI.forest]} style={styles.header}>
+        <LinearGradient colors={gradientColors} style={[styles.header, { paddingTop: insets.top + 12 }]}>
           <View style={styles.heroGlowA} />
           <View style={styles.heroGlowB} />
 
@@ -288,7 +301,13 @@ export default function NotificationsScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.headerTitle}>Notifications</Text>
               <Text style={styles.headerSub}>
-                {unreadCount > 0 ? `${unreadCount} unread updates` : 'All caught up'}
+                {unreadCount > 0
+                  ? `${unreadCount} unread updates`
+                  : user?.role === 'OWNER'
+                  ? 'Facility alerts & bookings'
+                  : user?.role === 'BUYER'
+                  ? 'Orders & marketplace alerts'
+                  : 'Storage & market updates'}
               </Text>
             </View>
 
@@ -349,7 +368,13 @@ export default function NotificationsScreen() {
               <EmptyState
                 icon="notifications-off-outline"
                 title="All Caught Up"
-                subtitle="You have no notifications. We'll let you know when something important happens."
+                subtitle={
+                  user?.role === 'OWNER'
+                    ? 'No facility alerts or booking requests right now.'
+                    : user?.role === 'BUYER'
+                    ? 'No order or marketplace updates yet.'
+                    : 'No updates about your stored crops. We\'ll notify you when something happens.'
+                }
               />
             </View>
           }
@@ -366,7 +391,7 @@ const styles = StyleSheet.create({
   },
 
   header: {
-    paddingTop: Platform.OS === 'ios' ? 58 : 22,
+    paddingTop: 12, // overridden inline with insets
     paddingBottom: 22,
     paddingHorizontal: 20,
     overflow: 'hidden',

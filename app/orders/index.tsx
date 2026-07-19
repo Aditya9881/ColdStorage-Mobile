@@ -10,6 +10,7 @@ import {
   ScrollView,
   Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, Stack } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -69,6 +70,7 @@ const STATUS_MAP: Record<
 const FILTERS = ['All', 'Pending', 'Approved', 'Dispatched', 'Completed', 'Rejected'];
 
 export default function OrdersScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const colorScheme = (useColorScheme() ?? 'light') as 'light' | 'dark';
   const colors = Colors[colorScheme];
@@ -203,7 +205,7 @@ export default function OrdersScreen() {
         style={styles.header}
       >
         <View style={styles.headerGlowA} />
-        <View style={{ height: Platform.OS === 'ios' ? 54 : 34 }} />
+        <View style={{ height: insets.top + 8 }} />
 
         <View style={styles.headerRow}>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>

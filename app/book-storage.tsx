@@ -18,6 +18,7 @@ import {
   Alert,
   StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
@@ -59,6 +60,7 @@ const UI = {
 };
 
 export default function BookStorageScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams<{ facilityId: string; facilityName: string }>();
   const { facilityId, facilityName } = params;
@@ -215,7 +217,7 @@ export default function BookStorageScreen() {
       <View style={styles.screen}>
         <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-        <LinearGradient colors={[UI.forestDeep, UI.forestMid, UI.forest]} style={styles.header}>
+        <LinearGradient colors={[UI.forestDeep, UI.forestMid, UI.forest]} style={[styles.header, { paddingTop: insets.top + 12 }]}>
           <View style={styles.heroGlowA} />
           <View style={styles.heroGlowB} />
 
@@ -577,7 +579,7 @@ const styles = StyleSheet.create({
   },
 
   header: {
-    paddingTop: Platform.OS === 'ios' ? 58 : 22,
+    paddingTop: 12,
     paddingBottom: 22,
     paddingHorizontal: 20,
     overflow: 'hidden',

@@ -21,6 +21,7 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -62,6 +63,7 @@ const UI = {
 };
 
 export default function FacilityDetailScreen() {
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
 
@@ -170,7 +172,7 @@ export default function FacilityDetailScreen() {
             <View style={styles.heroGlowOne} />
             <View style={styles.heroGlowTwo} />
 
-            <View style={{ height: Platform.OS === 'ios' ? 48 : 20 }} />
+            <View style={{ height: insets.top + 8 }} />
 
             <View style={styles.navRow}>
               <TouchableOpacity

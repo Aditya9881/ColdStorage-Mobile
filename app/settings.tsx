@@ -15,6 +15,7 @@ import {
   StatusBar,
   Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useRouter } from 'expo-router';
@@ -86,11 +87,21 @@ const UI = {
   },
 };
 
+// Role-based gradient and label config
+const ROLE_CONFIG: Record<string, { colors: string[]; label: string; profileRoute: string }> = {
+  OWNER: { colors: ['#4C1D95', '#6D28D9', '#7C3AED'], label: 'Owner Settings', profileRoute: '/(owner)/profile' },
+  BUYER: { colors: ['#0B3B36', '#0F766E', '#14B8A6'], label: 'Buyer Settings', profileRoute: '/(buyer)/profile' },
+  FARMER: { colors: ['#082B24', '#103E34', '#087B73'], label: 'Settings', profileRoute: '/(tabs)/profile' },
+};
+
 export default function SettingsScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const colorScheme = (useColorScheme() ?? 'light') as 'light' | 'dark';
   const theme = UI[colorScheme];
+  const role = user?.role || 'FARMER';
+  const roleConfig = ROLE_CONFIG[role] || ROLE_CONFIG.FARMER;
 
   const [language, setLanguage] = useState<Language>('en');
   const [notifPrefs, setNotifPrefs] = useState<NotifPrefs>({
@@ -183,7 +194,7 @@ export default function SettingsScreen() {
           contentContainerStyle={styles.scrollContent}
         >
           <LinearGradient
-            colors={[theme.forestDeep, theme.forest, '#087B73']}
+            colors={roleConfig.colors as any}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.hero}
@@ -193,7 +204,7 @@ export default function SettingsScreen() {
 
             <View
               style={{
-                height: Platform.OS === 'ios' ? 58 : 34,
+                height: insets.top + 8,
               }}
             />
 
@@ -208,22 +219,22 @@ export default function SettingsScreen() {
                 </TouchableOpacity>
 
                 <View style={styles.heroTopTitleWrap}>
-                  <Text style={styles.heroTopTitle}>Settings</Text>
+                  <Text style={styles.heroTopTitle}>{roleConfig.label}</Text>
                 </View>
 
                 <TouchableOpacity
                   style={styles.heroIconButton}
                   activeOpacity={0.82}
-                  onPress={() => router.push('/(tabs)/profile')}
+                  onPress={() => router.push(roleConfig.profileRoute as any)}
                 >
                   <Ionicons name="person-outline" size={20} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>
 
               <Text style={styles.heroEyebrow}>PREFERENCES</Text>
-              <Text style={styles.heroTitle}>Settings</Text>
+              <Text style={styles.heroTitle}>{roleConfig.label}</Text>
               <Text style={styles.heroSubtitle}>
-                Manage language, alerts, support, and account preferences.
+                {role === 'OWNER' ? 'Manage facility preferences, alerts, and account.' : role === 'BUYER' ? 'Manage order alerts, language, and account.' : 'Manage language, alerts, support, and account preferences.'}
               </Text>
 
               <View style={styles.heroSummaryStrip}>
@@ -252,199 +263,99 @@ export default function SettingsScreen() {
           </LinearGradient>
 
           <View style={styles.body}>
-            <SectionHeader
-              eyebrow="LOCALIZATION"
-              title="Language"
-              subtitle="Choose how you want the app to appear."
-              theme={theme}
-            />
 
-            <View
-              style={[
-                styles.card,
-                {
-                  backgroundColor: theme.surface,
-                  borderColor: theme.cardBorder,
-                },
-              ]}
-            >
-              <LanguageCard
-                flag="🇬🇧"
-                title="English"
-                subtitle="Default language"
-                selected={language === 'en'}
-                onPress={() => saveLanguage('en')}
-                theme={theme}
-              />
+            {/* ─── OWNER: Facility Management ─── */}
+            {(role === 'OWNER' || role === 'STAFF') && (
+              <>
+                <SectionHeader eyebrow="FACILITY" title="Facility Management" subtitle="Manage your cold storage facility details." theme={theme} />
+                <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.cardBorder }]}>
+                  <PremiumRow icon="business-outline" iconColor={theme.purple} iconBg={theme.purpleSoft} label="Edit Facility Details" value="Coming Soon" theme={theme} first />
+                  <PremiumRow icon="layers-outline" iconColor={theme.teal} iconBg={theme.tealSoft} label="View Chambers" value="Coming Soon" theme={theme} last />
+                </View>
 
-              <LanguageCard
-                flag="🇮🇳"
-                title="हिंदी"
-                subtitle="Hindi"
-                selected={language === 'hi'}
-                onPress={() => saveLanguage('hi')}
-                theme={theme}
-              />
+                <SectionHeader eyebrow="TEAM" title="Staff Management" subtitle="Manage staff access and permissions." theme={theme} />
+                <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.cardBorder }]}>
+                  <PremiumRow icon="people-outline" iconColor={theme.emerald} iconBg={theme.emeraldSoft} label="Manage Staff" value="Coming Soon" theme={theme} first last />
+                </View>
+              </>
+            )}
+
+            {/* ─── FARMER / BUYER: My Account ─── */}
+            {role !== 'OWNER' && role !== 'STAFF' && (
+              <>
+                <SectionHeader eyebrow="ACCOUNT" title="My Account" subtitle="Manage your profile and documents." theme={theme} />
+                <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.cardBorder }]}>
+                  <PremiumRow icon="person-outline" iconColor={theme.blue} iconBg={theme.blueSoft} label="Edit Profile" onPress={() => router.push(roleConfig.profileRoute as any)} theme={theme} showArrow first />
+                  <PremiumRow icon="shield-checkmark-outline" iconColor={theme.emerald} iconBg={theme.emeraldSoft} label="KYC Documents" onPress={() => router.push('/kyc/reupload')} theme={theme} showArrow last />
+                </View>
+              </>
+            )}
+
+            {/* ─── LANGUAGE (All Roles) ─── */}
+            <SectionHeader eyebrow="LOCALIZATION" title="Language" subtitle="Choose how you want the app to appear." theme={theme} />
+            <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.cardBorder }]}>
+              <LanguageCard flag="🇬🇧" title="English" subtitle="Default language" selected={language === 'en'} onPress={() => saveLanguage('en')} theme={theme} />
+              <LanguageCard flag="🇮🇳" title="हिंदी" subtitle="Hindi" selected={language === 'hi'} onPress={() => saveLanguage('hi')} theme={theme} />
             </View>
 
+            {/* ─── NOTIFICATION PREFERENCES ─── */}
             <SectionHeader
               eyebrow="ALERT CENTER"
               title="Notifications"
-              subtitle="Control the alerts that matter most to your operations."
+              subtitle={role === 'OWNER' ? 'Control alerts for your facility operations.' : role === 'BUYER' ? 'Control alerts for your orders and marketplace.' : 'Control alerts for your crops and storage.'}
               theme={theme}
             />
+            <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.cardBorder }]}>
 
-            <View
-              style={[
-                styles.card,
-                {
-                  backgroundColor: theme.surface,
-                  borderColor: theme.cardBorder,
-                },
-              ]}
-            >
-              <PremiumToggle
-                icon="thermometer-outline"
-                iconColor={theme.danger}
-                iconBg={theme.dangerSoft}
-                label="Temperature Alerts"
-                subtitle="Get notified about unusual chamber conditions"
-                value={notifPrefs.temperatureAlerts}
-                onToggle={() => toggleNotif('temperatureAlerts')}
-                theme={theme}
-                first
-              />
+              {/* ── Owner Alerts ── */}
+              {(role === 'OWNER' || role === 'STAFF') && (
+                <>
+                  <PremiumToggle icon="calendar-outline" iconColor={theme.teal} iconBg={theme.tealSoft} label="New Booking Requests" subtitle="Get notified when farmers request storage" value={notifPrefs.orderUpdates} onToggle={() => toggleNotif('orderUpdates')} theme={theme} first />
+                  <PremiumToggle icon="thermometer-outline" iconColor={theme.danger} iconBg={theme.dangerSoft} label="Temperature Alerts" subtitle="Unusual chamber temperature conditions" value={notifPrefs.temperatureAlerts} onToggle={() => toggleNotif('temperatureAlerts')} theme={theme} />
+                  <PremiumToggle icon="bar-chart-outline" iconColor={theme.orange} iconBg={theme.orangeSoft} label="Chamber Capacity Warnings" subtitle="Alert when chambers reach full capacity" value={notifPrefs.priceAlerts} onToggle={() => toggleNotif('priceAlerts')} theme={theme} />
+                  <PremiumToggle icon="wallet-outline" iconColor={theme.emerald} iconBg={theme.emeraldSoft} label="Payment Received" subtitle="Notifications when payments are credited" value={notifPrefs.promotions} onToggle={() => toggleNotif('promotions')} theme={theme} last />
+                </>
+              )}
 
-              <PremiumToggle
-                icon="receipt-outline"
-                iconColor={theme.orange}
-                iconBg={theme.orangeSoft}
-                label="Order Updates"
-                subtitle="Approvals, dispatch progress, and order activity"
-                value={notifPrefs.orderUpdates}
-                onToggle={() => toggleNotif('orderUpdates')}
-                theme={theme}
-              />
+              {/* ── Farmer Alerts ── */}
+              {role === 'FARMER' && (
+                <>
+                  <PremiumToggle icon="calendar-outline" iconColor={theme.teal} iconBg={theme.tealSoft} label="Booking Updates" subtitle="Confirmations, arrivals, and booking status" value={notifPrefs.orderUpdates} onToggle={() => toggleNotif('orderUpdates')} theme={theme} first />
+                  <PremiumToggle icon="time-outline" iconColor={theme.orange} iconBg={theme.orangeSoft} label="Lot Expiry Alerts" subtitle="Warnings when stored crop is nearing expiry" value={notifPrefs.temperatureAlerts} onToggle={() => toggleNotif('temperatureAlerts')} theme={theme} />
+                  <PremiumToggle icon="trending-up-outline" iconColor={theme.emerald} iconBg={theme.emeraldSoft} label="Mandi Price Alerts" subtitle="Daily market signals for your tracked crops" value={notifPrefs.priceAlerts} onToggle={() => toggleNotif('priceAlerts')} theme={theme} />
+                  <PremiumToggle icon="megaphone-outline" iconColor={theme.purple} iconBg={theme.purpleSoft} label="Promotions" subtitle="Offers and service announcements" value={notifPrefs.promotions} onToggle={() => toggleNotif('promotions')} theme={theme} last />
+                </>
+              )}
 
-              <PremiumToggle
-                icon="trending-up-outline"
-                iconColor={theme.emerald}
-                iconBg={theme.emeraldSoft}
-                label="Mandi Price Alerts"
-                subtitle="Daily market signals for your tracked commodities"
-                value={notifPrefs.priceAlerts}
-                onToggle={() => toggleNotif('priceAlerts')}
-                theme={theme}
-              />
-
-              <PremiumToggle
-                icon="megaphone-outline"
-                iconColor={theme.purple}
-                iconBg={theme.purpleSoft}
-                label="Promotions"
-                subtitle="Offers, product updates, and service announcements"
-                value={notifPrefs.promotions}
-                onToggle={() => toggleNotif('promotions')}
-                theme={theme}
-                last
-              />
+              {/* ── Buyer Alerts ── */}
+              {role === 'BUYER' && (
+                <>
+                  <PremiumToggle icon="receipt-outline" iconColor={theme.orange} iconBg={theme.orangeSoft} label="Order Updates" subtitle="Approvals, dispatch progress, and order status" value={notifPrefs.orderUpdates} onToggle={() => toggleNotif('orderUpdates')} theme={theme} first />
+                  <PremiumToggle icon="pricetag-outline" iconColor={theme.emerald} iconBg={theme.emeraldSoft} label="Price Drop Alerts" subtitle="Get notified when tracked listing prices drop" value={notifPrefs.priceAlerts} onToggle={() => toggleNotif('priceAlerts')} theme={theme} />
+                  <PremiumToggle icon="storefront-outline" iconColor={theme.blue} iconBg={theme.blueSoft} label="Marketplace Alerts" subtitle="New listings matching your preferences" value={notifPrefs.temperatureAlerts} onToggle={() => toggleNotif('temperatureAlerts')} theme={theme} />
+                  <PremiumToggle icon="megaphone-outline" iconColor={theme.purple} iconBg={theme.purpleSoft} label="Promotions" subtitle="Offers and product announcements" value={notifPrefs.promotions} onToggle={() => toggleNotif('promotions')} theme={theme} last />
+                </>
+              )}
             </View>
 
-            <SectionHeader
-              eyebrow="ABOUT APP"
-              title="Support & Information"
-              subtitle="Review version details, support, and policy links."
-              theme={theme}
-            />
-
-            <View
-              style={[
-                styles.card,
-                {
-                  backgroundColor: theme.surface,
-                  borderColor: theme.cardBorder,
-                },
-              ]}
-            >
-              <PremiumRow
-                icon="information-circle-outline"
-                iconColor={theme.blue}
-                iconBg={theme.blueSoft}
-                label="Version"
-                value={appVersion}
-                theme={theme}
-                first
-              />
-
-              <PremiumRow
-                icon="document-text-outline"
-                iconColor={theme.teal}
-                iconBg={theme.tealSoft}
-                label="Privacy Policy"
-                onPress={() => Linking.openURL('https://coldstorage.in/privacy')}
-                theme={theme}
-                showArrow
-              />
-
-              <PremiumRow
-                icon="help-circle-outline"
-                iconColor={theme.gold}
-                iconBg={theme.goldSoft}
-                label="Help & Support"
-                onPress={() => Linking.openURL('https://coldstorage.in/support')}
-                theme={theme}
-                showArrow
-                last
-              />
+            {/* ─── SUPPORT (All Roles) ─── */}
+            <SectionHeader eyebrow="ABOUT APP" title="Support & Information" subtitle="Review version details, support, and policy links." theme={theme} />
+            <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.cardBorder }]}>
+              <PremiumRow icon="information-circle-outline" iconColor={theme.blue} iconBg={theme.blueSoft} label="Version" value={appVersion} theme={theme} first />
+              <PremiumRow icon="document-text-outline" iconColor={theme.teal} iconBg={theme.tealSoft} label="Privacy Policy" onPress={() => Linking.openURL('https://coldstorage.in/privacy')} theme={theme} showArrow />
+              <PremiumRow icon="help-circle-outline" iconColor={theme.gold} iconBg={theme.goldSoft} label="Help & Support" onPress={() => Linking.openURL('https://coldstorage.in/support')} theme={theme} showArrow last />
             </View>
 
-            <SectionHeader
-              eyebrow="ACCOUNT ACTIONS"
-              title="Security & Cleanup"
-              subtitle="Manage local data and sign out safely."
-              theme={theme}
-            />
-
-            <View
-              style={[
-                styles.card,
-                styles.dangerCard,
-                {
-                  backgroundColor: theme.surface,
-                  borderColor: theme.cardBorder,
-                },
-              ]}
-            >
-              <DangerAction
-                icon="trash-outline"
-                label="Clear Cache"
-                subtitle="Remove local offline data and sync timestamps"
-                color={theme.orange}
-                bg={theme.orangeSoft}
-                onPress={handleClearCache}
-                theme={theme}
-                first
-              />
-
-              <DangerAction
-                icon="log-out-outline"
-                label="Sign Out"
-                subtitle="Sign out from this device securely"
-                color={theme.danger}
-                bg={theme.dangerSoft}
-                onPress={handleLogout}
-                theme={theme}
-                last
-              />
+            {/* ─── ACCOUNT ACTIONS (All Roles) ─── */}
+            <SectionHeader eyebrow="ACCOUNT ACTIONS" title="Security & Cleanup" subtitle="Manage local data and sign out safely." theme={theme} />
+            <View style={[styles.card, styles.dangerCard, { backgroundColor: theme.surface, borderColor: theme.cardBorder }]}>
+              <DangerAction icon="trash-outline" label="Clear Cache" subtitle="Remove local offline data and sync timestamps" color={theme.orange} bg={theme.orangeSoft} onPress={handleClearCache} theme={theme} first />
+              <DangerAction icon="log-out-outline" label="Sign Out" subtitle="Sign out from this device securely" color={theme.danger} bg={theme.dangerSoft} onPress={handleLogout} theme={theme} last />
             </View>
 
             <View style={styles.footerWrap}>
-              <Text style={[styles.footerText, { color: theme.textMuted }]}>
-                ColdStorage © {new Date().getFullYear()}
-              </Text>
-              <Text style={[styles.footerSubText, { color: theme.textSoft }]}>
-                Made with care for Indian farmers
-              </Text>
+              <Text style={[styles.footerText, { color: theme.textMuted }]}>ColdStorage © {new Date().getFullYear()}</Text>
+              <Text style={[styles.footerSubText, { color: theme.textSoft }]}>Made with care for Indian farmers</Text>
             </View>
           </View>
         </ScrollView>

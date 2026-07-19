@@ -20,6 +20,7 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -111,6 +112,7 @@ const UI = {
 };
 
 export default function ProfileScreen() {
+  const insets = useSafeAreaInsets();
   const { user, logout } = useAuth();
   const router = useRouter();
 
@@ -165,7 +167,7 @@ export default function ProfileScreen() {
 
             <View
               style={{
-                height: Platform.OS === 'ios' ? 58 : 34,
+                height: insets.top + 8,
               }}
             />
 
@@ -479,7 +481,7 @@ export default function ProfileScreen() {
 
             <Text style={styles.versionText}>ColdStorage • Farmer Edition</Text>
 
-            <View style={{ height: Platform.OS === 'ios' ? 112 : 42 }} />
+            <View style={{ height: insets.top + 54 }} />
           </View>
         </ScrollView>
       </View>

@@ -21,6 +21,7 @@ import {
   Animated,
   StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, Stack } from 'expo-router';
@@ -65,6 +66,7 @@ const UI = {
 };
 
 export default function MyBookingsScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
 
   const [bookings, setBookings] = useState<any[]>([]);
@@ -256,7 +258,7 @@ export default function MyBookingsScreen() {
         <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
         <Animated.View style={{ opacity: heroFade }}>
-          <LinearGradient colors={[UI.forestDeep, UI.forestMid, UI.forest]} style={styles.header}>
+          <LinearGradient colors={[UI.forestDeep, UI.forestMid, UI.forest]} style={[styles.header, { paddingTop: insets.top + 12 }]}>
             <View style={styles.heroGlowA} />
             <View style={styles.heroGlowB} />
 
@@ -401,7 +403,7 @@ const styles = StyleSheet.create({
   },
 
   header: {
-    paddingTop: Platform.OS === 'ios' ? 58 : 22,
+    paddingTop: 12,
     paddingBottom: 22,
     paddingHorizontal: 20,
     overflow: 'hidden',

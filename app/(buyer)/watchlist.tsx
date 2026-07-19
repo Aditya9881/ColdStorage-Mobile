@@ -8,6 +8,7 @@ import {
   Alert,
   Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect, Stack } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -33,6 +34,7 @@ const COMMODITY_ICON: Record<string, string> = {
 };
 
 export default function WatchlistScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const [saved, setSaved] = useState<any[]>([]);
 
@@ -191,7 +193,7 @@ export default function WatchlistScreen() {
 
   const Header = () => (
     <View style={styles.headerWrap}>
-      <View style={{ height: Platform.OS === 'ios' ? 48 : 20 }} />
+      <View style={{ height: insets.top + 8 }} />
 
       <View style={styles.headerTopRow}>
         <Text style={styles.headerKicker}>Saved Items</Text>

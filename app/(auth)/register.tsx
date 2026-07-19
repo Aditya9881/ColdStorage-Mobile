@@ -15,6 +15,7 @@ import {
   KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView,
   Animated, Alert, Image,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -38,6 +39,7 @@ const STATES = [
 ];
 
 export default function RegisterScreen() {
+  const insets = useSafeAreaInsets();
   const { register, sendOtp, verifyOtp } = useAuth();
   const router = useRouter();
 
@@ -868,7 +870,7 @@ function ImagePickerBox({
 const styles = StyleSheet.create({
   gradient: { flex: 1 },
   container: { flex: 1 },
-  scroll: { paddingHorizontal: 24, paddingTop: Platform.OS === 'ios' ? 56 : 36, paddingBottom: 40 },
+  scroll: { paddingHorizontal: 24, paddingTop: 12, paddingBottom: 40 },
 
   // Logo
   logoContainer: { alignItems: 'center', marginBottom: 24 },

@@ -12,6 +12,7 @@ import {
   StatusBar,
   Image,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import * as Location from 'expo-location';
@@ -382,6 +383,7 @@ function PriceImage({
 }
 
 export default function DiscoverScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { isAuthenticated } = useAuth();
 
@@ -1306,7 +1308,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
     minHeight: 280,
-    paddingTop: Platform.OS === 'ios' ? 57 : 39,
+    paddingTop: 12,
     paddingHorizontal: 17,
     paddingBottom: 23,
     borderBottomLeftRadius: 31,

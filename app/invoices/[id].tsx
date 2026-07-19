@@ -11,6 +11,7 @@ import {
   StatusBar,
   Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter, useFocusEffect, Stack } from 'expo-router';
 import { api } from '@/lib/api-client';
@@ -69,6 +70,7 @@ const UI = {
 };
 
 export default function InvoiceDetailScreen() {
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
 
@@ -215,7 +217,7 @@ export default function InvoiceDetailScreen() {
         <StatusBar barStyle="dark-content" backgroundColor={UI.bg} />
 
         <View style={styles.headerWrap}>
-          <View style={{ height: Platform.OS === 'ios' ? 58 : 22 }} />
+          <View style={{ height: insets.top + 8 }} />
 
           <View style={styles.headerRow}>
             <TouchableOpacity

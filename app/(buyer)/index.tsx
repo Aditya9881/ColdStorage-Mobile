@@ -10,6 +10,7 @@ import {
   Platform,
   Animated as RNAnimated,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, Stack } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -66,6 +67,7 @@ const BUYER_PRIMARY = '#0F766E';
 const BUYER_DARK = '#0B3B36';
 
 export default function BuyerBrowseScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { isAuthenticated, user } = useAuth();
   const colorScheme = (useColorScheme() ?? 'light') as 'light' | 'dark';
@@ -271,7 +273,7 @@ export default function BuyerBrowseScreen() {
         end={{ x: 1, y: 1 }}
         style={styles.header}
       >
-        <View style={{ height: Platform.OS === 'ios' ? 50 : 30 }} />
+        <View style={{ height: insets.top + 8 }} />
         <RNAnimated.View style={{ opacity: headerAnim }}>
           <View style={styles.topBar}>
             <View style={{ flex: 1 }} />
@@ -403,7 +405,7 @@ export default function BuyerBrowseScreen() {
             colors={['#0B3B36', '#0F766E', '#14B8A6']}
             style={styles.header}
           >
-            <View style={{ height: Platform.OS === 'ios' ? 50 : 30 }} />
+            <View style={{ height: insets.top + 8 }} />
             <View style={styles.headerContent}>
               <Text style={styles.headerTitle}>Browse Produce</Text>
             </View>

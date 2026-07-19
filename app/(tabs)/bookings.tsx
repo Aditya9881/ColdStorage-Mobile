@@ -19,6 +19,7 @@ import {
   StatusBar,
   TextInput,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -51,6 +52,7 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; icon: string; so
 
 export default function BookingsTab() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -237,7 +239,7 @@ export default function BookingsTab() {
         <View style={s.heroGlowRight} />
         <View style={s.heroGlowBottom} />
 
-        <View style={{ height: Platform.OS === 'ios' ? 56 : 38 }} />
+        <View style={{ height: insets.top + 8 }} />
 
         <View style={s.headerContent}>
           <Text style={s.headerTitle}>My Bookings</Text>

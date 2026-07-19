@@ -14,6 +14,7 @@ import {
   ScrollView, Platform, ActivityIndicator, Alert, Share,
   RefreshControl,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -37,6 +38,7 @@ const STATUS_STEPS = [
 const TERMINAL_STATUSES = ['CANCELLED', 'REJECTED', 'COMPLETED'];
 
 export default function BookingDetailScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [booking, setBooking] = useState<any>(null);
@@ -131,7 +133,7 @@ export default function BookingDetailScreen() {
   return (
     <View style={styles.screen}>
       {/* Header */}
-      <LinearGradient colors={['#1B4332', '#2D6A4F']} style={styles.header}>
+      <LinearGradient colors={['#1B4332', '#2D6A4F']} style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={22} color="#FFF" />
         </TouchableOpacity>
@@ -381,7 +383,7 @@ const styles = StyleSheet.create({
   // Header
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingTop: Platform.OS === 'ios' ? 56 : 16, paddingBottom: 16, paddingHorizontal: 20,
+    paddingTop: 12, paddingBottom: 16, paddingHorizontal: 20,
   },
   backBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 17, fontWeight: '800', color: '#FFF' },

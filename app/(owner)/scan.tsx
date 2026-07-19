@@ -11,6 +11,7 @@ import {
   Platform, ActivityIndicator, Alert, KeyboardAvoidingView,
   Animated, Dimensions, ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -40,6 +41,7 @@ const C = {
 
 export default function ScanScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [mode, setMode] = useState<'scan' | 'manual'>('scan');
   const [bookingNumber, setBookingNumber] = useState('');
   const [loading, setLoading] = useState(false);
@@ -173,7 +175,7 @@ export default function ScanScreen() {
           colors={['#4C1D95', '#6D28D9', '#7C3AED']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={styles.header}
+          style={[styles.header, { paddingTop: insets.top + 12 }]}
         >
           <TouchableOpacity onPress={resetScan} style={styles.backBtn}>
             <Ionicons name="arrow-back" size={22} color="#FFF" />
@@ -290,7 +292,7 @@ export default function ScanScreen() {
         colors={['#4C1D95', '#6D28D9', '#7C3AED']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={styles.header}
+        style={[styles.header, { paddingTop: insets.top + 12 }]}
       >
         <View style={styles.headerDecor1} />
         <Text style={styles.headerTitle}>QR Scanner</Text>
@@ -516,7 +518,7 @@ const styles = StyleSheet.create({
 
   // ── Header ──
   header: {
-    paddingTop: Platform.OS === 'ios' ? 58 : 20,
+    paddingTop: 12, // overridden inline with insets.top
     paddingBottom: 20,
     paddingHorizontal: 20,
     overflow: 'hidden',

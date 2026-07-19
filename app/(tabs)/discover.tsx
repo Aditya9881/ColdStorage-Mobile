@@ -20,6 +20,7 @@ import {
   ActivityIndicator,
   TextInput,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -69,6 +70,7 @@ const UI = {
 
 export default function DiscoverScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [facilities, setFacilities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -356,7 +358,7 @@ export default function DiscoverScreen() {
           <View style={styles.heroGlowRight} />
           <View style={styles.heroGlowBottom} />
 
-          <View style={{ height: Platform.OS === 'ios' ? 56 : 38 }} />
+          <View style={{ height: insets.top + 8 }} />
 
           <View style={styles.headerContent}>
             <Text style={styles.headerTitle}>Find Storage</Text>

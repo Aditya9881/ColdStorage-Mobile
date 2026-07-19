@@ -15,6 +15,7 @@ import {
   Modal,
   Image,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -140,6 +141,7 @@ export default function HomeScreen() {
   const { user } = useAuth();
   const { unreadCount } = useNotifications();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [data, setData] = useState<DashboardData | null>(null);
   const [prices, setPrices] = useState<any[]>([]);
@@ -353,7 +355,7 @@ export default function HomeScreen() {
 
         <LinearGradient
           colors={[UI.forestDeep, UI.forest, UI.teal]}
-          style={styles.loadingHero}
+          style={[styles.loadingHero, { paddingTop: insets.top + 12 }]}
         >
           <View style={styles.loadingBrandRow}>
             <View style={styles.loadingLogo}>
@@ -434,7 +436,7 @@ export default function HomeScreen() {
 
           <View
             style={{
-              height: Platform.OS === 'ios' ? 56 : 38,
+              height: insets.top + 8,
             }}
           />
 
@@ -871,7 +873,7 @@ export default function HomeScreen() {
             </View>
           )}
 
-          <View style={{ height: Platform.OS === 'ios' ? 112 : 90 }} />
+          <View style={{ height: insets.top + 54 }} />
         </RNAnimated.View>
       </ScrollView>
 
@@ -1023,7 +1025,7 @@ const styles = StyleSheet.create({
 
   loadingHero: {
     height: 255,
-    paddingTop: Platform.OS === 'ios' ? 67 : 42,
+    paddingTop: 12,
     paddingHorizontal: 20,
   },
 

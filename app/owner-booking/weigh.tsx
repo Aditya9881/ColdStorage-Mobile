@@ -10,6 +10,7 @@ import {
   ScrollView, Platform, ActivityIndicator, Alert,
   KeyboardAvoidingView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -18,6 +19,7 @@ import { Shadows } from '@/constants/Colors';
 import { hapticLight, hapticSuccess, hapticError } from '@/lib/haptics';
 
 export default function WeighScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { bookingId, bookingNumber } = useLocalSearchParams<{ bookingId: string; bookingNumber: string }>();
 
@@ -129,7 +131,7 @@ export default function WeighScreen() {
 
   return (
     <View style={styles.screen}>
-      <LinearGradient colors={['#4C1D95', '#7C3AED']} style={styles.header}>
+      <LinearGradient colors={['#4C1D95', '#7C3AED']} style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={22} color="#FFF" />
         </TouchableOpacity>
@@ -322,7 +324,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#F8F7FC' },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingTop: Platform.OS === 'ios' ? 56 : 16, paddingBottom: 16, paddingHorizontal: 20,
+    paddingTop: 12, paddingBottom: 16, paddingHorizontal: 20,
   },
   backBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 18, fontWeight: '800', color: '#FFF' },

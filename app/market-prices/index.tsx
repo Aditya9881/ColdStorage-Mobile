@@ -11,6 +11,7 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { api } from '@/lib/api-client';
@@ -68,6 +69,7 @@ function formatTimeAgo(isoStr: string): string {
 }
 
 export default function MarketPricesScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
 
@@ -181,7 +183,7 @@ export default function MarketPricesScreen() {
     return (
       <View style={s.container}>
         <StatusBar barStyle="dark-content" backgroundColor={UI.canvas} />
-        <View style={s.topSpacer} />
+        <View style={[s.topSpacer, { height: insets.top + 8 }]} />
         <View style={s.topBar}>
           <TouchableOpacity style={s.iconBtn} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={19} color={UI.text} />
@@ -289,7 +291,7 @@ export default function MarketPricesScreen() {
     <View style={s.container}>
       <StatusBar barStyle="dark-content" backgroundColor={UI.canvas} />
 
-      <View style={s.topSpacer} />
+      <View style={[s.topSpacer, { height: insets.top + 8 }]} />
 
       <View style={s.topBar}>
         <TouchableOpacity
@@ -434,7 +436,7 @@ const s = StyleSheet.create({
   },
 
   topSpacer: {
-    height: Platform.OS === 'ios' ? 62 : 24,
+    height: 24,
   },
 
   topBar: {

@@ -10,6 +10,7 @@ import {
   StatusBar,
   TextInput,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { api } from '@/lib/api-client';
@@ -100,6 +101,7 @@ const UI = {
 
 export default function InventoryScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [lots, setLots] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -174,7 +176,7 @@ export default function InventoryScreen() {
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.container}>
           <StatusBar barStyle="dark-content" backgroundColor={UI.canvas} />
-          <View style={styles.topSpacer} />
+          <View style={[styles.topSpacer, { height: insets.top + 8 }]} />
           <View style={styles.topBar}>
             <TouchableOpacity style={styles.iconBtn} onPress={() => router.back()}>
               <Ionicons name="arrow-back" size={19} color={UI.text} />
@@ -333,7 +335,7 @@ export default function InventoryScreen() {
       <View style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor={UI.canvas} />
 
-        <View style={styles.topSpacer} />
+        <View style={[styles.topSpacer, { height: insets.top + 8 }]} />
 
         <View style={styles.topBar}>
           <TouchableOpacity
@@ -485,7 +487,7 @@ const styles = StyleSheet.create({
   },
 
   topSpacer: {
-    height: Platform.OS === 'ios' ? 62 : 24,
+    height: 24, // overridden inline with insets.top
   },
 
   topBar: {

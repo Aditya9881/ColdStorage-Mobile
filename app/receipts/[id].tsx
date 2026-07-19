@@ -10,6 +10,7 @@ import {
   StatusBar,
   Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter, useFocusEffect, Stack } from 'expo-router';
 import QRCode from 'react-native-qrcode-svg';
@@ -65,6 +66,7 @@ const UI = {
 };
 
 export default function ReceiptDetailScreen() {
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
 
@@ -239,7 +241,7 @@ export default function ReceiptDetailScreen() {
         <StatusBar barStyle="dark-content" backgroundColor={UI.bg} />
 
         <View style={styles.headerWrap}>
-          <View style={{ height: Platform.OS === 'ios' ? 58 : 22 }} />
+          <View style={{ height: insets.top + 8 }} />
 
           <View style={styles.topBar}>
             <TouchableOpacity

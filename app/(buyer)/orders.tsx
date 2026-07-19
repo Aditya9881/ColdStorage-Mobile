@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, Stack } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -77,6 +78,7 @@ const COMMODITY_ICON: Record<string, string> = {
 };
 
 export default function BuyerOrdersScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
 
   const [orders, setOrders] = useState<any[]>([]);
@@ -229,7 +231,7 @@ export default function BuyerOrdersScreen() {
 
   const Header = () => (
     <View style={styles.headerWrap}>
-      <View style={{ height: Platform.OS === 'ios' ? 48 : 20 }} />
+      <View style={{ height: insets.top + 8 }} />
 
       <View style={styles.topRow}>
         <Text style={styles.topKicker}>Orders</Text>

@@ -8,6 +8,7 @@ import {
   Alert,
   Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, Stack } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -19,6 +20,7 @@ const BUYER_DARK = '#0B3B36';
 const BUYER_BG = '#F4F7F6';
 
 export default function BuyerProfileScreen() {
+  const insets = useSafeAreaInsets();
   const { user, logout } = useAuth();
   const router = useRouter();
 
@@ -46,7 +48,7 @@ export default function BuyerProfileScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <View style={{ height: Platform.OS === 'ios' ? 48 : 20 }} />
+        <View style={{ height: insets.top + 8 }} />
 
         <View style={styles.topBar}>
           <Text style={styles.topBarKicker}>Profile</Text>
