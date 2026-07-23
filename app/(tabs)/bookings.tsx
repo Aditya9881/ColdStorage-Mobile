@@ -1,11 +1,14 @@
 /**
  * ColdStorage — Bookings Tab
  *
- * Updated:
- * - Header kept premium like screenshot
- * - Search box moved out of header
- * - Cards, filters, pagination, API logic remain same
+ * Refined premium mobile version:
+ * - Better sizing and spacing
+ * - Removed oversized hero feel
+ * - More compact search, chips, and cards
+ * - Better proportions for a premium mobile UI
+ * - Booking logic, API, pagination, refresh preserved
  */
+
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View,
@@ -18,6 +21,7 @@ import {
   ActivityIndicator,
   StatusBar,
   TextInput,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -37,17 +41,17 @@ const STATUS_FILTERS = [
 ];
 
 const STATUS_COLORS: Record<string, { bg: string; text: string; icon: string; soft: string }> = {
-  PENDING: { bg: '#FEF3C7', text: '#B45309', icon: 'hourglass-outline', soft: '#FFFBEB' },
-  CONFIRMED: { bg: '#D1FAE5', text: '#047857', icon: 'checkmark-circle-outline', soft: '#ECFDF5' },
-  ARRIVED: { bg: '#DBEAFE', text: '#2563EB', icon: 'location-outline', soft: '#EFF6FF' },
-  WEIGHING: { bg: '#EDE9FE', text: '#7C3AED', icon: 'scale-outline', soft: '#F5F3FF' },
-  STORED: { bg: '#CCFBF1', text: '#0F766E', icon: 'cube-outline', soft: '#F0FDFA' },
-  DISPATCH_REQUESTED: { bg: '#FFEDD5', text: '#C2410C', icon: 'arrow-up-circle-outline', soft: '#FFF7ED' },
-  DISPATCHING: { bg: '#CFFAFE', text: '#0E7490', icon: 'car-outline', soft: '#ECFEFF' },
-  DISPATCHED: { bg: '#CFFAFE', text: '#155E75', icon: 'checkmark-done-outline', soft: '#F0FDFF' },
-  COMPLETED: { bg: '#D1FAE5', text: '#10B981', icon: 'trophy-outline', soft: '#ECFDF5' },
-  CANCELLED: { bg: '#FEE2E2', text: '#DC2626', icon: 'close-circle-outline', soft: '#FEF2F2' },
-  REJECTED: { bg: '#FEE2E2', text: '#DC2626', icon: 'ban-outline', soft: '#FEF2F2' },
+  PENDING: { bg: '#FDE7B8', text: '#B96B14', icon: 'hourglass-outline', soft: '#FFF8ED' },
+  CONFIRMED: { bg: '#CAECDC', text: '#0A8660', icon: 'checkmark-circle-outline', soft: '#F1FBF6' },
+  ARRIVED: { bg: '#DCEAFE', text: '#2563EB', icon: 'location-outline', soft: '#F3F7FF' },
+  WEIGHING: { bg: '#ECE6FF', text: '#7C3AED', icon: 'scale-outline', soft: '#F7F5FF' },
+  STORED: { bg: '#CFF1E8', text: '#0E7B71', icon: 'cube-outline', soft: '#F1FCF8' },
+  DISPATCH_REQUESTED: { bg: '#F7DEC9', text: '#C66A25', icon: 'arrow-up-circle-outline', soft: '#FFF8F3' },
+  DISPATCHING: { bg: '#D6F3F7', text: '#0E7490', icon: 'car-outline', soft: '#F1FCFD' },
+  DISPATCHED: { bg: '#D6F3F7', text: '#155E75', icon: 'checkmark-done-outline', soft: '#F1FCFD' },
+  COMPLETED: { bg: '#D8F1DE', text: '#1E9A63', icon: 'trophy-outline', soft: '#F2FBF5' },
+  CANCELLED: { bg: '#FDE0E0', text: '#D03030', icon: 'close-circle-outline', soft: '#FEF3F3' },
+  REJECTED: { bg: '#FDE0E0', text: '#D03030', icon: 'ban-outline', soft: '#FEF3F3' },
 };
 
 export default function BookingsTab() {
@@ -61,9 +65,7 @@ export default function BookingsTab() {
   const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
-  const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
-
   const hasTriggeredEndRef = useRef(false);
 
   const fetchBookings = useCallback(
@@ -82,19 +84,16 @@ export default function BookingsTab() {
         if (res.success && res.data) {
           const items = res.data.bookings || [];
           setBookings(prev => (reset ? items : [...prev, ...items]));
-          setTotal(res.data.total || 0);
           setHasMore(items.length === 15);
           setPage(p);
         } else if (reset) {
           setBookings([]);
-          setTotal(0);
           setHasMore(false);
         }
       } catch (err) {
         console.error('Failed to fetch bookings', err);
         if (reset) {
           setBookings([]);
-          setTotal(0);
           setHasMore(false);
         }
       } finally {
@@ -134,17 +133,6 @@ export default function BookingsTab() {
     );
   }, [bookings, search]);
 
-  const statusStats = useMemo(
-    () => ({
-      pending: bookings.filter(b => b.status === 'PENDING').length,
-      active: bookings.filter(b =>
-        ['CONFIRMED', 'ARRIVED', 'WEIGHING', 'STORED', 'DISPATCH_REQUESTED', 'DISPATCHING', 'DISPATCHED'].includes(b.status)
-      ).length,
-      completed: bookings.filter(b => b.status === 'COMPLETED').length,
-    }),
-    [bookings]
-  );
-
   const renderBooking = ({ item, index }: { item: any; index: number }) => {
     const sc = STATUS_COLORS[item.status] || STATUS_COLORS.PENDING;
     const preferredDate = item.preferredDate
@@ -158,29 +146,35 @@ export default function BookingsTab() {
     return (
       <TouchableOpacity
         style={s.bookingCard}
-        activeOpacity={0.82}
+        activeOpacity={0.86}
         onPress={() => {
           router.push(`/booking/${item.id}`);
           hapticLight();
         }}
       >
         <View style={s.cardTop}>
-          <View style={s.cardIconWrap}>
-            <View style={[s.cardIcon, { backgroundColor: index % 2 === 0 ? '#E8F5F0' : '#EEF2FF' }]}>
-              <Ionicons name="snow-outline" size={18} color={index % 2 === 0 ? '#0F766E' : '#4F46E5'} />
+          <View style={s.cardLeft}>
+            <View style={[s.cardIcon, { backgroundColor: index % 2 === 0 ? '#E6F3EE' : '#EEF0FD' }]}>
+              <Ionicons
+                name="snow-outline"
+                size={18}
+                color={index % 2 === 0 ? '#167B67' : '#6666D8'}
+              />
             </View>
-          </View>
 
-          <View style={{ flex: 1 }}>
-            <Text style={s.bookingNo}>#{item.bookingNumber}</Text>
-            <Text style={s.facilityName} numberOfLines={1}>
-              {item.facility?.name || 'Facility'}
-            </Text>
+            <View style={s.cardMain}>
+              <Text style={s.bookingNo} numberOfLines={1}>
+                #{item.bookingNumber}
+              </Text>
+              <Text style={s.facilityName} numberOfLines={1}>
+                {item.facility?.name || 'Facility'}
+              </Text>
+            </View>
           </View>
 
           <View style={[s.statusChip, { backgroundColor: sc.soft, borderColor: sc.bg }]}>
             <Ionicons name={sc.icon as any} size={12} color={sc.text} />
-            <Text style={[s.statusChipText, { color: sc.text }]}>
+            <Text style={[s.statusChipText, { color: sc.text }]} numberOfLines={1}>
               {String(item.status || 'PENDING').replace(/_/g, ' ')}
             </Text>
           </View>
@@ -188,29 +182,27 @@ export default function BookingsTab() {
 
         <View style={s.infoRow}>
           <View style={s.infoPill}>
-            <Ionicons name="leaf-outline" size={13} color="#6B7280" />
+            <Ionicons name="leaf-outline" size={13} color="#7B8693" />
             <Text style={s.infoPillText} numberOfLines={1}>
               {item.commodityName || 'Commodity'}
             </Text>
           </View>
 
           <View style={s.infoPill}>
-            <Ionicons name="scale-outline" size={13} color="#6B7280" />
-            <Text style={s.infoPillText}>
-              {item.estimatedWeightKg || 0} Kg
-            </Text>
+            <Ionicons name="scale-outline" size={13} color="#7B8693" />
+            <Text style={s.infoPillText}>{item.estimatedWeightKg || 0} Kg</Text>
           </View>
         </View>
 
         <View style={s.metaRow}>
           <View style={s.metaItem}>
-            <Ionicons name="calendar-outline" size={14} color="#9CA3AF" />
+            <Ionicons name="calendar-outline" size={14} color="#A0A8B4" />
             <Text style={s.metaText}>{preferredDate}</Text>
           </View>
 
           {item.facility?.city ? (
             <View style={s.metaItem}>
-              <Ionicons name="location-outline" size={14} color="#9CA3AF" />
+              <Ionicons name="location-outline" size={14} color="#A0A8B4" />
               <Text style={s.metaText} numberOfLines={1}>
                 {item.facility.city}
               </Text>
@@ -219,70 +211,73 @@ export default function BookingsTab() {
         </View>
 
         <View style={s.cardArrow}>
-          <Ionicons name="chevron-forward" size={16} color="#A7B0BA" />
+          <Ionicons name="chevron-forward" size={17} color="#B3BAC5" />
         </View>
       </TouchableOpacity>
     );
   };
 
-  return (
-    <View style={s.screen}>
-      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-
+  const ListHeader = () => (
+    <View style={s.headerWrap}>
       <LinearGradient
-        colors={['#082B24', '#103E34', '#0A8B7D']}
+        colors={['#FFFFFF', '#FBFCFA']}
         start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={s.header}
+        end={{ x: 0, y: 1 }}
+        style={[s.topShell, { paddingTop: insets.top + 8 }]}
       >
-        <View style={s.heroGlowTop} />
-        <View style={s.heroGlowRight} />
-        <View style={s.heroGlowBottom} />
+        <View style={s.topBar}>
+          <TouchableOpacity style={s.iconBtn} activeOpacity={0.84} onPress={hapticLight}>
+            <Ionicons name="menu" size={24} color="#062F27" />
+          </TouchableOpacity>
 
-        <View style={{ height: insets.top + 8 }} />
+          <View style={s.brandWrap}>
+            <Text style={s.brandText}>SheetKosh</Text>
+            <Text style={s.brandSub}>Storage bookings</Text>
+          </View>
 
-        <View style={s.headerContent}>
-          <Text style={s.headerTitle}>My Bookings</Text>
-          <Text style={s.headerSub}>Track your storage requests and facility activity.</Text>
-        </View>
-
-        <View style={s.summaryRow}>
-          <View style={s.summaryCard}>
-            <Text style={s.summaryNumber}>{total}</Text>
-            <Text style={s.summaryLabel}>TOTAL</Text>
-          </View>
-          <View style={s.summaryDivider} />
-          <View style={s.summaryCard}>
-            <Text style={s.summaryNumber}>{statusStats.active}</Text>
-            <Text style={s.summaryLabel}>ACTIVE</Text>
-          </View>
-          <View style={s.summaryDivider} />
-          <View style={s.summaryCard}>
-            <Text style={[s.summaryNumber, { color: '#F4CF7A' }]}>{statusStats.pending}</Text>
-            <Text style={s.summaryLabel}>PENDING</Text>
-          </View>
+          <TouchableOpacity style={s.avatarRing} activeOpacity={0.86} onPress={hapticLight}>
+            <Image
+              source={{ uri: 'https://i.pravatar.cc/120?img=12' }}
+              style={s.avatar}
+            />
+          </TouchableOpacity>
         </View>
       </LinearGradient>
 
-      <View style={s.searchSection}>
-        <View style={s.searchBox}>
-          <Ionicons name="search-outline" size={20} color="#9CA3AF" />
-          <TextInput
-            value={search}
-            onChangeText={setSearch}
-            placeholder="Search booking, facility, crop..."
-            placeholderTextColor="#98A2B3"
-            style={s.searchInput}
-          />
-          {search.length > 0 ? (
-            <TouchableOpacity onPress={() => setSearch('')} activeOpacity={0.82}>
-              <Ionicons name="close-circle" size={18} color="#A0A8B5" />
-            </TouchableOpacity>
-          ) : null}
+      <View style={s.heroSection}>
+        <View style={s.heroBadge}>
+          <View style={s.heroBadgeDot} />
+          <Text style={s.heroBadgeText}>Manage your requests</Text>
         </View>
-      </View>
 
-      <View style={s.filterRow}>
+        <Text style={s.pageTitle}>My Bookings</Text>
+
+        <Text style={s.pageSubTitle}>
+          Track booking progress, storage activity, and dispatch updates in one place.
+        </Text>
+
+        <View style={s.searchWrap}>
+          <View style={s.searchBox}>
+            <View style={s.searchIconWrap}>
+              <Ionicons name="search-outline" size={20} color="#7E848D" />
+            </View>
+
+            <TextInput
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Search bookings or facilities..."
+              placeholderTextColor="#8E949C"
+              style={s.searchInput}
+            />
+
+            {search.length > 0 ? (
+              <TouchableOpacity onPress={() => setSearch('')} activeOpacity={0.82}>
+                <Ionicons name="close-circle" size={18} color="#A1A7AF" />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </View>
+
         <FlatList
           data={STATUS_FILTERS}
           horizontal
@@ -298,7 +293,7 @@ export default function BookingsTab() {
                   setStatusFilter(f.key);
                   hapticLight();
                 }}
-                activeOpacity={0.82}
+                activeOpacity={0.86}
               >
                 <Text style={[s.filterChipText, active && s.filterChipTextActive]}>
                   {f.label}
@@ -308,44 +303,76 @@ export default function BookingsTab() {
           }}
         />
       </View>
+    </View>
+  );
+
+  return (
+    <View style={s.screen}>
+      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
 
       {loading ? (
-        <View style={s.center}>
-          <ActivityIndicator size="large" color="#2D6A4F" />
-          <Text style={s.loadingLabel}>Loading bookings...</Text>
-        </View>
+        <FlatList
+          data={[]}
+          ListHeaderComponent={<ListHeader />}
+          renderItem={null}
+          keyExtractor={(_, i) => String(i)}
+          contentContainerStyle={{ flexGrow: 1 }}
+          ListEmptyComponent={
+            <View style={s.center}>
+              <ActivityIndicator size="large" color="#0A4E40" />
+              <Text style={s.loadingLabel}>Loading bookings...</Text>
+            </View>
+          }
+        />
       ) : filteredBookings.length === 0 ? (
-        <View style={s.center}>
-          <View style={s.emptyIconWrap}>
-            <Ionicons name="calendar-outline" size={42} color="#C7CDD6" />
-          </View>
-          <Text style={s.emptyTitle}>No bookings yet</Text>
-          <Text style={s.emptyText}>
-            Find a cold storage and book your first slot.
-          </Text>
-          <TouchableOpacity
-            style={s.discoverBtn}
-            onPress={() => {
-              router.push('/(tabs)/discover');
-              hapticLight();
-            }}
-            activeOpacity={0.84}
-          >
-            <Ionicons name="search-outline" size={16} color="#2D6A4F" />
-            <Text style={s.discoverBtnText}>Find Storage</Text>
-          </TouchableOpacity>
-        </View>
+        <FlatList
+          data={[]}
+          keyExtractor={(_, i) => String(i)}
+          ListHeaderComponent={<ListHeader />}
+          ListEmptyComponent={
+            <View style={s.center}>
+              <View style={s.emptyIconWrap}>
+                <Ionicons name="calendar-outline" size={38} color="#C6CCD4" />
+              </View>
+              <Text style={s.emptyTitle}>No bookings yet</Text>
+              <Text style={s.emptyText}>
+                Find a cold storage facility and create your first booking request.
+              </Text>
+              <TouchableOpacity
+                style={s.discoverBtn}
+                onPress={() => {
+                  router.push('/(tabs)/discover');
+                  hapticLight();
+                }}
+                activeOpacity={0.84}
+              >
+                <Ionicons name="search-outline" size={15} color="#0A4E40" />
+                <Text style={s.discoverBtnText}>Find Storage</Text>
+              </TouchableOpacity>
+            </View>
+          }
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor="#0A4E40"
+            />
+          }
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ flexGrow: 1, paddingBottom: Platform.OS === 'ios' ? 108 : 90 }}
+        />
       ) : (
         <FlatList
           data={filteredBookings}
           keyExtractor={b => b.id}
           renderItem={renderBooking}
+          ListHeaderComponent={<ListHeader />}
           contentContainerStyle={s.listContent}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={handleRefresh}
-              tintColor="#2D6A4F"
+              tintColor="#0A4E40"
             />
           }
           onEndReached={handleLoadMore}
@@ -356,7 +383,7 @@ export default function BookingsTab() {
           ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
           ListFooterComponent={
             loadingMore ? (
-              <ActivityIndicator style={{ marginVertical: 18 }} color="#2D6A4F" />
+              <ActivityIndicator style={{ marginVertical: 18 }} color="#0A4E40" />
             ) : (
               <View style={{ height: 18 }} />
             )
@@ -371,183 +398,344 @@ export default function BookingsTab() {
 const s = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#F6F7F3',
+    backgroundColor: '#F5F6F2',
   },
 
-  header: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
-    overflow: 'hidden',
+  headerWrap: {
+    marginBottom: 8,
   },
 
-  heroGlowTop: {
-    position: 'absolute',
-    top: -84,
-    right: -18,
-    width: 210,
-    height: 210,
-    borderRadius: 105,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+  topShell: {
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#ECEFE8',
   },
 
-  heroGlowRight: {
-    position: 'absolute',
-    top: 18,
-    right: -64,
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: 'rgba(28,214,192,0.11)',
-  },
-
-  heroGlowBottom: {
-    position: 'absolute',
-    left: -86,
-    bottom: -88,
-    width: 250,
-    height: 150,
-    borderRadius: 125,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-  },
-
-  headerContent: {
-    marginBottom: 16,
-  },
-
-  headerTitle: {
-    fontSize: 31,
-    lineHeight: 36,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: -0.7,
-  },
-
-  headerSub: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.68)',
-    marginTop: 6,
-  },
-
-  summaryRow: {
+  topBar: {
+    paddingHorizontal: 18,
+    paddingBottom: 12,
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.10)',
-    borderRadius: 20,
-    paddingVertical: 16,
-    paddingHorizontal: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-
-  summaryCard: {
-    flex: 1,
     alignItems: 'center',
   },
 
-  summaryNumber: {
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F2F4F0',
+    borderWidth: 1,
+    borderColor: '#E4E9E1',
+  },
+
+  brandWrap: {
+    flex: 1,
+    marginLeft: 12,
+  },
+
+  brandText: {
     fontSize: 22,
+    lineHeight: 26,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#062F27',
+    letterSpacing: -0.5,
   },
 
-  summaryLabel: {
-    fontSize: 10,
+  brandSub: {
+    marginTop: 2,
+    fontSize: 11,
+    color: '#86908B',
+    fontWeight: '500',
+  },
+
+  avatarRing: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    padding: 2,
+    backgroundColor: '#D8B24A',
+    shadowColor: '#9E7B24',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+
+  avatar: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+
+  heroSection: {
+    paddingTop: 16,
+    paddingHorizontal: 18,
+    paddingBottom: 6,
+  },
+
+  heroBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: '#EAF4EF',
+    borderWidth: 1,
+    borderColor: '#DAEAE2',
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+
+  heroBadgeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#0B8A68',
+    marginRight: 8,
+  },
+
+  heroBadgeText: {
+    fontSize: 11,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.62)',
-    marginTop: 5,
-    letterSpacing: 0.8,
+    color: '#175A4B',
+    letterSpacing: 0.2,
   },
 
-  summaryDivider: {
-    width: 1,
-    backgroundColor: 'rgba(255,255,255,0.14)',
+  pageTitle: {
+    fontSize: 32,
+    lineHeight: 36,
+    fontWeight: '900',
+    color: '#052F25',
+    letterSpacing: -1.2,
   },
 
-  searchSection: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 2,
-    backgroundColor: '#F6F7F3',
+  pageSubTitle: {
+    marginTop: 8,
+    fontSize: 12.5,
+    lineHeight: 20,
+    color: '#71807A',
+    paddingRight: 14,
+  },
+
+  searchWrap: {
+    marginTop: 16,
+    marginBottom: 14,
   },
 
   searchBox: {
-    minHeight: 54,
-    borderRadius: 18,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
+    minHeight: 56,
+    borderRadius: 20,
+    backgroundColor: '#FCFCFA',
+    borderWidth: 1,
+    borderColor: '#DCE2DA',
+    paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    borderWidth: 1,
-    borderColor: '#E4E8E4',
-    shadowColor: '#173528',
-    shadowOffset: { width: 0, height: 4 },
+    shadowColor: '#203128',
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.04,
-    shadowRadius: 8,
+    shadowRadius: 14,
     elevation: 2,
+  },
+
+  searchIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F2F4F1',
+    marginRight: 8,
   },
 
   searchInput: {
     flex: 1,
-    color: '#23323D',
-    fontSize: 16,
+    fontSize: 15,
+    color: '#26313A',
     fontWeight: '500',
     paddingVertical: Platform.OS === 'ios' ? 14 : 10,
   },
 
-  filterRow: {
-    paddingVertical: 10,
-    backgroundColor: '#F6F7F3',
-  },
-
   filterContent: {
-    paddingHorizontal: 16,
-    gap: 8,
+    paddingRight: 18,
+    gap: 9,
+    paddingBottom: 2,
   },
 
   filterChip: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
+    height: 42,
+    paddingHorizontal: 18,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E7EAE3',
     borderWidth: 1,
-    borderColor: '#E2E9E3',
+    borderColor: '#E2E5DE',
   },
 
   filterChipActive: {
-    backgroundColor: '#1B5E4A',
-    borderColor: '#1B5E4A',
+    backgroundColor: '#062F27',
+    borderColor: '#062F27',
   },
 
   filterChipText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#5F6B7A',
+    color: '#54605B',
   },
 
   filterChipTextActive: {
     color: '#FFFFFF',
   },
 
+  listContent: {
+    paddingHorizontal: 16,
+    paddingBottom: Platform.OS === 'ios' ? 110 : 92,
+  },
+
+  bookingCard: {
+    position: 'relative',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E8ECE7',
+    shadowColor: '#183127',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.04,
+    shadowRadius: 14,
+    elevation: 2,
+  },
+
+  cardTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+
+  cardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    paddingRight: 10,
+  },
+
+  cardIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+
+  cardMain: {
+    flex: 1,
+  },
+
+  bookingNo: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#A5AEBA',
+    letterSpacing: 0.45,
+    marginBottom: 2,
+  },
+
+  facilityName: {
+    fontSize: 13.5,
+    lineHeight: 18,
+    fontWeight: '800',
+    color: '#1A2232',
+  },
+
+  statusChip: {
+    maxWidth: 170,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+
+  statusChipText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
+    flexShrink: 1,
+  },
+
+  infoRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 10,
+    flexWrap: 'wrap',
+  },
+
+  infoPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    borderRadius: 11,
+    backgroundColor: '#F5F7F5',
+  },
+
+  infoPillText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#697482',
+  },
+
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+
+  metaText: {
+    fontSize: 11.5,
+    color: '#9FA8B4',
+    fontWeight: '600',
+  },
+
+  cardArrow: {
+    position: 'absolute',
+    right: 14,
+    bottom: 14,
+  },
+
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
+    padding: 30,
   },
 
   loadingLabel: {
-    marginTop: 12,
-    fontSize: 14,
-    color: '#6B7280',
+    marginTop: 10,
+    fontSize: 13,
+    color: '#75808A',
   },
 
   emptyIconWrap: {
-    width: 80,
-    height: 80,
-    borderRadius: 24,
-    backgroundColor: '#F0F2EE',
+    width: 76,
+    height: 76,
+    borderRadius: 22,
+    backgroundColor: '#EEF2EE',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
@@ -555,17 +743,18 @@ const s = StyleSheet.create({
 
   emptyTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#1A1A2E',
-    marginBottom: 6,
+    fontWeight: '800',
+    color: '#152234',
+    marginBottom: 8,
   },
 
   emptyText: {
-    fontSize: 14,
-    color: '#6B7280',
+    fontSize: 13,
+    color: '#748089',
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 20,
+    paddingHorizontal: 12,
   },
 
   discoverBtn: {
@@ -573,128 +762,16 @@ const s = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     paddingVertical: 12,
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     borderRadius: 14,
-    backgroundColor: '#E8F5F0',
+    backgroundColor: '#E7F5EF',
     borderWidth: 1,
-    borderColor: '#D4E8DC',
+    borderColor: '#D6EAE0',
   },
 
   discoverBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#2D6A4F',
-  },
-
-  listContent: {
-    paddingHorizontal: 16,
-    paddingTop: 4,
-    paddingBottom: Platform.OS === 'ios' ? 108 : 90,
-  },
-
-  bookingCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#E8ECE8',
-    shadowColor: '#1B332A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-
-  cardTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 12,
-  },
-
-  cardIconWrap: {},
-
-  cardIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  bookingNo: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#94A3B8',
-    letterSpacing: 0.3,
-  },
-
-  facilityName: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1A1A2E',
-    marginTop: 2,
-  },
-
-  statusChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-
-  statusChipText: {
-    fontSize: 10,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
-  },
-
-  infoRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 10,
-  },
-
-  infoPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    backgroundColor: '#F5F7F4',
-  },
-
-  infoPillText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#5F6B7A',
-  },
-
-  metaRow: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-
-  metaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-
-  metaText: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    fontWeight: '500',
-  },
-
-  cardArrow: {
-    position: 'absolute',
-    right: 14,
-    bottom: 14,
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0A4E40',
   },
 });

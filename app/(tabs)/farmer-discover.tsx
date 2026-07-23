@@ -83,7 +83,8 @@ export default function DiscoverScreen() {
     try {
       setError(false);
 
-      const res = await api.get<any>('/facilities?limit=50');
+      // Use the PUBLIC /discover/facilities endpoint (no auth required)
+      const res = await api.get<any>('/discover/facilities?limit=50');
 
       if (res.success && res.data) {
         const facs = Array.isArray(res.data)
@@ -98,9 +99,14 @@ export default function DiscoverScreen() {
       } else {
         setFacilities([]);
       }
-    } catch (err) {
-      console.error('Discovery error:', err);
-      setError(true);
+    } catch (err: any) {
+      // Don't show error for auth issues (user may be logging out)
+      if (err?.status === 401 || err?.code === 'UNAUTHORIZED') {
+        setFacilities([]);
+      } else {
+        console.error('Discovery error:', err);
+        setError(true);
+      }
     } finally {
       setLoading(false);
     }

@@ -10,16 +10,19 @@ import {
   ScrollView,
   Platform,
   StatusBar,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, Stack } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/contexts/AuthContext';
 import { SkeletonList } from '@/components/ui/Skeleton';
 import ErrorState from '@/components/ui/ErrorState';
 import { hapticLight, hapticSelection } from '@/lib/haptics';
-import { getCommodityVisual } from '@/lib/commodityImages';
+import { getCommodityVisual, getCommodityCategory } from '@/lib/commodityImages';
+
 
 interface MandiPrice {
   id: string;
@@ -44,6 +47,7 @@ interface PricesMeta {
   filters: { state: string | null; district: string | null; commodity: string | null };
 }
 
+/* ─── Theme ─── */
 const UI = {
   canvas: '#F5F7F4',
   surface: '#FFFFFF',
@@ -54,8 +58,14 @@ const UI = {
   muted: '#718079',
   subtle: '#96A19B',
   forest: '#103E34',
+  forestMid: '#1A5D4F',
   forestSoft: '#E8F5EF',
+  gold: '#C88C20',
   goldSoft: '#F6F2E7',
+  emerald: '#059669',
+  emeraldSoft: '#DCFCE7',
+  danger: '#DC2626',
+  dangerSoft: '#FEE2E2',
 };
 
 function formatTimeAgo(isoStr: string): string {
@@ -68,6 +78,107 @@ function formatTimeAgo(isoStr: string): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
+
+
+/* ─── Price Card Component (Swiggy-style horizontal) ─── */
+function PriceCard({ item, onPress }: { item: MandiPrice; onPress?: () => void }) {
+  const visual = getCommodityVisual(item.commodity);
+  const category = getCommodityCategory(item.commodity);
+  const [imgError, setImgError] = useState(false);
+
+  const trendColor = item.trend === 'up' ? UI.emerald : item.trend === 'down' ? UI.danger : '#6B7280';
+  const trendBg = item.trend === 'up' ? UI.emeraldSoft : item.trend === 'down' ? UI.dangerSoft : '#F3F4F6';
+  const trendIcon = item.trend === 'up' ? 'trending-up' : item.trend === 'down' ? 'trending-down' : 'remove';
+
+  return (
+    <TouchableOpacity style={styles.card} activeOpacity={0.92} onPress={onPress}>
+      {/* ── LEFT: Image ── */}
+      <View style={[styles.cardImageWrap, { backgroundColor: visual.bg }]}>
+        {!imgError ? (
+          <Image
+            source={{ uri: visual.imageUrl }}
+            style={styles.cardImage}
+            resizeMode="cover"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <View style={styles.cardImageFallback}>
+            <Text style={styles.cardImageEmoji}>{visual.emoji}</Text>
+          </View>
+        )}
+
+        {/* Bottom gradient for badge readability */}
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.6)']}
+          style={styles.cardImageGradient}
+        />
+
+        {/* Category badge top-left */}
+        <View style={styles.categoryBadge}>
+          <Ionicons name="leaf-outline" size={9} color="#FFF" />
+          <Text style={styles.categoryBadgeText}>{category}</Text>
+        </View>
+
+        {/* Price overlay bottom */}
+        <View style={styles.priceOverlay}>
+          <Text style={styles.priceOverlayLabel}>per {item.unit}</Text>
+          <Text style={styles.priceOverlayValue}>
+            ₹{item.modalPrice.toLocaleString('en-IN')}
+          </Text>
+        </View>
+      </View>
+
+      {/* ── RIGHT: Content ── */}
+      <View style={styles.cardContent}>
+        {/* Commodity name */}
+        <Text style={styles.cardCommodity} numberOfLines={1}>{item.commodity}</Text>
+
+        {/* Trend row (like Swiggy's star rating) */}
+        <View style={styles.trendRow}>
+          <View style={[styles.trendDot, { backgroundColor: trendColor }]} />
+          <Ionicons name={trendIcon as any} size={11} color={trendColor} />
+          <Text style={[styles.trendText, { color: trendColor }]}>
+            {item.trend === 'up' ? 'Rising' : item.trend === 'down' ? 'Falling' : 'Stable'}
+          </Text>
+          <Text style={styles.trendSeparator}>•</Text>
+          <Text style={styles.minMaxInline}>
+            ₹{item.minPrice.toLocaleString('en-IN')} – ₹{item.maxPrice.toLocaleString('en-IN')}
+          </Text>
+        </View>
+
+        {/* Variety + Category tags */}
+        <Text style={styles.tagsText} numberOfLines={1}>
+          {item.variety && item.variety !== 'Other' ? `${item.variety}, ` : ''}{category}
+        </Text>
+
+        {/* Location */}
+        <View style={styles.locationRow}>
+          <Ionicons name="location-outline" size={11} color={UI.subtle} />
+          <Text style={styles.locationText} numberOfLines={1}>
+            {item.mandi}, {item.district}
+          </Text>
+        </View>
+
+        {/* Footer: State + Date */}
+        <View style={styles.cardFooterRow}>
+          <View style={styles.statePill}>
+            <Text style={styles.statePillText}>{item.state}</Text>
+          </View>
+          {!!item.arrivalDate && (
+            <Text style={styles.dateText}>{item.arrivalDate}</Text>
+          )}
+        </View>
+      </View>
+
+      {/* ── Three dots menu (like Swiggy) ── */}
+      <View style={styles.menuDots}>
+        <Ionicons name="ellipsis-vertical" size={16} color="#C0C8CC" />
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+/* ─── Main Screen ─── */
 export default function MarketPricesScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -179,314 +290,307 @@ export default function MarketPricesScreen() {
     ...Array.from(new Set(prices.map((p) => p.commodity).filter(Boolean))),
   ];
 
+  /* ─── Loading State ─── */
   if (loading) {
     return (
-      <View style={s.container}>
-        <StatusBar barStyle="dark-content" backgroundColor={UI.canvas} />
-        <View style={[s.topSpacer, { height: insets.top + 8 }]} />
-        <View style={s.topBar}>
-          <TouchableOpacity style={s.iconBtn} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={19} color={UI.text} />
-          </TouchableOpacity>
-          <Text style={s.screenTitle}>Mandi Prices</Text>
-          <View style={s.iconBtnGhost} />
-        </View>
-        <SkeletonList count={5} />
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View style={s.container}>
-        <ErrorState variant="network" onRetry={fetchPrices} />
-      </View>
-    );
-  }
-
-  const renderPriceItem = ({ item }: { item: MandiPrice }) => {
-    const trendColor =
-      item.trend === 'up' ? '#059669' : item.trend === 'down' ? '#DC2626' : '#6B7280';
-
-    const trendBg =
-      item.trend === 'up' ? '#DCFCE7' : item.trend === 'down' ? '#FEE2E2' : '#F3F4F6';
-
-    const trendIcon =
-      item.trend === 'up' ? 'trending-up' : item.trend === 'down' ? 'trending-down' : 'remove';
-
-    const visual = getCommodityVisual(item.commodity);
-
-    return (
-      <TouchableOpacity activeOpacity={0.9} style={s.card}>
-        <View style={s.cardHeader}>
-          <View style={[s.commodityIconWrap, { backgroundColor: visual.bg }]}>
-            <Text style={s.commodityEmoji}>{visual.emoji}</Text>
-          </View>
-
-          <View style={s.cardHeaderText}>
-            <View style={s.nameRow}>
-              <Text style={s.commodityName} numberOfLines={1}>
-                {item.commodity}
-              </Text>
-
-              <View style={[s.trendBadge, { backgroundColor: trendBg }]}>
-                <Ionicons name={trendIcon as any} size={11} color={trendColor} />
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.container}>
+          <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+          <LinearGradient colors={[UI.forest, UI.forestMid]} style={[styles.heroHeader, { paddingTop: insets.top + 12 }]}>
+            <View style={styles.heroHeaderRow}>
+              <TouchableOpacity style={styles.heroBackBtn} onPress={() => router.back()}>
+                <Ionicons name="arrow-back" size={20} color="#FFF" />
+              </TouchableOpacity>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.heroTitle}>Mandi Prices</Text>
+                <Text style={styles.heroSub}>Loading latest prices...</Text>
               </View>
             </View>
+          </LinearGradient>
+          <SkeletonList count={5} />
+        </View>
+      </>
+    );
+  }
 
-            <View style={s.locationRow}>
-              <Ionicons name="location-outline" size={11} color={UI.subtle} />
-              <Text style={s.locationText} numberOfLines={1}>
-                {item.mandi}, {item.district}
-              </Text>
+  /* ─── Error State ─── */
+  if (error) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.container}>
+          <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+          <LinearGradient colors={[UI.forest, UI.forestMid]} style={[styles.heroHeader, { paddingTop: insets.top + 12 }]}>
+            <View style={styles.heroHeaderRow}>
+              <TouchableOpacity style={styles.heroBackBtn} onPress={() => router.back()}>
+                <Ionicons name="arrow-back" size={20} color="#FFF" />
+              </TouchableOpacity>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.heroTitle}>Mandi Prices</Text>
+                <Text style={styles.heroSub}>Could not load prices</Text>
+              </View>
+            </View>
+          </LinearGradient>
+          <ErrorState variant="network" onRetry={fetchPrices} />
+        </View>
+      </>
+    );
+  }
+
+  /* ─── Main UI ─── */
+  return (
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+
+        {/* Premium Hero Header */}
+        <LinearGradient
+          colors={[UI.forest, UI.forestMid, '#1A6B5A']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.heroHeader, { paddingTop: insets.top + 12 }]}
+        >
+          <View style={styles.heroGlowA} />
+          <View style={styles.heroGlowB} />
+
+          <View style={styles.heroHeaderRow}>
+            <TouchableOpacity
+              style={styles.heroBackBtn}
+              onPress={() => { router.back(); hapticLight(); }}
+              activeOpacity={0.82}
+            >
+              <Ionicons name="arrow-back" size={20} color="#FFF" />
+            </TouchableOpacity>
+
+            <View style={{ flex: 1 }}>
+              <View style={styles.heroEyebrowRow}>
+                <Ionicons name="trending-up-outline" size={14} color="#FBBF24" />
+                <Text style={styles.heroEyebrow}>MANDI PRICE</Text>
+              </View>
+              <Text style={styles.heroTitle}>Today's Prices</Text>
             </View>
 
-            {item.variety && item.variety !== 'Other' ? (
-              <Text style={s.varietyText}>{item.variety}</Text>
+            {/* Live indicator */}
+            {meta && (
+              <View style={styles.liveIndicator}>
+                <View style={[styles.liveDot, { backgroundColor: meta.source === 'live' ? '#34D399' : '#FBBF24' }]} />
+                <Text style={styles.liveText}>
+                  {meta.source === 'live' ? 'Live' : meta.source === 'cached' ? 'Cached' : 'Offline'}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Stats strip */}
+          <View style={styles.statsStrip}>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{filteredPrices.length}</Text>
+              <Text style={styles.statLabel}>PRICES</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{commoditiesList.length - 1}</Text>
+              <Text style={styles.statLabel}>COMMODITIES</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{statesList.length - 1}</Text>
+              <Text style={styles.statLabel}>STATES</Text>
+            </View>
+          </View>
+
+          {meta && (
+            <Text style={styles.heroSubtitle}>
+              Updated {formatTimeAgo(meta.fetchedAt)}
+              {meta.filters.state ? ` • ${meta.filters.state}` : ''}
+            </Text>
+          )}
+        </LinearGradient>
+
+        {/* Search Bar */}
+        <View style={styles.searchSection}>
+          <View style={styles.searchBar}>
+            <Ionicons name="search-outline" size={18} color="#9CA3AF" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search commodity, mandi, district..."
+              placeholderTextColor="#98A2B3"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {searchQuery ? (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Ionicons name="close-circle" size={17} color="#A0A8B5" />
+              </TouchableOpacity>
             ) : null}
           </View>
         </View>
 
-        <View style={s.priceSection}>
-          <View style={s.modalBlock}>
-            <Text style={s.modalLabel}>Modal Price</Text>
-            <Text style={[s.modalValue, { color: visual.accent }]}>
-              ₹{item.modalPrice.toLocaleString('en-IN')}
-            </Text>
-            <Text style={s.modalUnit}>{item.unit}</Text>
-          </View>
-
-          <View style={s.minMaxRow}>
-            <View style={s.minMaxBox}>
-              <Text style={s.minMaxLabel}>MIN</Text>
-              <Text style={s.minMaxValue}>₹{item.minPrice.toLocaleString('en-IN')}</Text>
-            </View>
-
-            <View style={s.minMaxDivider} />
-
-            <View style={s.minMaxBox}>
-              <Text style={s.minMaxLabel}>MAX</Text>
-              <Text style={s.minMaxValue}>₹{item.maxPrice.toLocaleString('en-IN')}</Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={s.cardFooter}>
-          <View style={s.statePill}>
-            <Text style={s.statePillText}>{item.state}</Text>
-          </View>
-
-          <View style={s.footerRight}>
-            {!!item.arrivalDate && (
-              <Text style={s.footerMetaText}>{item.arrivalDate}</Text>
-            )}
-            <Text style={s.footerMetaText}>{item.commodity}</Text>
-          </View>
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
-  return (
-    <View style={s.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={UI.canvas} />
-
-      <View style={[s.topSpacer, { height: insets.top + 8 }]} />
-
-      <View style={s.topBar}>
-        <TouchableOpacity
-          style={s.iconBtn}
-          onPress={() => {
-            router.back();
-            hapticLight();
-          }}
-        >
-          <Ionicons name="arrow-back" size={19} color={UI.text} />
-        </TouchableOpacity>
-
-        <View style={s.titleBlock}>
-          <Text style={s.screenTitle}>Mandi Prices</Text>
-          {meta ? (
-            <Text style={s.screenSub} numberOfLines={1}>
-              {meta.source === 'fallback'
-                ? 'Offline • '
-                : meta.source === 'live'
-                ? 'Live • '
-                : 'Cached • '}
-              Updated {formatTimeAgo(meta.fetchedAt)}
-              {meta.filters.state ? ` • ${meta.filters.state}` : ''}
-            </Text>
-          ) : null}
-        </View>
-
-        <View style={s.iconBtnGhost} />
-      </View>
-
-      <View style={s.searchSection}>
-        <View style={s.searchBar}>
-          <Ionicons name="search-outline" size={18} color="#9CA3AF" />
-          <TextInput
-            style={s.searchInput}
-            placeholder="Search commodity, mandi, district..."
-            placeholderTextColor="#98A2B3"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery ? (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={17} color="#A0A8B5" />
-            </TouchableOpacity>
-          ) : null}
-        </View>
-      </View>
-
-      <View style={s.filterSection}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={s.filterChips}
-        >
-          {commoditiesList.map((c) => {
-            const active = selectedCommodity === c;
-            return (
-              <TouchableOpacity
-                key={c}
-                style={[s.chip, active && s.chipActive]}
-                onPress={() => {
-                  setSelectedCommodity(c);
-                  hapticSelection();
-                }}
-                activeOpacity={0.85}
-              >
-                <Text style={[s.chipText, active && s.chipTextActive]}>{c}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-
-        {statesList.length > 2 ? (
+        {/* Filter Chips */}
+        <View style={styles.filterSection}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={s.filterChips}
+            contentContainerStyle={styles.filterChips}
           >
-            {statesList.map((st) => {
-              const active = selectedState === st;
+            {commoditiesList.map((c) => {
+              const active = selectedCommodity === c;
               return (
                 <TouchableOpacity
-                  key={st}
-                  style={[s.stateChip, active && s.stateChipActive]}
-                  onPress={() => {
-                    setSelectedState(st);
-                    hapticSelection();
-                  }}
+                  key={c}
+                  style={[styles.chip, active && styles.chipActive]}
+                  onPress={() => { setSelectedCommodity(c); hapticSelection(); }}
                   activeOpacity={0.85}
                 >
-                  <Text style={[s.stateChipText, active && s.stateChipTextActive]}>
-                    {st}
-                  </Text>
+                  <Text style={[styles.chipText, active && styles.chipTextActive]}>{c}</Text>
                 </TouchableOpacity>
               );
             })}
           </ScrollView>
-        ) : null}
-      </View>
 
-      <View style={s.countRow}>
-        <Text style={s.countText}>
-          {filteredPrices.length} price{filteredPrices.length !== 1 ? 's' : ''} found
-        </Text>
-      </View>
+          {statesList.length > 2 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterChips}
+            >
+              {statesList.map((st) => {
+                const active = selectedState === st;
+                return (
+                  <TouchableOpacity
+                    key={st}
+                    style={[styles.stateChip, active && styles.stateChipActive]}
+                    onPress={() => { setSelectedState(st); hapticSelection(); }}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={[styles.stateChipText, active && styles.stateChipTextActive]}>
+                      {st}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          ) : null}
+        </View>
 
-      <FlatList
-        data={filteredPrices}
-        renderItem={renderPriceItem}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={s.list}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={UI.forest}
-          />
-        }
-        ListEmptyComponent={
-          <View style={s.emptyState}>
-            <View style={s.emptyIconWrap}>
-              <Ionicons name="bar-chart-outline" size={28} color="#AAB4AE" />
+        {/* Price Cards */}
+        <FlatList
+          data={filteredPrices}
+          renderItem={({ item }) => <PriceCard item={item} />}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={UI.forest}
+            />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <View style={styles.emptyIconWrap}>
+                <Ionicons name="bar-chart-outline" size={28} color="#AAB4AE" />
+              </View>
+              <Text style={styles.emptyTitle}>No prices found</Text>
+              <Text style={styles.emptySub}>
+                {searchQuery
+                  ? 'Try a different search term'
+                  : 'No mandi price data available for this filter'}
+              </Text>
             </View>
-            <Text style={s.emptyTitle}>No prices found</Text>
-            <Text style={s.emptySub}>
-              {searchQuery
-                ? 'Try a different search term'
-                : 'No mandi price data available for this filter'}
-            </Text>
-          </View>
-        }
-      />
-    </View>
+          }
+        />
+      </View>
+    </>
   );
 }
 
-const s = StyleSheet.create({
+/* ─── Styles ─── */
+const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: UI.canvas,
   },
 
-  topSpacer: {
-    height: 24,
+  /* Hero Header */
+  heroHeader: {
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    overflow: 'hidden',
   },
-
-  topBar: {
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 6,
+  heroGlowA: {
+    position: 'absolute', top: -80, right: -60,
+    width: 200, height: 200, borderRadius: 100,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  heroGlowB: {
+    position: 'absolute', bottom: -100, left: -80,
+    width: 240, height: 180, borderRadius: 120,
+    backgroundColor: 'rgba(251,191,36,0.06)',
+  },
+  heroHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 14,
+  },
+  heroBackBtn: {
+    width: 40, height: 40, borderRadius: 14,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
+  },
+  heroEyebrowRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2,
+  },
+  heroEyebrow: {
+    fontSize: 10, fontWeight: '900', letterSpacing: 1,
+    color: '#FBBF24',
+  },
+  heroTitle: {
+    fontSize: 26, fontWeight: '800', color: '#FFF', letterSpacing: -0.5,
+  },
+  heroSub: {
+    fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 2,
+  },
+  heroSubtitle: {
+    fontSize: 11, color: 'rgba(255,255,255,0.5)', textAlign: 'center', marginTop: 10,
+  },
+  liveIndicator: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 10, paddingVertical: 5,
+    borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+  },
+  liveDot: {
+    width: 7, height: 7, borderRadius: 4,
+  },
+  liveText: {
+    fontSize: 10, fontWeight: '800', color: '#FFF', letterSpacing: 0.3,
   },
 
-  iconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E5EBE6',
-    alignItems: 'center',
-    justifyContent: 'center',
+  /* Stats strip */
+  statsStrip: {
+    marginTop: 16, flexDirection: 'row', alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 16, paddingVertical: 12, paddingHorizontal: 8,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
   },
+  statItem: { flex: 1, alignItems: 'center' },
+  statValue: { fontSize: 18, fontWeight: '800', color: '#FFF' },
+  statLabel: { fontSize: 8, fontWeight: '900', letterSpacing: 0.6, color: 'rgba(255,255,255,0.5)', marginTop: 3 },
+  statDivider: { width: 1, height: 28, backgroundColor: 'rgba(255,255,255,0.15)' },
 
-  iconBtnGhost: {
-    width: 36,
-    height: 36,
-  },
-
-  titleBlock: {
-    flex: 1,
-  },
-
-  screenTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: UI.text,
-    letterSpacing: -0.4,
-  },
-
-  screenSub: {
-    fontSize: 11,
-    color: UI.muted,
-    marginTop: 4,
-  },
-
+  /* Search */
   searchSection: {
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 2,
+    paddingTop: 16,
+    paddingBottom: 4,
   },
-
   searchBar: {
     minHeight: 50,
     flexDirection: 'row',
@@ -503,7 +607,6 @@ const s = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-
   searchInput: {
     flex: 1,
     fontSize: 15,
@@ -512,16 +615,15 @@ const s = StyleSheet.create({
     paddingVertical: Platform.OS === 'ios' ? 13 : 9,
   },
 
+  /* Filter Chips */
   filterSection: {
     paddingTop: 12,
     gap: 8,
   },
-
   filterChips: {
     paddingHorizontal: 16,
     gap: 8,
   },
-
   chip: {
     paddingHorizontal: 14,
     paddingVertical: 7,
@@ -529,26 +631,22 @@ const s = StyleSheet.create({
     backgroundColor: '#EEF2EA',
     borderWidth: 1,
     borderColor: '#DDE5DA',
-    minHeight: 40,
+    minHeight: 36,
     alignItems: 'center',
     justifyContent: 'center',
   },
-
   chipActive: {
     backgroundColor: UI.forest,
     borderColor: UI.forest,
   },
-
   chipText: {
     fontSize: 12,
     fontWeight: '700',
     color: '#5F6B7A',
   },
-
   chipTextActive: {
     color: '#FFF',
   },
-
   stateChip: {
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -556,234 +654,203 @@ const s = StyleSheet.create({
     backgroundColor: '#EEF2EA',
     borderWidth: 1,
     borderColor: '#DDE5DA',
-    minHeight: 38,
+    minHeight: 34,
     alignItems: 'center',
     justifyContent: 'center',
   },
-
   stateChipActive: {
     backgroundColor: UI.forestSoft,
     borderColor: '#B8D4C8',
   },
-
   stateChipText: {
     fontSize: 11,
     fontWeight: '600',
     color: '#7C8A9F',
   },
-
   stateChipTextActive: {
     color: UI.forest,
     fontWeight: '800',
   },
 
-  countRow: {
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 8,
-  },
-
-  countText: {
-    fontSize: 11,
-    color: '#7C8A9F',
-    fontWeight: '600',
-  },
-
-  list: {
-    paddingHorizontal: 16,
-    paddingBottom: Platform.OS === 'ios' ? 100 : 28,
-  },
-
+  /* ═══ Swiggy-style Horizontal Card ═══ */
   card: {
     backgroundColor: UI.surface,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E7ECE7',
-    marginBottom: 10,
-    padding: 14,
+    borderColor: '#EAEFEA',
+    marginBottom: 12,
+    flexDirection: 'row',
+    height: 155,
+    overflow: 'hidden',
     shadowColor: '#173528',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.045,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
     shadowRadius: 10,
     elevation: 2,
   },
 
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
+  /* Left: Image */
+  cardImageWrap: {
+    width: 140,
+    height: '100%',
+    position: 'relative',
+    overflow: 'hidden',
   },
-
-  commodityIconWrap: {
-    width: 46,
-    height: 46,
-    borderRadius: 15,
+  cardImage: {
+    width: '100%',
+    height: '100%',
+  },
+  cardImageFallback: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-
-  commodityEmoji: {
-    fontSize: 24,
+  cardImageEmoji: {
+    fontSize: 42,
   },
-
-  cardHeaderText: {
-    flex: 1,
-    minWidth: 0,
+  cardImageGradient: {
+    position: 'absolute', left: 0, right: 0, bottom: 0, height: 70,
   },
-
-  nameRow: {
+  categoryBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 8,
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 7,
+    backgroundColor: 'rgba(15,60,50,0.8)',
+  },
+  categoryBadgeText: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#FFF',
+    letterSpacing: 0.3,
+  },
+  priceOverlay: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+  },
+  priceOverlayLabel: {
+    fontSize: 8,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.7)',
+    letterSpacing: 0.2,
+    textTransform: 'uppercase',
+  },
+  priceOverlayValue: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#FFF',
+    letterSpacing: -0.3,
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
 
-  commodityName: {
+  /* Right: Content */
+  cardContent: {
     flex: 1,
-    fontSize: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    justifyContent: 'center',
+  },
+  cardCommodity: {
+    fontSize: 17,
     fontWeight: '800',
     color: UI.text,
     letterSpacing: -0.2,
-    paddingRight: 6,
+    marginBottom: 4,
   },
-
-  trendBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 10,
+  trendRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 3,
+    marginBottom: 5,
   },
-
+  trendDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+  },
+  trendText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  trendSeparator: {
+    fontSize: 10,
+    color: '#B0B8B4',
+    marginHorizontal: 1,
+  },
+  minMaxInline: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#8E98A8',
+  },
+  tagsText: {
+    fontSize: 11,
+    color: '#8E98A8',
+    fontWeight: '500',
+    marginBottom: 4,
+  },
   locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginTop: 5,
+    gap: 3,
+    marginBottom: 8,
   },
-
   locationText: {
     flex: 1,
-    fontSize: 10.5,
-    color: '#8E98A8',
+    fontSize: 11,
+    color: UI.subtle,
     fontWeight: '500',
   },
-
-  varietyText: {
-    marginTop: 4,
-    fontSize: 10,
-    color: '#94A3B8',
-    fontWeight: '600',
-  },
-
-  priceSection: {
-    marginTop: 12,
-  },
-
-  modalBlock: {
-    backgroundColor: UI.goldSoft,
-    borderRadius: 15,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-  },
-
-  modalLabel: {
-    fontSize: 10.5,
-    color: '#8E98A8',
-    fontWeight: '700',
-  },
-
-  modalValue: {
-    marginTop: 3,
-    fontSize: 22,
-    fontWeight: '800',
-    letterSpacing: -0.45,
-  },
-
-  modalUnit: {
-    marginTop: 2,
-    fontSize: 10.5,
-    color: '#8E98A8',
-    fontWeight: '600',
-  },
-
-  minMaxRow: {
-    marginTop: 10,
+  cardFooterRow: {
     flexDirection: 'row',
-    backgroundColor: UI.surfaceMuted,
-    borderRadius: 15,
-    paddingVertical: 10,
-  },
-
-  minMaxBox: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  minMaxDivider: {
-    width: 1,
-    backgroundColor: '#DFE5DD',
-    marginVertical: 4,
-  },
-
-  minMaxLabel: {
-    fontSize: 10,
-    color: '#8E98A8',
-    fontWeight: '800',
-    letterSpacing: 0.6,
-    marginBottom: 3,
-  },
-
-  minMaxValue: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#5F6B7A',
-  },
-
-  cardFooter: {
-    marginTop: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     gap: 8,
   },
-
   statePill: {
-    backgroundColor: '#EEF2EA',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
+    backgroundColor: UI.forestSoft,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
-
   statePillText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
-    color: '#5F6B7A',
+    color: UI.forest,
   },
-
-  footerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flexWrap: 'wrap',
-    justifyContent: 'flex-end',
-    flex: 1,
-  },
-
-  footerMetaText: {
-    fontSize: 10,
-    color: '#8E98A8',
+  dateText: {
+    fontSize: 9,
     fontWeight: '600',
+    color: '#B0B8B4',
   },
 
+  /* Menu dots */
+  menuDots: {
+    position: 'absolute',
+    top: 10,
+    right: 6,
+    padding: 4,
+  },
+
+  /* List */
+  list: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 100 : 28,
+  },
+
+  /* Empty */
   emptyState: {
     alignItems: 'center',
     paddingVertical: 56,
     paddingHorizontal: 24,
   },
-
   emptyIconWrap: {
     width: 64,
     height: 64,
@@ -793,13 +860,11 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 14,
   },
-
   emptyTitle: {
     fontSize: 17,
     fontWeight: '800',
     color: UI.text,
   },
-
   emptySub: {
     marginTop: 8,
     fontSize: 13,

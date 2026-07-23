@@ -1,14 +1,15 @@
 /**
- * ColdStorage — Premium Profile Screen
+ * app/(tabs)/profile.tsx
  *
- * Premium redesign:
- * - Clean custom hero header
- * - Elevated profile identity card
- * - Refined KYC status module
- * - Premium info and navigation cards
- * - Warm agri-fintech visual language
- * - Auth / API flow unchanged
+ * Premium Profile Screen
+ * - Full complete code
+ * - KYC text visibility fixed
+ * - Premium hero card
+ * - Account info card
+ * - Workspace card list
+ * - Logout CTA
  */
+
 import React from 'react';
 import {
   View,
@@ -17,7 +18,6 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
-  Platform,
   StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,108 +27,94 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/AuthContext';
 import { hapticLight } from '@/lib/haptics';
 
-const MENU_ITEMS = [
+interface MenuItem {
+  icon: string;
+  label: string;
+  subtitle: string;
+  route: string;
+  badge?: string;
+  dot?: boolean;
+}
+
+const MENU_ITEMS: MenuItem[] = [
   {
     icon: 'calendar-outline',
     label: 'My Bookings',
-    subtitle: 'Check booking history and status',
+    subtitle: 'Track bookings and requests',
     route: '/bookings',
-    color: '#0D7A62',
-    bg: '#E8F7F1',
+    badge: '3 Active',
   },
   {
     icon: 'cube-outline',
     label: 'My Lots',
-    subtitle: 'Manage stored produce and inventory',
+    subtitle: 'Storage and inventory',
     route: '/(tabs)/inventory',
-    color: '#0D8D8A',
-    bg: '#E8F9F7',
+  },
+  {
+    icon: 'bag-handle-outline',
+    label: 'My Orders',
+    subtitle: 'Orders and dispatch',
+    route: '/orders',
   },
   {
     icon: 'receipt-outline',
-    label: 'My Orders',
-    subtitle: 'View approvals, dispatch, and orders',
-    route: '/orders',
-    color: '#2589AA',
-    bg: '#EAF8FC',
-  },
-  {
-    icon: 'document-text-outline',
     label: 'Invoices & Receipts',
-    subtitle: 'Download financial documents',
+    subtitle: 'Billing and documents',
     route: '/invoices',
-    color: '#7457BE',
-    bg: '#F0EBFF',
   },
   {
     icon: 'notifications-outline',
     label: 'Notifications',
-    subtitle: 'Review alerts and updates',
+    subtitle: 'Alerts and updates',
     route: '/notifications',
-    color: '#C97717',
-    bg: '#FFF2E2',
+    dot: true,
   },
   {
     icon: 'settings-outline',
     label: 'Settings',
-    subtitle: 'Language, support, and preferences',
+    subtitle: 'Preferences and account',
     route: '/settings',
-    color: '#60726A',
-    bg: '#EEF2EE',
   },
   {
     icon: 'help-circle-outline',
     label: 'Help & Support',
-    subtitle: 'Get assistance for your account',
+    subtitle: 'Need assistance?',
     route: '/settings',
-    color: '#2B78C5',
-    bg: '#EAF2FF',
   },
-] as const;
+];
 
 const UI = {
-  canvas: '#F5F7F4',
+  canvas: '#F5F6F2',
   surface: '#FFFFFF',
-  surfaceAlt: '#F9FBF8',
-  forest: '#103E34',
-  forestDeep: '#082B24',
-  forestMid: '#0B5B4C',
-  teal: '#0D8D8A',
-  tealSoft: '#E8F9F7',
-  emerald: '#17A56D',
-  emeraldSoft: '#E8F7EF',
-  gold: '#D29424',
-  goldSoft: '#FFF6E1',
-  blue: '#2589AA',
-  blueSoft: '#EAF8FC',
-  purple: '#7457BE',
-  purpleSoft: '#F0EBFF',
-  danger: '#D94A4A',
-  dangerSoft: '#FFF0F0',
-  text: '#16241D',
-  textMuted: '#708078',
-  textSoft: '#95A19B',
-  border: '#E2E9E3',
+  surfaceSoft: '#F8FAF7',
+  border: '#DCE3DC',
+  borderSoft: '#E7ECE7',
+  text: '#16231D',
+  textMuted: '#6E7C76',
+  textSoft: '#99A39E',
+  forest: '#032F25',
+  forestDeep: '#02261E',
+  forestMid: '#0A5A4B',
+  gold: '#E6CB85',
+  goldText: '#7A6531',
+  goldSoft: '#F8EFD8',
+  kycPanel: '#F1F4F0',
+  kycBorder: '#D8E1D9',
+  kycTitleVerified: '#2E8B63',
+  kycSubVerified: '#577C69',
+  kycTitlePending: '#9A6A16',
+  kycSubPending: '#7E6B44',
+  kycTitleRejected: '#B23A3A',
+  kycSubRejected: '#7D4D4D',
+  dangerSoft: '#F4D3CF',
+  dangerText: '#A61F22',
+  dot: '#CD2D2D',
 };
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  const { user, logout } = useAuth();
   const router = useRouter();
-
-  const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign Out',
-        style: 'destructive',
-        onPress: () => {
-          logout();
-          hapticLight();
-        },
-      },
-    ]);
-  };
+  const { user, logout } = useAuth();
 
   const kycStatus =
     user?.status === 'ACTIVE'
@@ -142,321 +128,249 @@ export default function ProfileScreen() {
   const location =
     [user?.city, user?.state].filter(Boolean).join(', ') || 'Location not set';
 
+  const membershipLabel =
+    user?.role === 'FARMER' ? 'Premium Producer' : user?.role || 'Member';
+
+  const kycTitleColor =
+    kycStatus === 'verified'
+      ? UI.kycTitleVerified
+      : kycStatus === 'rejected'
+      ? UI.kycTitleRejected
+      : UI.kycTitlePending;
+
+  const kycSubtitleColor =
+    kycStatus === 'verified'
+      ? UI.kycSubVerified
+      : kycStatus === 'rejected'
+      ? UI.kycSubRejected
+      : UI.kycSubPending;
+
+  const kycLabel =
+    kycStatus === 'verified'
+      ? 'KYC Verified'
+      : kycStatus === 'rejected'
+      ? 'KYC Rejected'
+      : 'KYC Pending';
+
+  const kycMessage =
+    kycStatus === 'verified'
+      ? 'Identity validated on Jan 2024'
+      : kycStatus === 'rejected'
+      ? user?.kycRejectionReason || 'Please re-upload your documents'
+      : 'Your documents are under review by our team';
+
+  const handleLogout = () => {
+    Alert.alert('Logout', 'Are you sure you want to sign out?', [
+      {
+        text: 'Cancel',
+        style: 'cancel',
+      },
+      {
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: () => {
+          logout();
+          hapticLight();
+        },
+      },
+    ]);
+  };
+
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
+
       <View style={styles.screen}>
-        <StatusBar
-          barStyle="light-content"
-          translucent
-          backgroundColor="transparent"
-        />
+        <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
 
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 36 }}
         >
-          <LinearGradient
-            colors={[UI.forestDeep, UI.forest, '#087B73']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.hero}
-          >
-            <View style={styles.heroGlowTop} />
-            <View style={styles.heroGlowBottom} />
+          <View style={[styles.topBarShell, { paddingTop: insets.top + 8 }]}>
+            <View style={styles.topBar}>
+              <TouchableOpacity
+                style={styles.menuButton}
+                activeOpacity={0.84}
+                onPress={hapticLight}
+              >
+                <Ionicons name="menu" size={24} color={UI.forest} />
+              </TouchableOpacity>
 
-            <View
-              style={{
-                height: insets.top + 8,
-              }}
-            />
+              <Text style={styles.brandText}>SheetKosh</Text>
 
-            <View style={styles.heroContent}>
-              <View style={styles.heroTopRow}>
-                <View style={styles.heroTopTitleWrap}>
-                  <Text style={styles.heroTopTitle}>Profile</Text>
-                </View>
-
-                <TouchableOpacity
-                  style={styles.heroIconButton}
-                  activeOpacity={0.82}
-                  onPress={() => {
-                    router.push('/settings');
-                    hapticLight();
-                  }}
+              <TouchableOpacity
+                style={styles.avatarButton}
+                activeOpacity={0.84}
+                onPress={() => { router.push('/edit-profile' as any); hapticLight(); }}
+              >
+                <LinearGradient
+                  colors={['#EAD68F', '#C7A037']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.avatarGradient}
                 >
-                  <Ionicons name="settings-outline" size={20} color="#FFFFFF" />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.profileIdentityRow}>
-                <View style={styles.avatarWrap}>
-                  <LinearGradient
-                    colors={['#43D6A0', '#11A96D']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.avatar}
-                  >
-                    <Text style={styles.avatarText}>
-                      {user?.fullName?.[0]?.toUpperCase() || '?'}
+                  <View style={styles.avatarInner}>
+                    <Text style={styles.avatarLetter}>
+                      {user?.fullName?.charAt(0)?.toUpperCase() || 'R'}
                     </Text>
-                  </LinearGradient>
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
 
-                  {kycStatus === 'verified' && (
-                    <View style={styles.verifiedOverlay}>
-                      <Ionicons
-                        name="shield-checkmark"
-                        size={13}
-                        color={UI.emerald}
-                      />
-                    </View>
-                  )}
-                </View>
+          <View style={styles.content}>
+            <LinearGradient
+              colors={[UI.forestDeep, UI.forest, UI.forestMid]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.heroCard}
+            >
+              <View style={styles.heroGlowOne} />
+              <View style={styles.heroGlowTwo} />
 
-                <View style={styles.profileTextWrap}>
-                  <Text style={styles.profileEyebrow}>ACCOUNT</Text>
-                  <Text style={styles.profileName} numberOfLines={1}>
-                    {user?.fullName || 'Farmer'}
+              <View style={styles.heroHeaderRow}>
+                <View style={styles.heroTextWrap}>
+                  <Text style={styles.heroName} numberOfLines={2}>
+                    {user?.fullName || 'Ram Prasad Verma'}
                   </Text>
 
-                  <View style={styles.phoneRow}>
+                  <View style={styles.heroPhoneRow}>
                     <Ionicons
                       name="call-outline"
-                      size={12}
+                      size={13}
                       color="rgba(255,255,255,0.62)"
                     />
-                    <Text style={styles.profilePhone}>{user?.phone || '—'}</Text>
+                    <Text style={styles.heroPhone}>
+                      {user?.phone || '9800000001'}
+                    </Text>
                   </View>
                 </View>
 
                 <View style={styles.roleBadge}>
-                  <Ionicons name="leaf-outline" size={12} color="#8EF0C6" />
-                  <Text style={styles.roleText}>{user?.role || 'FARMER'}</Text>
+                  <Ionicons name="leaf-outline" size={13} color={UI.goldText} />
+                  <Text style={styles.roleBadgeText}>
+                    {user?.role === 'FARMER' ? 'Farmer' : user?.role || 'Member'}
+                  </Text>
                 </View>
               </View>
 
-              <View style={styles.heroMetaStrip}>
-                <View style={styles.heroMetaItem}>
-                  <Text style={styles.heroMetaValue}>
-                    {kycStatus === 'verified'
-                      ? 'Verified'
-                      : kycStatus === 'rejected'
-                      ? 'Rejected'
-                      : 'Pending'}
-                  </Text>
-                  <Text style={styles.heroMetaLabel}>KYC</Text>
-                </View>
-
-                <View style={styles.heroMetaDivider} />
-
-                <View style={styles.heroMetaItem}>
-                  <Text style={styles.heroMetaValue} numberOfLines={1}>
-                    {user?.uniqueId || 'Not set'}
-                  </Text>
-                  <Text style={styles.heroMetaLabel}>UNIQUE ID</Text>
-                </View>
-              </View>
-            </View>
-          </LinearGradient>
-
-          <View style={styles.body}>
-            <SectionHeader
-              eyebrow="VERIFICATION"
-              title="KYC Status"
-              subtitle="Your identity verification and onboarding status."
-            />
-
-            {kycStatus === 'verified' ? (
-              <View style={[styles.statusCard, styles.verifiedCard]}>
-                <View
-                  style={[
-                    styles.statusIconWrap,
-                    { backgroundColor: UI.emeraldSoft },
-                  ]}
-                >
-                  <Ionicons
-                    name="shield-checkmark-outline"
-                    size={20}
-                    color={UI.emerald}
-                  />
-                </View>
-
-                <View style={styles.statusTextWrap}>
-                  <Text style={[styles.statusTitle, { color: '#086C4B' }]}>
-                    KYC Verified
-                  </Text>
-                  <Text style={[styles.statusSubtitle, { color: '#2B7B5D' }]}>
-                    Your identity has been successfully verified.
-                  </Text>
-                </View>
-
-                <Ionicons
-                  name="checkmark-circle"
-                  size={22}
-                  color={UI.emerald}
-                />
-              </View>
-            ) : kycStatus === 'rejected' ? (
-              <View
-                style={[
-                  styles.statusCard,
-                  {
-                    backgroundColor: '#FEF2F2',
-                    borderColor: '#FECACA',
-                  },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.statusIconWrap,
-                    { backgroundColor: '#FEE2E2' },
-                  ]}
-                >
-                  <Ionicons
-                    name="close-circle-outline"
-                    size={20}
-                    color={UI.danger}
-                  />
-                </View>
-
-                <View style={styles.statusTextWrap}>
-                  <Text style={[styles.statusTitle, { color: '#991B1B' }]}>
-                    KYC Rejected
-                  </Text>
-                  <Text style={[styles.statusSubtitle, { color: '#B91C1C' }]}>
-                    {user?.kycRejectionReason ||
-                      'Please re-upload your documents.'}
-                  </Text>
-                </View>
-
-                <TouchableOpacity
-                  style={styles.fixButton}
-                  activeOpacity={0.82}
-                  onPress={() => {
+              <TouchableOpacity
+                style={styles.kycCard}
+                activeOpacity={0.86}
+                onPress={() => {
+                  if (kycStatus === 'rejected') {
                     router.push('/kyc/reupload');
-                    hapticLight();
-                  }}
-                >
-                  <Text style={styles.fixButtonText}>Fix</Text>
-                  <Ionicons name="arrow-forward" size={12} color="#FFFFFF" />
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <View
-                style={[
-                  styles.statusCard,
-                  {
-                    backgroundColor: '#FFF9EA',
-                    borderColor: '#F5E3A9',
-                  },
-                ]}
+                  }
+                  hapticLight();
+                }}
               >
-                <View
-                  style={[
-                    styles.statusIconWrap,
-                    { backgroundColor: '#FFF1C7' },
-                  ]}
-                >
-                  <Ionicons
-                    name="time-outline"
-                    size={20}
-                    color={UI.gold}
-                  />
+                <View style={styles.kycContent}>
+                  <View style={styles.kycIconWrap}>
+                    <Ionicons
+                      name={
+                        kycStatus === 'verified'
+                          ? 'shield-checkmark'
+                          : kycStatus === 'rejected'
+                          ? 'close-circle'
+                          : 'time'
+                      }
+                      size={18}
+                      color={
+                        kycStatus === 'verified'
+                          ? '#DDB75D'
+                          : kycStatus === 'rejected'
+                          ? '#D94A4A'
+                          : '#CF9525'
+                      }
+                    />
+                  </View>
+
+                  <View style={styles.kycTextWrap}>
+                    <Text style={[styles.kycTitle, { color: kycTitleColor }]}>
+                      {kycLabel}
+                    </Text>
+                    <Text
+                      style={[styles.kycSubtitle, { color: kycSubtitleColor }]}
+                      numberOfLines={2}
+                    >
+                      {kycMessage}
+                    </Text>
+                  </View>
                 </View>
 
-                <View style={styles.statusTextWrap}>
-                  <Text style={[styles.statusTitle, { color: '#8A5A0F' }]}>
-                    KYC Pending
-                  </Text>
-                  <Text style={[styles.statusSubtitle, { color: '#A8721C' }]}>
-                    Your documents are under review by our team.
-                  </Text>
-                </View>
-              </View>
-            )}
+                <Ionicons name="chevron-forward" size={20} color="#78A88B" />
+              </TouchableOpacity>
+            </LinearGradient>
 
-            <SectionHeader
-              eyebrow="PERSONAL DETAILS"
-              title="Account Information"
-              subtitle="Key profile details linked to your ColdStorage account."
-            />
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Account Information</Text>
+              <TouchableOpacity
+                activeOpacity={0.84}
+                onPress={() => {
+                  router.push('/edit-profile' as any);
+                  hapticLight();
+                }}
+              >
+                <Text style={styles.sectionAction}>Edit</Text>
+              </TouchableOpacity>
+            </View>
 
-            <View style={styles.card}>
+            <View style={styles.infoCard}>
               <InfoRow
                 icon="mail-outline"
-                label="Email"
+                label="EMAIL ADDRESS"
                 value={user?.email || 'Not set'}
-                iconBg={UI.blueSoft}
-                iconColor={UI.blue}
-                first
               />
-
               <Divider />
-
               <InfoRow
                 icon="location-outline"
-                label="Location"
+                label="PRIMARY LOCATION"
                 value={location}
-                iconBg={UI.emeraldSoft}
-                iconColor={UI.emerald}
               />
-
               <Divider />
-
               <InfoRow
-                icon="shield-checkmark-outline"
-                label="Account Status"
-                value={
-                  user?.status === 'ACTIVE'
-                    ? 'Verified & Active'
-                    : (user?.status || 'Pending').replace(/_/g, ' ')
-                }
-                iconBg={UI.goldSoft}
-                iconColor={UI.gold}
-                last
+                icon="person-circle-outline"
+                label="MEMBERSHIP STATUS"
+                value={membershipLabel}
+                badge="LIFETIME"
               />
             </View>
 
-            <SectionHeader
-              eyebrow="WORKSPACE"
-              title="Profile Actions"
-              subtitle="Open your bookings, inventory, notifications, and support."
-            />
+            <Text style={styles.workspaceTitle}>Workspace</Text>
 
-            <View style={styles.card}>
+            <View style={styles.workspaceCard}>
               {MENU_ITEMS.map((item, index) => (
                 <React.Fragment key={item.label}>
                   <TouchableOpacity
-                    style={styles.menuItem}
+                    style={styles.workspaceItem}
+                    activeOpacity={0.84}
                     onPress={() => {
                       router.push(item.route as any);
                       hapticLight();
                     }}
-                    activeOpacity={0.75}
                   >
-                    <View
-                      style={[
-                        styles.menuIcon,
-                        { backgroundColor: item.bg },
-                      ]}
-                    >
-                      <Ionicons
-                        name={item.icon as any}
-                        size={18}
-                        color={item.color}
-                      />
+                    <View style={styles.workspaceIcon}>
+                      <Ionicons name={item.icon as any} size={20} color={UI.forest} />
                     </View>
 
-                    <View style={styles.menuTextWrap}>
-                      <Text style={styles.menuLabel}>{item.label}</Text>
-                      <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
+                    <View style={styles.workspaceTextWrap}>
+                      <Text style={styles.workspaceLabel}>{item.label}</Text>
+                      <Text style={styles.workspaceSubtitle}>{item.subtitle}</Text>
                     </View>
 
-                    <Ionicons
-                      name="chevron-forward"
-                      size={17}
-                      color={UI.textSoft}
-                    />
+                    <View style={styles.workspaceRight}>
+                      {item.badge ? (
+                        <View style={styles.itemBadge}>
+                          <Text style={styles.itemBadgeText}>{item.badge}</Text>
+                        </View>
+                      ) : null}
+
+                      {item.dot ? <View style={styles.itemDot} /> : null}
+
+                      <Ionicons name="chevron-forward" size={20} color="#53605A" />
+                    </View>
                   </TouchableOpacity>
 
                   {index < MENU_ITEMS.length - 1 ? <Divider /> : null}
@@ -466,22 +380,14 @@ export default function ProfileScreen() {
 
             <TouchableOpacity
               style={styles.logoutButton}
-              activeOpacity={0.82}
+              activeOpacity={0.84}
               onPress={handleLogout}
             >
-              <View style={styles.logoutIconWrap}>
-                <Ionicons
-                  name="log-out-outline"
-                  size={17}
-                  color={UI.danger}
-                />
-              </View>
+              <Ionicons name="log-out-outline" size={21} color={UI.dangerText} />
               <Text style={styles.logoutText}>Sign Out</Text>
             </TouchableOpacity>
 
             <Text style={styles.versionText}>ColdStorage • Farmer Edition</Text>
-
-            <View style={{ height: insets.top + 54 }} />
           </View>
         </ScrollView>
       </View>
@@ -489,65 +395,34 @@ export default function ProfileScreen() {
   );
 }
 
-function SectionHeader({
-  eyebrow,
-  title,
-  subtitle,
-}: {
-  eyebrow: string;
-  title: string;
-  subtitle: string;
-}) {
-  return (
-    <View style={styles.sectionHeaderWrap}>
-      <Text style={styles.sectionEyebrow}>{eyebrow}</Text>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      <Text style={styles.sectionSubtitle}>{subtitle}</Text>
-    </View>
-  );
-}
-
 function InfoRow({
   icon,
   label,
   value,
-  iconBg,
-  iconColor,
-  first,
-  last,
+  badge,
 }: {
   icon: string;
   label: string;
   value: string;
-  iconBg?: string;
-  iconColor?: string;
-  first?: boolean;
-  last?: boolean;
+  badge?: string;
 }) {
   return (
-    <View
-      style={[
-        styles.infoRow,
-        first && { marginTop: 2 },
-        last && { marginBottom: 2 },
-      ]}
-    >
-      <View
-        style={[
-          styles.infoIconWrap,
-          iconBg ? { backgroundColor: iconBg } : null,
-        ]}
-      >
-        <Ionicons
-          name={icon as any}
-          size={17}
-          color={iconColor || UI.textSoft}
-        />
+    <View style={styles.infoRow}>
+      <View style={styles.infoIconWrap}>
+        <Ionicons name={icon as any} size={20} color={UI.forest} />
       </View>
 
       <View style={styles.infoTextWrap}>
         <Text style={styles.infoLabel}>{label}</Text>
-        <Text style={styles.infoValue}>{value}</Text>
+
+        <View style={styles.infoValueRow}>
+          <Text style={styles.infoValue}>{value}</Text>
+          {badge ? (
+            <View style={styles.infoBadge}>
+              <Text style={styles.infoBadgeText}>{badge}</Text>
+            </View>
+          ) : null}
+        </View>
       </View>
     </View>
   );
@@ -563,322 +438,245 @@ const styles = StyleSheet.create({
     backgroundColor: UI.canvas,
   },
 
-  scrollContent: {
-    paddingBottom: 0,
+  topBarShell: {
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E7ECE6',
   },
 
-  hero: {
-    paddingBottom: 28,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+  topBar: {
+    minHeight: 70,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  menuButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  brandText: {
+    flex: 1,
+    marginLeft: 10,
+    color: UI.forest,
+    fontSize: 23,
+    fontWeight: '800',
+    letterSpacing: -0.6,
+  },
+
+  avatarButton: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     overflow: 'hidden',
   },
 
-  heroGlowTop: {
-    position: 'absolute',
-    top: -90,
-    right: -70,
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: 'rgba(42, 199, 171, 0.14)',
+  avatarGradient: {
+    flex: 1,
+    borderRadius: 26,
+    padding: 2,
   },
 
-  heroGlowBottom: {
-    position: 'absolute',
-    bottom: -120,
-    left: -90,
-    width: 260,
-    height: 180,
-    borderRadius: 130,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+  avatarInner: {
+    flex: 1,
+    borderRadius: 24,
+    backgroundColor: '#F4F1E4',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
-  heroContent: {
+  avatarLetter: {
+    color: UI.forest,
+    fontSize: 19,
+    fontWeight: '800',
+  },
+
+  content: {
     paddingHorizontal: 16,
+    paddingTop: 18,
   },
 
-  heroTopRow: {
+  heroCard: {
+    borderRadius: 26,
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 16,
+    overflow: 'hidden',
+    marginBottom: 24,
+  },
+
+  heroGlowOne: {
+    position: 'absolute',
+    width: 190,
+    height: 190,
+    borderRadius: 95,
+    right: -26,
+    top: -22,
+    backgroundColor: 'rgba(87, 194, 156, 0.10)',
+  },
+
+  heroGlowTwo: {
+    position: 'absolute',
+    width: 170,
+    height: 120,
+    borderRadius: 85,
+    left: -35,
+    bottom: -42,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+  },
+
+  heroHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+
+  heroTextWrap: {
+    flex: 1,
+    paddingRight: 12,
+  },
+
+  heroName: {
+    color: '#FFFFFF',
+    fontSize: 26,
+    lineHeight: 31,
+    fontWeight: '900',
+    letterSpacing: -1.1,
+  },
+
+  heroPhoneRow: {
+    marginTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+
+  heroPhone: {
+    color: 'rgba(255,255,255,0.74)',
+    fontSize: 13.5,
+    fontWeight: '600',
+  },
+
+  roleBadge: {
+    height: 38,
+    paddingHorizontal: 15,
+    borderRadius: 19,
+    backgroundColor: UI.gold,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 2,
+  },
+
+  roleBadgeText: {
+    color: UI.goldText,
+    fontSize: 12.5,
+    fontWeight: '800',
+  },
+
+  kycCard: {
+    minHeight: 88,
+    borderRadius: 18,
+    backgroundColor: UI.kycPanel,
+    borderWidth: 1,
+    borderColor: UI.kycBorder,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
 
-  heroTopTitleWrap: {
+  kycContent: {
     flex: 1,
-    justifyContent: 'center',
-  },
-
-  heroTopTitle: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: -0.2,
-  },
-
-  heroIconButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.14)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
-  },
-
-  profileIdentityRow: {
-    marginTop: 20,
     flexDirection: 'row',
     alignItems: 'center',
+    paddingRight: 10,
   },
 
-  avatarWrap: {
-    position: 'relative',
-  },
-
-  avatar: {
-    width: 66,
-    height: 66,
+  kycIconWrap: {
+    width: 42,
+    height: 42,
     borderRadius: 21,
+    backgroundColor: UI.goldSoft,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.15)',
+    marginRight: 12,
   },
 
-  avatarText: {
-    color: '#FFFFFF',
-    fontSize: 27,
+  kycTextWrap: {
+    flex: 1,
+  },
+
+  kycTitle: {
+    fontSize: 14.5,
     fontWeight: '800',
   },
 
-  verifiedOverlay: {
-    position: 'absolute',
-    right: -3,
-    bottom: -3,
-    width: 24,
-    height: 24,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#DFF7EA',
-    borderWidth: 2,
-    borderColor: UI.forest,
-  },
-
-  profileTextWrap: {
-    flex: 1,
-    marginLeft: 13,
-    marginRight: 10,
-  },
-
-  profileEyebrow: {
-    color: 'rgba(255,255,255,0.62)',
-    fontSize: 9,
-    fontWeight: '900',
-    letterSpacing: 0.8,
-  },
-
-  profileName: {
+  kycSubtitle: {
     marginTop: 4,
-    color: '#FFFFFF',
-    fontSize: 24,
-    fontWeight: '800',
-    letterSpacing: -0.45,
+    fontSize: 11.5,
+    lineHeight: 15.5,
+    fontWeight: '700',
   },
 
-  phoneRow: {
-    marginTop: 6,
+  sectionHeader: {
+    marginTop: 2,
+    marginBottom: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-  },
-
-  profilePhone: {
-    color: 'rgba(255,255,255,0.66)',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-
-  roleBadge: {
-    minHeight: 31,
-    paddingHorizontal: 10,
-    borderRadius: 999,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(52,211,153,0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(52,211,153,0.18)',
-  },
-
-  roleText: {
-    color: '#8EF0C6',
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
-
-  heroMetaStrip: {
-    marginTop: 22,
-    minHeight: 78,
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.13)',
-  },
-
-  heroMetaItem: {
-    flex: 1,
-    alignItems: 'center',
-    paddingHorizontal: 10,
-  },
-
-  heroMetaValue: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: -0.2,
-  },
-
-  heroMetaLabel: {
-    marginTop: 5,
-    color: 'rgba(255,255,255,0.56)',
-    fontSize: 8,
-    fontWeight: '900',
-    letterSpacing: 0.6,
-  },
-
-  heroMetaDivider: {
-    width: 1,
-    height: 32,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-  },
-
-  body: {
-    paddingTop: 24,
-  },
-
-  sectionHeaderWrap: {
-    paddingHorizontal: 16,
-    marginBottom: 12,
-  },
-
-  sectionEyebrow: {
-    color: UI.teal,
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 0.85,
+    justifyContent: 'space-between',
   },
 
   sectionTitle: {
-    marginTop: 4,
-    color: UI.text,
+    color: UI.forest,
     fontSize: 22,
+    lineHeight: 27,
     fontWeight: '800',
-    letterSpacing: -0.4,
+    letterSpacing: -0.8,
   },
 
-  sectionSubtitle: {
-    marginTop: 5,
-    color: UI.textMuted,
+  sectionAction: {
+    color: '#9C7A33',
     fontSize: 13,
-    lineHeight: 19,
+    fontWeight: '700',
   },
 
-  statusCard: {
-    marginHorizontal: 16,
-    marginBottom: 24,
-    minHeight: 84,
-    padding: 14,
-    borderRadius: 21,
-    borderWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  verifiedCard: {
-    backgroundColor: '#E9F8F0',
-    borderColor: '#BFECCF',
-  },
-
-  statusIconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  statusTextWrap: {
-    flex: 1,
-    marginLeft: 12,
-    marginRight: 10,
-  },
-
-  statusTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-  },
-
-  statusSubtitle: {
-    marginTop: 4,
-    fontSize: 12,
-    lineHeight: 17,
-  },
-
-  fixButton: {
-    minHeight: 34,
-    paddingHorizontal: 11,
-    borderRadius: 11,
-    backgroundColor: UI.danger,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-
-  fixButtonText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '800',
-  },
-
-  card: {
-    marginHorizontal: 16,
-    marginBottom: 24,
+  infoCard: {
+    backgroundColor: UI.surface,
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: UI.border,
-    backgroundColor: UI.surface,
+    borderColor: '#CCD5CD',
     paddingHorizontal: 14,
     paddingVertical: 8,
+    marginBottom: 30,
     shadowColor: '#173D31',
-    shadowOffset: { width: 0, height: 5 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.04,
     shadowRadius: 10,
     elevation: 2,
   },
 
   infoRow: {
-    minHeight: 74,
+    minHeight: 78,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 13,
+    paddingVertical: 10,
   },
 
   infoIconWrap: {
-    width: 42,
-    height: 42,
+    width: 50,
+    height: 50,
     borderRadius: 14,
+    backgroundColor: '#EEF2EF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
-    backgroundColor: UI.surfaceAlt,
+    marginRight: 13,
   },
 
   infoTextWrap: {
@@ -886,89 +684,149 @@ const styles = StyleSheet.create({
   },
 
   infoLabel: {
-    color: UI.textSoft,
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 0.75,
-    textTransform: 'uppercase',
+    color: '#58615C',
+    fontSize: 10.5,
+    fontWeight: '600',
+    letterSpacing: 0.8,
+  },
+
+  infoValueRow: {
+    marginTop: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flexWrap: 'wrap',
   },
 
   infoValue: {
-    marginTop: 4,
-    color: UI.text,
-    fontSize: 14,
+    color: '#1F2522',
+    fontSize: 15.5,
     fontWeight: '700',
+    flexShrink: 1,
+  },
+
+  infoBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#F6EFD9',
+  },
+
+  infoBadgeText: {
+    color: '#82672A',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.4,
   },
 
   divider: {
     height: 1,
-    backgroundColor: '#EDF1ED',
+    backgroundColor: '#E7ECE6',
   },
 
-  menuItem: {
+  workspaceTitle: {
+    color: UI.forest,
+    fontSize: 22,
+    lineHeight: 27,
+    fontWeight: '800',
+    letterSpacing: -0.8,
+    marginBottom: 14,
+  },
+
+  workspaceCard: {
+    backgroundColor: UI.surface,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#CCD5CD',
+    overflow: 'hidden',
+    marginBottom: 24,
+    shadowColor: '#173D31',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+
+  workspaceItem: {
     minHeight: 82,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 13,
   },
 
-  menuIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
+  workspaceIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#E8F2EA',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 13,
   },
 
-  menuTextWrap: {
+  workspaceTextWrap: {
     flex: 1,
-    paddingRight: 10,
+    paddingRight: 8,
   },
 
-  menuLabel: {
-    color: UI.text,
-    fontSize: 15,
+  workspaceLabel: {
+    color: '#1F2522',
+    fontSize: 15.5,
     fontWeight: '800',
   },
 
-  menuSubtitle: {
-    marginTop: 4,
+  workspaceSubtitle: {
+    marginTop: 3,
     color: UI.textMuted,
-    fontSize: 12,
-    lineHeight: 17,
+    fontSize: 11.5,
+    lineHeight: 15,
+  },
+
+  workspaceRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+
+  itemBadge: {
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: '#0D5C43',
+  },
+
+  itemBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10.5,
+    fontWeight: '800',
+  },
+
+  itemDot: {
+    width: 11,
+    height: 11,
+    borderRadius: 5.5,
+    backgroundColor: UI.dot,
   },
 
   logoutButton: {
-    marginHorizontal: 16,
-    minHeight: 56,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#F3B4B4',
-    backgroundColor: '#FFF1F1',
+    minHeight: 68,
+    borderRadius: 20,
+    backgroundColor: UI.dangerSoft,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-  },
-
-  logoutIconWrap: {
-    width: 31,
-    height: 31,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFE3E3',
+    marginBottom: 18,
   },
 
   logoutText: {
-    color: '#B3262D',
-    fontSize: 15,
+    color: UI.dangerText,
+    fontSize: 16.5,
     fontWeight: '800',
   },
 
   versionText: {
-    marginTop: 18,
     textAlign: 'center',
     color: UI.textSoft,
     fontSize: 11,

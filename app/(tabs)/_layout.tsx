@@ -133,7 +133,7 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
-        name="discover"
+        name="farmer-discover"
         options={{
           title: 'Discover',
           headerTitle: 'Find Storage',

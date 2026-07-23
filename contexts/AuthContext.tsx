@@ -11,8 +11,10 @@ interface User {
   role: string;
   status: string;
   email?: string;
+  addressLine1?: string;
   city?: string;
   state?: string;
+  pincode?: string;
   avatarUrl?: string;
   kycRejectionReason?: string | null;
   kycVerified?: boolean;
@@ -24,11 +26,21 @@ interface AuthState {
   isAuthenticated: boolean;
 }
 
+export interface ProfileUpdateData {
+  fullName?: string;
+  email?: string;
+  addressLine1?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+}
+
 interface AuthContextType extends AuthState {
   login: (phone: string, password: string) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  updateProfile: (data: ProfileUpdateData) => Promise<void>;
   sendOtp: (phone: string, purpose?: 'LOGIN' | 'REGISTER') => Promise<{ expiresInSeconds: number; devOtp?: string }>;
   verifyOtp: (phone: string, otp: string, purpose?: 'LOGIN' | 'REGISTER') => Promise<any>;
 }
@@ -232,8 +244,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  async function updateProfile(data: ProfileUpdateData) {
+    const res = await api.patch<any>('/users/me', data);
+    if (res.success && res.data) {
+      setState(prev => ({ ...prev, user: { ...prev.user!, ...res.data } }));
+    } else {
+      throw new Error(res.error?.message || 'Failed to update profile');
+    }
+  }
+
   return (
-    <AuthContext.Provider value={{ ...state, login, register, logout, refreshProfile, sendOtp, verifyOtp }}>
+    <AuthContext.Provider value={{ ...state, login, register, logout, refreshProfile, updateProfile, sendOtp, verifyOtp }}>
       {children}
     </AuthContext.Provider>
   );

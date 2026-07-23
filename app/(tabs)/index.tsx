@@ -90,7 +90,8 @@ const QUICK_ACTIONS = [
   {
     key: 'bookings',
     icon: 'calendar-outline',
-    label: 'Bookings',
+    label: 'My Bookings',
+    subtitle: 'Track bookings and requests',
     color: '#0D7A62',
     background: '#E8F7F1',
     route: '/bookings',
@@ -99,6 +100,7 @@ const QUICK_ACTIONS = [
     key: 'inventory',
     icon: 'cube-outline',
     label: 'My Lots',
+    subtitle: 'Stored inventory ledger',
     color: '#0D8D8A',
     background: '#E8F9F7',
     route: '/(tabs)/inventory',
@@ -106,7 +108,8 @@ const QUICK_ACTIONS = [
   {
     key: 'marketplace',
     icon: 'storefront-outline',
-    label: 'Market',
+    label: 'Marketplace',
+    subtitle: 'Buy and sell produce',
     color: '#197C76',
     background: '#EAF8F5',
     route: '/(tabs)/marketplace',
@@ -115,6 +118,7 @@ const QUICK_ACTIONS = [
     key: 'mandi',
     icon: 'trending-up-outline',
     label: 'Mandi Prices',
+    subtitle: 'Live rates near you',
     color: '#D45B4E',
     background: '#FFF0EE',
     route: '/market-prices',
@@ -123,6 +127,7 @@ const QUICK_ACTIONS = [
     key: 'invoices',
     icon: 'receipt-outline',
     label: 'Invoices',
+    subtitle: 'Billing and payments',
     color: '#2589AA',
     background: '#EAF8FC',
     route: '/invoices',
@@ -131,9 +136,28 @@ const QUICK_ACTIONS = [
     key: 'receipts',
     icon: 'document-text-outline',
     label: 'Receipts',
+    subtitle: 'Download storage receipts',
     color: '#7457BE',
     background: '#F0EBFF',
     route: '/receipts',
+  },
+  {
+    key: 'discover',
+    icon: 'compass-outline',
+    label: 'Discover Storage',
+    subtitle: 'Find nearby facilities',
+    color: '#0D6B5B',
+    background: '#E4F5EE',
+    route: '/(tabs)/farmer-discover',
+  },
+  {
+    key: 'profile',
+    icon: 'person-circle-outline',
+    label: 'Profile',
+    subtitle: 'Account and settings',
+    color: '#5E6B64',
+    background: '#EDF1EE',
+    route: '/(tabs)/profile',
   },
 ] as const;
 
@@ -156,6 +180,13 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // ── Facilities (Discovery) ──
+  const [facilities, setFacilities] = useState<any[]>([]);
+  const [facilitiesLoading, setFacilitiesLoading] = useState(false);
+
+  // ── Hamburger Quick Actions Drawer ──
+  const [showQuickActions, setShowQuickActions] = useState(false);
 
   // ── Location state ──
   const [showLocationPopup, setShowLocationPopup] = useState(false);
@@ -333,6 +364,25 @@ export default function HomeScreen() {
     }
   }, [user?.state, userState, fadeAnim, slideAnim]);
 
+  // ── Fetch facilities for discovery ──
+  const fetchFacilities = useCallback(async () => {
+    setFacilitiesLoading(true);
+    try {
+      const res = await api.get<any>('/discover/facilities?limit=10');
+      if (res.success && res.data?.facilities) {
+        setFacilities(res.data.facilities);
+      }
+    } catch {
+      // Silently fail
+    } finally {
+      setFacilitiesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchFacilities();
+  }, [fetchFacilities]);
+
   useEffect(() => {
     fetchData();
   }, [fetchData]);
@@ -443,8 +493,17 @@ export default function HomeScreen() {
           <View style={styles.heroContent}>
             <View style={styles.heroTop}>
               <TouchableOpacity
+                style={styles.hamburgerBtn}
+                activeOpacity={0.8}
+                onPress={() => { hapticLight(); setShowQuickActions(true); }}
+              >
+                <Ionicons name="menu" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+
+              <TouchableOpacity
                 activeOpacity={0.8}
                 onPress={() => handleNavigation('/(tabs)/profile')}
+                style={{ flex: 1, marginLeft: 4 }}
               >
                 <Text style={styles.greeting}>{getGreeting()},</Text>
                 <Text style={styles.userName} numberOfLines={1}>
@@ -452,25 +511,46 @@ export default function HomeScreen() {
                 </Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.notificationBtn}
-                activeOpacity={0.8}
-                onPress={() => handleNavigation('/notifications')}
-              >
-                <Ionicons
-                  name="notifications-outline"
-                  size={22}
-                  color="#FFFFFF"
-                />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <TouchableOpacity
+                  style={styles.notificationBtn}
+                  activeOpacity={0.8}
+                  onPress={() => handleNavigation('/notifications')}
+                >
+                  <Ionicons
+                    name="notifications-outline"
+                    size={21}
+                    color="#FFFFFF"
+                  />
 
-                {unreadCount > 0 && (
-                  <View style={styles.notiBadge}>
-                    <Text style={styles.notiBadgeText}>
-                      {unreadCount > 9 ? '9+' : unreadCount}
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
+                  {unreadCount > 0 && (
+                    <View style={styles.notiBadge}>
+                      <Text style={styles.notiBadgeText}>
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.heroAvatarRing}
+                  activeOpacity={0.86}
+                  onPress={() => handleNavigation('/(tabs)/profile')}
+                >
+                  <LinearGradient
+                    colors={['#EAD68F', '#C7A037']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.heroAvatarGrad}
+                  >
+                    <View style={styles.heroAvatarInner}>
+                      <Text style={styles.heroAvatarLetter}>
+                        {user?.fullName?.charAt(0)?.toUpperCase() || 'F'}
+                      </Text>
+                    </View>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
             </View>
 
             <Text style={styles.heroSupportingText}>
@@ -556,46 +636,169 @@ export default function HomeScreen() {
             </TouchableOpacity>
           )}
 
+          {/* ── Storage Discovery ── */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View>
-                <Text style={styles.sectionEyebrow}>SHORTCUTS</Text>
-                <Text style={styles.sectionTitle}>Quick Actions</Text>
+                <Text style={styles.sectionEyebrow}>STORAGE DISCOVERY</Text>
+                <Text style={styles.sectionTitle}>Nearby Facilities</Text>
               </View>
+
+              <TouchableOpacity
+                style={styles.seeAllButton}
+                onPress={() => handleNavigation('/(tabs)/farmer-discover')}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.seeAllText}>See all</Text>
+                <Ionicons
+                  name="arrow-forward"
+                  size={15}
+                  color={UI.forest}
+                />
+              </TouchableOpacity>
             </View>
 
-            <View style={styles.actionsGrid}>
-              {QUICK_ACTIONS.map((action) => (
+            {facilitiesLoading ? (
+              <View style={styles.facilityLoading}>
+                <ActivityIndicator size="small" color={UI.forest} />
+                <Text style={styles.facilityLoadingText}>Finding nearby facilities...</Text>
+              </View>
+            ) : facilities.length === 0 ? (
+              <View style={styles.facilityEmpty}>
+                <Ionicons name="snow-outline" size={32} color={UI.subtle} />
+                <Text style={styles.facilityEmptyText}>No facilities found nearby</Text>
                 <TouchableOpacity
-                  key={action.key}
-                  style={styles.actionCard}
-                  activeOpacity={0.76}
-                  onPress={() => handleNavigation(action.route)}
+                  style={styles.facilityEmptyBtn}
+                  activeOpacity={0.85}
+                  onPress={() => handleNavigation('/(tabs)/farmer-discover')}
                 >
-                  <View
-                    style={[
-                      styles.actionIconSquare,
-                      { backgroundColor: action.background },
-                    ]}
-                  >
-                    <Ionicons
-                      name={action.icon as any}
-                      size={22}
-                      color={action.color}
-                    />
-                  </View>
-
-                  <Text style={styles.actionLabel}>{action.label}</Text>
-
-                  <View
-                    style={[
-                      styles.actionAccent,
-                      { backgroundColor: action.color },
-                    ]}
-                  />
+                  <Text style={styles.facilityEmptyBtnText}>Browse All</Text>
                 </TouchableOpacity>
-              ))}
-            </View>
+              </View>
+            ) : (
+              facilities.slice(0, 5).map((facility: any) => {
+                const totalCap = facility.totalCapacity ?? Number(facility.totalCapacityMt || 0);
+                const available = facility.availableCapacity ?? totalCap;
+                const utilPct = totalCap > 0 ? Math.round(((totalCap - available) / totalCap) * 100) : 0;
+                const isVerified = facility.status === 'ACTIVE';
+                const lowestPrice = facility.pricing?.length > 0
+                  ? Math.round(Number([...facility.pricing].sort((a: any, b: any) => Number(a.rateAmount) - Number(b.rateAmount))[0].rateAmount))
+                  : null;
+                const commodities = facility.chambers
+                  ? [...new Set(facility.chambers.map((c: any) => c.commodityCategory).filter(Boolean))].slice(0, 3)
+                  : [];
+                const commodityMap: Record<string, string> = { POTATO: 'Potato', ONION: 'Onion', VEGETABLES: 'Vegetables', FRUITS: 'Fruits', DAIRY: 'Dairy', SEEDS: 'Seeds', OTHER: 'Other' };
+
+                return (
+                  <TouchableOpacity
+                    key={facility.id}
+                    style={styles.facilityCard}
+                    activeOpacity={0.82}
+                    onPress={() => handleNavigation(`/(tabs)/farmer-discover`)}
+                  >
+                    {/* Image */}
+                    <View style={styles.facilityImageWrap}>
+                      {facility.imageUrl && facility.imageUrl.startsWith('http') ? (
+                        <Image
+                          source={{ uri: facility.imageUrl }}
+                          style={styles.facilityImage}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <LinearGradient
+                          colors={['#0A3A30', '#135647', '#1A7A6A']}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={styles.facilityImagePlaceholder}
+                        >
+                          <Ionicons name="snow-outline" size={36} color="rgba(255,255,255,0.3)" />
+                          <Text style={styles.facilityImagePlaceholderText}>{facility.name}</Text>
+                        </LinearGradient>
+                      )}
+                      {isVerified && (
+                        <View style={styles.facilityVerifiedBadge}>
+                          <Ionicons name="checkmark-circle" size={13} color="#FFFFFF" />
+                          <Text style={styles.facilityVerifiedText}>Verified</Text>
+                        </View>
+                      )}
+                    </View>
+
+                    {/* Content */}
+                    <View style={styles.facilityContent}>
+                      {/* Name + Rating */}
+                      <View style={styles.facilityNameRow}>
+                        <Text style={styles.facilityName} numberOfLines={1}>{facility.name}</Text>
+                        {facility.avgRating != null && (
+                          <View style={styles.facilityRating}>
+                            <Ionicons name="star" size={13} color="#D29424" />
+                            <Text style={styles.facilityRatingText}>{facility.avgRating}</Text>
+                          </View>
+                        )}
+                      </View>
+
+                      {/* Location */}
+                      <View style={styles.facilityLocation}>
+                        <Ionicons name="location-outline" size={13} color={UI.muted} />
+                        <Text style={styles.facilityLocationText} numberOfLines={1}>
+                          {facility.city}, {facility.state}
+                          {facility.distanceKm != null ? ` • ${facility.distanceKm} km` : ''}
+                        </Text>
+                      </View>
+
+                      {/* Capacity Bar */}
+                      <View style={styles.facilityCapacity}>
+                        <View style={styles.facilityCapHeader}>
+                          <Text style={styles.facilityCapLabel}>Space Available</Text>
+                          <Text style={styles.facilityCapValue}>{available.toLocaleString('en-IN')} / {totalCap.toLocaleString('en-IN')} MT</Text>
+                        </View>
+                        <View style={styles.facilityCapTrack}>
+                          <View
+                            style={[
+                              styles.facilityCapFill,
+                              {
+                                width: `${utilPct}%` as any,
+                                backgroundColor: utilPct > 90 ? '#D45B4E' : utilPct > 60 ? '#D29424' : '#17A56D',
+                              },
+                            ]}
+                          />
+                        </View>
+                        <Text style={[styles.facilityCapStatus, { color: utilPct > 90 ? '#D45B4E' : utilPct > 60 ? '#D29424' : '#0D7A62' }]}>
+                          {utilPct > 90 ? `Only ${available} MT left` : utilPct > 60 ? 'Limited availability' : 'High capacity available'}
+                        </Text>
+                      </View>
+
+                      {/* Commodity tags */}
+                      {commodities.length > 0 && (
+                        <View style={styles.facilityCommodities}>
+                          <Ionicons name="information-circle-outline" size={12} color={UI.muted} />
+                          <Text style={styles.facilityCommodityText}>
+                            Ideal for {commodities.map((c) => commodityMap[c as string] || c).join(', ')}
+                          </Text>
+                        </View>
+                      )}
+
+                      {/* Price + CTA */}
+                      <View style={styles.facilityPriceRow}>
+                        <View>
+                          <Text style={styles.facilityPriceLabel}>Starting from</Text>
+                          <Text style={styles.facilityPriceAmount}>
+                            ₹{lowestPrice ? lowestPrice.toLocaleString('en-IN') : '—'}
+                            <Text style={styles.facilityPriceUnit}>/MT/mo</Text>
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          style={styles.facilityBookBtn}
+                          activeOpacity={0.85}
+                          onPress={() => handleNavigation('/bookings')}
+                        >
+                          <Text style={styles.facilityBookBtnText}>Book storage</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })
+            )}
           </View>
 
           {bookings.length > 0 && (
@@ -876,6 +1079,68 @@ export default function HomeScreen() {
           <View style={{ height: insets.top + 54 }} />
         </RNAnimated.View>
       </ScrollView>
+
+      {/* ── Quick Actions Drawer (Hamburger) ── */}
+      <Modal
+        visible={showQuickActions}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowQuickActions(false)}
+      >
+        <TouchableOpacity
+          style={styles.qaOverlay}
+          activeOpacity={1}
+          onPress={() => setShowQuickActions(false)}
+        >
+          <View style={styles.qaSheet} onStartShouldSetResponder={() => true}>
+            <View style={styles.qaHandle} />
+
+            {/* Header row */}
+            <View style={styles.qaHeaderRow}>
+              <View>
+                <Text style={styles.qaEyebrow}>NAVIGATION</Text>
+                <Text style={styles.qaTitle}>Quick Actions</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.qaCloseBtn}
+                onPress={() => setShowQuickActions(false)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="close" size={20} color={UI.muted} />
+              </TouchableOpacity>
+            </View>
+
+            {/* List items — Workspace style */}
+            <View style={styles.qaCard}>
+              {QUICK_ACTIONS.map((action, index) => (
+                <React.Fragment key={action.key}>
+                  <TouchableOpacity
+                    style={styles.qaItem}
+                    activeOpacity={0.82}
+                    onPress={() => {
+                      setShowQuickActions(false);
+                      handleNavigation(action.route);
+                    }}
+                  >
+                    <View style={[styles.qaItemIcon, { backgroundColor: action.background }]}>
+                      <Ionicons name={action.icon as any} size={20} color={action.color} />
+                    </View>
+
+                    <View style={styles.qaItemTextWrap}>
+                      <Text style={styles.qaItemLabel}>{action.label}</Text>
+                      <Text style={styles.qaItemSub}>{action.subtitle}</Text>
+                    </View>
+
+                    <Ionicons name="chevron-forward" size={18} color="#B0B8B3" />
+                  </TouchableOpacity>
+
+                  {index < QUICK_ACTIONS.length - 1 && <View style={styles.qaDivider} />}
+                </React.Fragment>
+              ))}
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* ── Location Permission Popup ── */}
       <Modal
@@ -1851,5 +2116,394 @@ locationModalSkipText: {
   fontSize: 14,
   fontWeight: '600',
   color: '#94A3B8',
+},
+
+// ── Quick Actions Drawer ──
+
+qaOverlay: {
+  flex: 1,
+  backgroundColor: 'rgba(15, 23, 18, 0.45)',
+  justifyContent: 'flex-end',
+},
+
+qaSheet: {
+  backgroundColor: '#FFFFFF',
+  borderTopLeftRadius: 28,
+  borderTopRightRadius: 28,
+  paddingTop: 12,
+  paddingHorizontal: SIDE_PADDING,
+  paddingBottom: 40,
+  maxHeight: '80%',
+},
+
+qaHandle: {
+  alignSelf: 'center',
+  width: 36,
+  height: 4,
+  borderRadius: 2,
+  backgroundColor: '#D1D5DB',
+  marginBottom: 16,
+},
+
+qaHeaderRow: {
+  flexDirection: 'row',
+  alignItems: 'flex-start',
+  justifyContent: 'space-between',
+  marginBottom: 16,
+},
+
+qaCloseBtn: {
+  width: 36,
+  height: 36,
+  borderRadius: 12,
+  alignItems: 'center',
+  justifyContent: 'center',
+  backgroundColor: '#F4F6F5',
+},
+
+qaEyebrow: {
+  color: UI.teal,
+  fontSize: 10,
+  fontWeight: '900',
+  letterSpacing: 0.85,
+},
+
+qaTitle: {
+  marginTop: 4,
+  color: UI.ink,
+  fontSize: 23,
+  fontWeight: '800',
+  letterSpacing: -0.5,
+},
+
+qaCard: {
+  backgroundColor: UI.surface,
+  borderRadius: 20,
+  borderWidth: 1,
+  borderColor: UI.border,
+  overflow: 'hidden',
+},
+
+qaItem: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  paddingVertical: 14,
+  paddingHorizontal: 14,
+},
+
+qaItemIcon: {
+  width: 42,
+  height: 42,
+  borderRadius: 14,
+  alignItems: 'center',
+  justifyContent: 'center',
+},
+
+qaItemTextWrap: {
+  flex: 1,
+  marginLeft: 12,
+  marginRight: 8,
+},
+
+qaItemLabel: {
+  fontSize: 15,
+  fontWeight: '700',
+  color: UI.ink,
+  letterSpacing: -0.2,
+},
+
+qaItemSub: {
+  marginTop: 2,
+  fontSize: 12,
+  color: UI.muted,
+  fontWeight: '500',
+},
+
+qaDivider: {
+  height: 1,
+  backgroundColor: '#F0F2F1',
+  marginLeft: 68,
+},
+
+// ── Hero Header ──
+
+hamburgerBtn: {
+  width: 42,
+  height: 42,
+  borderRadius: 14,
+  alignItems: 'center',
+  justifyContent: 'center',
+  backgroundColor: 'rgba(255,255,255,0.12)',
+  borderWidth: 1,
+  borderColor: 'rgba(255,255,255,0.15)',
+},
+
+heroAvatarRing: {
+  width: 44,
+  height: 44,
+  borderRadius: 22,
+},
+
+heroAvatarGrad: {
+  width: '100%',
+  height: '100%',
+  borderRadius: 22,
+  padding: 2.5,
+},
+
+heroAvatarInner: {
+  flex: 1,
+  borderRadius: 20,
+  backgroundColor: '#FFFFFF',
+  alignItems: 'center',
+  justifyContent: 'center',
+},
+
+heroAvatarLetter: {
+  fontSize: 17,
+  fontWeight: '800',
+  color: UI.forest,
+},
+
+// ── Facility Cards ──
+
+facilityLoading: {
+  paddingVertical: 40,
+  alignItems: 'center',
+  gap: 10,
+},
+
+facilityLoadingText: {
+  color: UI.subtle,
+  fontSize: 13,
+  fontWeight: '600',
+},
+
+facilityEmpty: {
+  paddingVertical: 40,
+  alignItems: 'center',
+  gap: 10,
+},
+
+facilityEmptyText: {
+  color: UI.subtle,
+  fontSize: 14,
+  fontWeight: '600',
+},
+
+facilityEmptyBtn: {
+  marginTop: 4,
+  paddingHorizontal: 18,
+  paddingVertical: 10,
+  borderRadius: 12,
+  backgroundColor: UI.forest,
+},
+
+facilityEmptyBtnText: {
+  color: '#FFFFFF',
+  fontSize: 13,
+  fontWeight: '700',
+},
+
+facilityCard: {
+  marginBottom: 14,
+  borderRadius: 20,
+  backgroundColor: UI.surface,
+  borderWidth: 1,
+  borderColor: UI.border,
+  overflow: 'hidden',
+  shadowColor: '#173D31',
+  shadowOffset: { width: 0, height: 6 },
+  shadowOpacity: 0.06,
+  shadowRadius: 14,
+  elevation: 3,
+},
+
+facilityImageWrap: {
+  width: '100%',
+  height: 160,
+  backgroundColor: '#E8EDE9',
+},
+
+facilityImage: {
+  width: '100%',
+  height: '100%',
+},
+
+facilityImagePlaceholder: {
+  width: '100%',
+  height: '100%',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 8,
+},
+
+facilityImagePlaceholderText: {
+  color: 'rgba(255,255,255,0.5)',
+  fontSize: 13,
+  fontWeight: '700',
+  textAlign: 'center',
+  paddingHorizontal: 20,
+},
+
+facilityVerifiedBadge: {
+  position: 'absolute',
+  top: 10,
+  left: 10,
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 4,
+  paddingHorizontal: 9,
+  paddingVertical: 4,
+  borderRadius: 8,
+  backgroundColor: 'rgba(16, 62, 52, 0.85)',
+},
+
+facilityVerifiedText: {
+  color: '#FFFFFF',
+  fontSize: 11,
+  fontWeight: '700',
+},
+
+facilityContent: {
+  padding: 14,
+},
+
+facilityNameRow: {
+  flexDirection: 'row',
+  alignItems: 'flex-start',
+  justifyContent: 'space-between',
+  gap: 8,
+  marginBottom: 3,
+},
+
+facilityName: {
+  flex: 1,
+  fontSize: 16,
+  fontWeight: '800',
+  color: UI.ink,
+  letterSpacing: -0.3,
+},
+
+facilityRating: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 3,
+},
+
+facilityRatingText: {
+  fontSize: 14,
+  fontWeight: '800',
+  color: UI.ink,
+},
+
+facilityLocation: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 4,
+  marginBottom: 12,
+},
+
+facilityLocationText: {
+  flex: 1,
+  fontSize: 12,
+  color: UI.muted,
+  fontWeight: '500',
+},
+
+facilityCapacity: {
+  marginBottom: 10,
+},
+
+facilityCapHeader: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  alignItems: 'baseline',
+  marginBottom: 5,
+},
+
+facilityCapLabel: {
+  fontSize: 11,
+  fontWeight: '700',
+  color: UI.muted,
+},
+
+facilityCapValue: {
+  fontSize: 12,
+  fontWeight: '800',
+  color: UI.ink,
+},
+
+facilityCapTrack: {
+  width: '100%',
+  height: 5,
+  borderRadius: 3,
+  backgroundColor: '#EDF1EE',
+  overflow: 'hidden',
+  marginBottom: 4,
+},
+
+facilityCapFill: {
+  height: '100%',
+  borderRadius: 3,
+},
+
+facilityCapStatus: {
+  fontSize: 10.5,
+  fontWeight: '700',
+},
+
+facilityCommodities: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 4,
+  marginBottom: 12,
+},
+
+facilityCommodityText: {
+  fontSize: 11,
+  color: UI.muted,
+  fontWeight: '500',
+},
+
+facilityPriceRow: {
+  flexDirection: 'row',
+  alignItems: 'flex-end',
+  justifyContent: 'space-between',
+  paddingTop: 10,
+  borderTopWidth: 1,
+  borderTopColor: '#EDF1EE',
+},
+
+facilityPriceLabel: {
+  fontSize: 10,
+  fontWeight: '600',
+  color: UI.subtle,
+},
+
+facilityPriceAmount: {
+  fontSize: 22,
+  fontWeight: '800',
+  color: UI.ink,
+  letterSpacing: -0.5,
+},
+
+facilityPriceUnit: {
+  fontSize: 12,
+  fontWeight: '600',
+  color: UI.muted,
+},
+
+facilityBookBtn: {
+  paddingHorizontal: 16,
+  paddingVertical: 10,
+  borderRadius: 11,
+  backgroundColor: UI.forest,
+},
+
+facilityBookBtnText: {
+  color: '#FFFFFF',
+  fontSize: 13,
+  fontWeight: '700',
 },
 });

@@ -33,20 +33,27 @@ function RootLayoutNav() {
   const { isAuthenticated, isLoading, user } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+  const [isNavigationReady, setIsNavigationReady] = useState(false);
 
   useEffect(() => {
     if (isLoading) return;
 
-    const inAuthGroup = segments[0] === '(auth)';
+    const firstSegment = segments[0] || '';
+    const inAuthGroup = firstSegment === '(auth)';
+    const onDiscover = firstSegment === 'discover';
+
+    // Screens that unauthenticated users CAN access
+    const isPublicScreen = inAuthGroup || onDiscover;
 
     if (!isAuthenticated) {
-      // Not logged in → go to login screen
-      if (!inAuthGroup) {
-        router.replace('/(auth)/login');
+      // Not logged in → send to Discover page (not login)
+      // Allow auth screens (login/register) and discover page
+      if (!isPublicScreen) {
+        router.replace('/discover');
       }
     } else {
-      // Authenticated — redirect FROM auth screens to the correct role-based home
-      if (inAuthGroup) {
+      // Authenticated — redirect FROM auth/discover screens to the correct dashboard
+      if (inAuthGroup || onDiscover) {
         if (user?.role === 'BUYER') {
           router.replace('/(buyer)');
         } else if (user?.role === 'OWNER' || user?.role === 'STAFF') {
@@ -56,7 +63,18 @@ function RootLayoutNav() {
         }
       }
     }
+
+    // Mark navigation as ready after first auth check
+    if (!isNavigationReady) {
+      setIsNavigationReady(true);
+    }
   }, [isAuthenticated, isLoading, user, segments]);
+
+  // ── CRITICAL: Don't render ANY routes until auth state is determined ──
+  // This prevents flash of buyer/owner/farmer dashboard before login check completes
+  if (isLoading || !isNavigationReady) {
+    return null;
+  }
 
   return (
     <Stack>
@@ -96,6 +114,8 @@ function RootLayoutNav() {
       <Stack.Screen name="orders/escrow-status" options={{ title: 'Payment Status', ...headerOptions }} />
       {/* Settings */}
       <Stack.Screen name="settings" options={{ title: 'Settings', ...headerOptions }} />
+      {/* Edit Profile */}
+      <Stack.Screen name="edit-profile" options={{ headerShown: false }} />
       {/* Bookings */}
       <Stack.Screen name="book-storage" options={{ headerShown: false }} />
       <Stack.Screen name="bookings" options={{ headerShown: false }} />
