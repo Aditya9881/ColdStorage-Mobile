@@ -193,6 +193,8 @@ export default function HomeScreen() {
   const [userState, setUserState] = useState<string | null>(user?.state || null);
   const [userDistrict, setUserDistrict] = useState<string | null>(null);
   const [userCity, setUserCity] = useState<string | null>(null);
+  const [userLat, setUserLat] = useState<number | null>(null);
+  const [userLng, setUserLng] = useState<number | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationChecked, setLocationChecked] = useState(false);
 
@@ -234,6 +236,8 @@ export default function HomeScreen() {
       const loc = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
+      setUserLat(loc.coords.latitude);
+      setUserLng(loc.coords.longitude);
       const [address] = await Location.reverseGeocodeAsync({
         latitude: loc.coords.latitude,
         longitude: loc.coords.longitude,
@@ -364,11 +368,15 @@ export default function HomeScreen() {
     }
   }, [user?.state, userState, fadeAnim, slideAnim]);
 
-  // ── Fetch facilities for discovery ──
+  // ── Fetch facilities for discovery (with location) ──
   const fetchFacilities = useCallback(async () => {
     setFacilitiesLoading(true);
     try {
-      const res = await api.get<any>('/discover/facilities?limit=10');
+      let url = '/discover/facilities?limit=10';
+      if (userLat != null && userLng != null) {
+        url += `&lat=${userLat}&lng=${userLng}`;
+      }
+      const res = await api.get<any>(url);
       if (res.success && res.data?.facilities) {
         setFacilities(res.data.facilities);
       }
@@ -377,7 +385,7 @@ export default function HomeScreen() {
     } finally {
       setFacilitiesLoading(false);
     }
-  }, []);
+  }, [userLat, userLng]);
 
   useEffect(() => {
     fetchFacilities();
@@ -642,6 +650,14 @@ export default function HomeScreen() {
               <View>
                 <Text style={styles.sectionEyebrow}>STORAGE DISCOVERY</Text>
                 <Text style={styles.sectionTitle}>Nearby Facilities</Text>
+                {userCity && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                    <Ionicons name="location" size={12} color={UI.emerald} />
+                    <Text style={{ fontSize: 12, color: UI.muted, fontWeight: '600' }}>
+                      {userCity}{userState ? `, ${userState}` : ''}
+                    </Text>
+                  </View>
+                )}
               </View>
 
               <TouchableOpacity
@@ -740,8 +756,12 @@ export default function HomeScreen() {
                       <View style={styles.facilityLocation}>
                         <Ionicons name="location-outline" size={13} color={UI.muted} />
                         <Text style={styles.facilityLocationText} numberOfLines={1}>
-                          {facility.city}, {facility.state}
-                          {facility.distanceKm != null ? ` • ${facility.distanceKm} km` : ''}
+                          {facility.addressLine1 ? `${facility.addressLine1}, ` : ''}{facility.city}
+                          {facility.distanceKm != null ? (
+                            <Text style={{ color: UI.emerald, fontWeight: '700' }}> • {facility.distanceKm} km away</Text>
+                          ) : (
+                            <Text>, {facility.state}</Text>
+                          )}
                         </Text>
                       </View>
 
@@ -762,9 +782,16 @@ export default function HomeScreen() {
                             ]}
                           />
                         </View>
-                        <Text style={[styles.facilityCapStatus, { color: utilPct > 90 ? '#D45B4E' : utilPct > 60 ? '#D29424' : '#0D7A62' }]}>
-                          {utilPct > 90 ? `Only ${available} MT left` : utilPct > 60 ? 'Limited availability' : 'High capacity available'}
-                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                          <Ionicons
+                            name={utilPct > 90 ? 'warning-outline' : utilPct > 60 ? 'warning-outline' : 'checkmark-circle-outline'}
+                            size={13}
+                            color={utilPct > 90 ? '#D45B4E' : utilPct > 60 ? '#D29424' : '#0D7A62'}
+                          />
+                          <Text style={[styles.facilityCapStatus, { color: utilPct > 90 ? '#D45B4E' : utilPct > 60 ? '#D29424' : '#0D7A62' }]}>
+                            {utilPct > 90 ? `Selling out fast • Only ${available} MT left` : utilPct > 60 ? 'Limited availability' : 'High capacity available'}
+                          </Text>
+                        </View>
                       </View>
 
                       {/* Commodity tags */}
@@ -787,11 +814,17 @@ export default function HomeScreen() {
                           </Text>
                         </View>
                         <TouchableOpacity
-                          style={styles.facilityBookBtn}
                           activeOpacity={0.85}
                           onPress={() => handleNavigation('/bookings')}
                         >
-                          <Text style={styles.facilityBookBtnText}>Book storage</Text>
+                          <LinearGradient
+                            colors={[UI.forest, '#0A5A4A']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={styles.facilityBookBtn}
+                          >
+                            <Text style={styles.facilityBookBtnText}>Book storage</Text>
+                          </LinearGradient>
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -2306,22 +2339,22 @@ facilityEmptyBtnText: {
 },
 
 facilityCard: {
-  marginBottom: 14,
+  marginBottom: 16,
   borderRadius: 20,
   backgroundColor: UI.surface,
   borderWidth: 1,
   borderColor: UI.border,
   overflow: 'hidden',
   shadowColor: '#173D31',
-  shadowOffset: { width: 0, height: 6 },
-  shadowOpacity: 0.06,
-  shadowRadius: 14,
-  elevation: 3,
+  shadowOffset: { width: 0, height: 8 },
+  shadowOpacity: 0.08,
+  shadowRadius: 16,
+  elevation: 4,
 },
 
 facilityImageWrap: {
   width: '100%',
-  height: 160,
+  height: 190,
   backgroundColor: '#E8EDE9',
 },
 
@@ -2366,7 +2399,7 @@ facilityVerifiedText: {
 },
 
 facilityContent: {
-  padding: 14,
+  padding: 16,
 },
 
 facilityNameRow: {
@@ -2379,10 +2412,10 @@ facilityNameRow: {
 
 facilityName: {
   flex: 1,
-  fontSize: 16,
+  fontSize: 18,
   fontWeight: '800',
   color: UI.ink,
-  letterSpacing: -0.3,
+  letterSpacing: -0.4,
 },
 
 facilityRating: {
@@ -2392,7 +2425,7 @@ facilityRating: {
 },
 
 facilityRatingText: {
-  fontSize: 14,
+  fontSize: 16,
   fontWeight: '800',
   color: UI.ink,
 },
@@ -2423,9 +2456,9 @@ facilityCapHeader: {
 },
 
 facilityCapLabel: {
-  fontSize: 11,
-  fontWeight: '700',
-  color: UI.muted,
+  fontSize: 12,
+  fontWeight: '800',
+  color: UI.ink,
 },
 
 facilityCapValue: {
@@ -2436,11 +2469,11 @@ facilityCapValue: {
 
 facilityCapTrack: {
   width: '100%',
-  height: 5,
-  borderRadius: 3,
+  height: 7,
+  borderRadius: 4,
   backgroundColor: '#EDF1EE',
   overflow: 'hidden',
-  marginBottom: 4,
+  marginBottom: 5,
 },
 
 facilityCapFill: {
@@ -2482,7 +2515,7 @@ facilityPriceLabel: {
 },
 
 facilityPriceAmount: {
-  fontSize: 22,
+  fontSize: 26,
   fontWeight: '800',
   color: UI.ink,
   letterSpacing: -0.5,
@@ -2495,15 +2528,15 @@ facilityPriceUnit: {
 },
 
 facilityBookBtn: {
-  paddingHorizontal: 16,
-  paddingVertical: 10,
-  borderRadius: 11,
-  backgroundColor: UI.forest,
+  paddingHorizontal: 20,
+  paddingVertical: 13,
+  borderRadius: 13,
 },
 
 facilityBookBtnText: {
   color: '#FFFFFF',
-  fontSize: 13,
+  fontSize: 14,
   fontWeight: '700',
+  letterSpacing: -0.2,
 },
 });

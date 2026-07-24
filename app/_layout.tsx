@@ -41,6 +41,9 @@ function RootLayoutNav() {
     const firstSegment = segments[0] || '';
     const inAuthGroup = firstSegment === '(auth)';
     const onDiscover = firstSegment === 'discover';
+    const inFarmerGroup = firstSegment === '(tabs)';
+    const inOwnerGroup = firstSegment === '(owner)';
+    const inBuyerGroup = firstSegment === '(buyer)';
 
     // Screens that unauthenticated users CAN access
     const isPublicScreen = inAuthGroup || onDiscover;
@@ -52,11 +55,26 @@ function RootLayoutNav() {
         router.replace('/discover');
       }
     } else {
-      // Authenticated — redirect FROM auth/discover screens to the correct dashboard
-      if (inAuthGroup || onDiscover) {
-        if (user?.role === 'BUYER') {
+      // ── Authenticated — enforce role-based routing ──
+      const role = user?.role;
+
+      // Determine which dashboard this role should be on
+      const correctGroup =
+        role === 'BUYER' ? '(buyer)' :
+        role === 'OWNER' || role === 'STAFF' ? '(owner)' :
+        '(tabs)'; // FARMER is default
+
+      // Check if user is on the WRONG role's dashboard
+      const isOnWrongDashboard =
+        (inFarmerGroup && correctGroup !== '(tabs)') ||
+        (inOwnerGroup && correctGroup !== '(owner)') ||
+        (inBuyerGroup && correctGroup !== '(buyer)');
+
+      // Redirect from auth/discover screens OR if on wrong dashboard
+      if (inAuthGroup || onDiscover || isOnWrongDashboard) {
+        if (role === 'BUYER') {
           router.replace('/(buyer)');
-        } else if (user?.role === 'OWNER' || user?.role === 'STAFF') {
+        } else if (role === 'OWNER' || role === 'STAFF') {
           router.replace('/(owner)');
         } else {
           router.replace('/(tabs)');
