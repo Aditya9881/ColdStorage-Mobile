@@ -30,6 +30,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { api } from '@/lib/api-client';
 import { hapticLight } from '@/lib/haptics';
@@ -377,6 +378,25 @@ export default function BookingsTab() {
         }
         showsVerticalScrollIndicator={false}
       />
+
+      {/* ── Floating Action Button ── */}
+      <TouchableOpacity
+        style={s.fab}
+        activeOpacity={0.88}
+        onPress={() => {
+          hapticLight();
+          router.push('/book-storage' as any);
+        }}
+      >
+        <LinearGradient
+          colors={['#0E6B5A', '#0A4E40']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={s.fabGradient}
+        >
+          <Ionicons name="add" size={28} color="#FFFFFF" />
+        </LinearGradient>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -733,5 +753,24 @@ const s = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#0A4E40',
+  },
+
+  /* ── Floating Action Button ── */
+  fab: {
+    position: 'absolute',
+    bottom: 100,
+    right: 20,
+    shadowColor: '#082B24',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  fabGradient: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
