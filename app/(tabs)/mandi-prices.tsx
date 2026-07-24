@@ -23,6 +23,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Location from 'expo-location';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/contexts/AuthContext';
 import { hapticLight, hapticSelection } from '@/lib/haptics';
@@ -146,22 +147,50 @@ export default function MandiPricesTab() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCommodity, setSelectedCommodity] = useState('All');
+  const [detectedState, setDetectedState] = useState<string | null>(null);
+  const [detectedCity, setDetectedCity] = useState<string | null>(null);
+
+  // Detect user's location for nearby filtering
+  useEffect(() => {
+    (async () => {
+      try {
+        const { status } = await Location.getForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          const [addr] = await Location.reverseGeocodeAsync({
+            latitude: loc.coords.latitude,
+            longitude: loc.coords.longitude,
+          });
+          if (addr) {
+            setDetectedState(addr.region || null);
+            setDetectedCity(addr.city || addr.subregion || null);
+          }
+        }
+      } catch {
+        // Location not available — use user's profile state
+      }
+    })();
+  }, []);
+
+  const userState = detectedState || user?.state || null;
 
   const fetchPrices = useCallback(async () => {
     try {
       setError(false);
       const params = new URLSearchParams();
-      if (user?.state) params.set('state', user.state);
+      if (userState) params.set('state', userState);
       const url = `/market-prices${params.toString() ? `?${params.toString()}` : ''}`;
       const res = await api.get<any>(url);
 
       if (res.success && res.data) {
         const mapped: MandiPrice[] = [];
+        let idx = 0;
         for (const group of res.data) {
           const mandis = group.mandis || [];
           for (const m of mandis) {
+            idx++;
             mapped.push({
-              id: `${group.commodity}-${m.mandi}-${m.district}`,
+              id: `${idx}-${group.commodity || 'unk'}-${m.mandi || 'unk'}-${m.district || 'unk'}`,
               commodity: group.commodity || 'Unknown',
               state: m.state || '',
               district: m.district || '',
@@ -185,7 +214,7 @@ export default function MandiPricesTab() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [user?.state]);
+  }, [userState]);
 
   useEffect(() => { fetchPrices(); }, [fetchPrices]);
 
@@ -219,6 +248,14 @@ export default function MandiPricesTab() {
           <View>
             <Text style={s.headerEyebrow}>LIVE MARKET DATA</Text>
             <Text style={s.headerTitle}>Mandi Prices</Text>
+            {(detectedCity || userState) && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                <Ionicons name="location" size={12} color="rgba(255,255,255,0.6)" />
+                <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', fontWeight: '600' }}>
+                  {detectedCity ? `${detectedCity}, ` : ''}{userState || ''}
+                </Text>
+              </View>
+            )}
           </View>
           {meta?.fetchedAt && (
             <View style={s.liveBadge}>
@@ -435,12 +472,14 @@ const s = StyleSheet.create({
   },
   cardImageWrap: {
     width: 80,
+    height: 100,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   cardImage: {
-    width: '100%',
-    height: '100%',
+    width: 80,
+    height: 100,
   },
   cardBody: {
     flex: 1,
