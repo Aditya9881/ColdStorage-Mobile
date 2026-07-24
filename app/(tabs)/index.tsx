@@ -121,7 +121,7 @@ const QUICK_ACTIONS = [
     subtitle: 'Live rates near you',
     color: '#D45B4E',
     background: '#FFF0EE',
-    route: '/market-prices',
+    route: '/(tabs)/mandi-prices',
   },
   {
     key: 'invoices',
@@ -148,7 +148,7 @@ const QUICK_ACTIONS = [
     subtitle: 'Find nearby facilities',
     color: '#0D6B5B',
     background: '#E4F5EE',
-    route: '/(tabs)/farmer-discover',
+    route: '/discover',
   },
   {
     key: 'profile',
@@ -662,7 +662,7 @@ export default function HomeScreen() {
 
               <TouchableOpacity
                 style={styles.seeAllButton}
-                onPress={() => handleNavigation('/(tabs)/farmer-discover')}
+                onPress={() => handleNavigation('/discover')}
                 activeOpacity={0.8}
               >
                 <Text style={styles.seeAllText}>See all</Text>
@@ -686,7 +686,7 @@ export default function HomeScreen() {
                 <TouchableOpacity
                   style={styles.facilityEmptyBtn}
                   activeOpacity={0.85}
-                  onPress={() => handleNavigation('/(tabs)/farmer-discover')}
+                  onPress={() => handleNavigation('/discover')}
                 >
                   <Text style={styles.facilityEmptyBtnText}>Browse All</Text>
                 </TouchableOpacity>
@@ -710,7 +710,7 @@ export default function HomeScreen() {
                     key={facility.id}
                     style={styles.facilityCard}
                     activeOpacity={0.82}
-                    onPress={() => handleNavigation(`/(tabs)/farmer-discover`)}
+                    onPress={() => handleNavigation(`/facility/${facility.id}`)}
                   >
                     {/* Image */}
                     <View style={styles.facilityImageWrap}>

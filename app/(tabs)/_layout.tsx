@@ -1,7 +1,7 @@
 /**
  * ColdStorage — Farmer Tab Bar
  *
- * 4 tabs: Home, Bookings, Discover, Profile
+ * 4 tabs: Home, Bookings, Mandi Prices, Profile
  * - Floating pill-style nav bar
  * - Fixed Android bottom spacing
  * - Haptic feedback
@@ -132,15 +132,22 @@ export default function TabLayout() {
         }}
       />
 
+      {/* Hide farmer-discover from tab bar — accessible via See All / Quick Actions */}
       <Tabs.Screen
         name="farmer-discover"
         options={{
-          title: 'Discover',
-          headerTitle: 'Find Storage',
+          href: null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="mandi-prices"
+        options={{
+          title: 'Mandi Prices',
           headerShown: false,
           tabBarIcon: ({ color, focused }) => (
             <View style={focused ? tabS.activePill : undefined}>
-              <Ionicons name={focused ? 'compass' : 'compass-outline'} size={22} color={color} />
+              <Ionicons name={focused ? 'trending-up' : 'trending-up-outline'} size={22} color={color} />
             </View>
           ),
         }}
