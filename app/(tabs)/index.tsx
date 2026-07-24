@@ -25,6 +25,7 @@ import { useNotifications } from '@/contexts/NotificationContext';
 import { api } from '@/lib/api-client';
 import { hapticLight, hapticSuccess } from '@/lib/haptics';
 import { getCommodityVisual } from '@/lib/commodityImages';
+import SharedTabHeader from '@/components/SharedTabHeader';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -483,87 +484,37 @@ export default function HomeScreen() {
           />
         }
       >
-        <LinearGradient
-          colors={[UI.forestDeep, UI.forest, '#087B73']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.hero}
-        >
-          <View style={styles.heroGlowTop} />
-          <View style={styles.heroGlowBottom} />
+        {/* ── Premium White Header (matches all tabs) ── */}
+        <SharedTabHeader subtitle={`${getGreeting()}, ${user?.fullName || 'Farmer'}`} />
 
-          <View
-            style={{
-              height: insets.top + 8,
-            }}
-          />
-
-          <View style={styles.heroContent}>
-            <View style={styles.heroTop}>
-              <TouchableOpacity
-                style={styles.hamburgerBtn}
-                activeOpacity={0.8}
-                onPress={() => { hapticLight(); setShowQuickActions(true); }}
-              >
-                <Ionicons name="menu" size={24} color="#FFFFFF" />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => handleNavigation('/(tabs)/profile')}
-                style={{ flex: 1, marginLeft: 4 }}
-              >
-                <Text style={styles.greeting}>{getGreeting()},</Text>
-                <Text style={styles.userName} numberOfLines={1}>
-                  {user?.fullName || 'Farmer'}
-                </Text>
-              </TouchableOpacity>
-
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <TouchableOpacity
-                  style={styles.notificationBtn}
-                  activeOpacity={0.8}
-                  onPress={() => handleNavigation('/notifications')}
-                >
-                  <Ionicons
-                    name="notifications-outline"
-                    size={21}
-                    color="#FFFFFF"
-                  />
-
-                  {unreadCount > 0 && (
-                    <View style={styles.notiBadge}>
-                      <Text style={styles.notiBadgeText}>
-                        {unreadCount > 9 ? '9+' : unreadCount}
-                      </Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.heroAvatarRing}
-                  activeOpacity={0.86}
-                  onPress={() => handleNavigation('/(tabs)/profile')}
-                >
-                  <LinearGradient
-                    colors={['#EAD68F', '#C7A037']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.heroAvatarGrad}
-                  >
-                    <View style={styles.heroAvatarInner}>
-                      <Text style={styles.heroAvatarLetter}>
-                        {user?.fullName?.charAt(0)?.toUpperCase() || 'F'}
-                      </Text>
-                    </View>
-                  </LinearGradient>
-                </TouchableOpacity>
+        {/* ── Dashboard Stats Card ── */}
+        <View style={styles.heroContent}>
+          <LinearGradient
+            colors={[UI.forestDeep, UI.forest, '#087B73']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.statsCard}
+          >
+            <View style={styles.statsCardHeader}>
+              <View>
+                <Text style={styles.statsCardTitle}>Your Dashboard</Text>
+                <Text style={styles.statsCardSub}>Storage summary for today</Text>
               </View>
+              <TouchableOpacity
+                style={styles.notificationBtn}
+                activeOpacity={0.8}
+                onPress={() => handleNavigation('/notifications')}
+              >
+                <Ionicons name="notifications-outline" size={20} color="#FFFFFF" />
+                {unreadCount > 0 && (
+                  <View style={styles.notiBadge}>
+                    <Text style={styles.notiBadgeText}>
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
             </View>
-
-            <Text style={styles.heroSupportingText}>
-              Your storage summary for today.
-            </Text>
 
             <View style={styles.statStrip}>
               <DashboardStat
@@ -593,8 +544,8 @@ export default function HomeScreen() {
                 gold
               />
             </View>
-          </View>
-        </LinearGradient>
+          </LinearGradient>
+        </View>
 
         <RNAnimated.View
           style={{
@@ -1448,6 +1399,38 @@ const styles = StyleSheet.create({
 
   heroContent: {
     paddingHorizontal: SIDE_PADDING,
+    paddingTop: 12,
+  },
+
+  statsCard: {
+    borderRadius: 20,
+    padding: 18,
+    shadowColor: '#082B24',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    elevation: 6,
+  },
+
+  statsCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+
+  statsCardTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+
+  statsCardSub: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 2,
   },
 
   heroTop: {

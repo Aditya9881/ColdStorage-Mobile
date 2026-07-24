@@ -26,6 +26,7 @@ import { Stack, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/AuthContext';
 import { hapticLight } from '@/lib/haptics';
+import SharedTabHeader from '@/components/SharedTabHeader';
 
 interface MenuItem {
   icon: string;
@@ -187,38 +188,8 @@ export default function ProfileScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: insets.bottom + 36 }}
         >
-          <View style={[styles.topBarShell, { paddingTop: insets.top + 8 }]}>
-            <View style={styles.topBar}>
-              <TouchableOpacity
-                style={styles.menuButton}
-                activeOpacity={0.84}
-                onPress={hapticLight}
-              >
-                <Ionicons name="menu" size={24} color={UI.forest} />
-              </TouchableOpacity>
-
-              <Text style={styles.brandText}>SheetKosh</Text>
-
-              <TouchableOpacity
-                style={styles.avatarButton}
-                activeOpacity={0.84}
-                onPress={() => { router.push('/edit-profile' as any); hapticLight(); }}
-              >
-                <LinearGradient
-                  colors={['#EAD68F', '#C7A037']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.avatarGradient}
-                >
-                  <View style={styles.avatarInner}>
-                    <Text style={styles.avatarLetter}>
-                      {user?.fullName?.charAt(0)?.toUpperCase() || 'R'}
-                    </Text>
-                  </View>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          </View>
+          {/* Shared header with hamburger + avatar */}
+          <SharedTabHeader subtitle="My profile" />
 
           <View style={styles.content}>
             <LinearGradient
