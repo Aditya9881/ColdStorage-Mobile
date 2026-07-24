@@ -1,11 +1,15 @@
 /**
- * Mandi Prices Tab
+ * ColdStorage — Mandi Prices Tab
  *
- * Wraps the standalone Market Prices screen as a tab.
- * The tab layout sets headerShown: false, and the screen
- * manages its own premium header internally.
+ * Premium mobile version matching Bookings/Profile design language:
+ * - White header with SheetKosh branding + gold avatar
+ * - Hero badge + big title + location indicator
+ * - Premium search bar and filter chips
+ * - Clean white price cards with trend badges
+ * - Location-based nearby mandi prices
  */
-import React, { useState, useEffect, useCallback } from 'react';
+
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,21 +18,21 @@ import {
   RefreshControl,
   TouchableOpacity,
   TextInput,
-  ScrollView,
   Platform,
   StatusBar,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/contexts/AuthContext';
 import { hapticLight, hapticSelection } from '@/lib/haptics';
-import { getCommodityVisual, getCommodityCategory } from '@/lib/commodityImages';
+import { getCommodityVisual } from '@/lib/commodityImages';
 
+/* ─── Interfaces ─── */
 interface MandiPrice {
   id: string;
   commodity: string;
@@ -49,28 +53,27 @@ interface PricesMeta {
   source: 'live' | 'cached' | 'fallback';
   totalCommodities: number;
   totalMandis: number;
-  filters: { state: string | null; district: string | null; commodity: string | null };
 }
 
-const UI = {
-  canvas: '#F5F7F4',
-  surface: '#FFFFFF',
-  surfaceAlt: '#F8FAF7',
-  border: '#E2E9E3',
-  ink: '#15231D',
-  muted: '#718079',
-  subtle: '#96A19B',
-  forest: '#103E34',
-  forestMid: '#1A5D4F',
-  gold: '#C88C20',
-  goldSoft: '#F6F2E7',
-  emerald: '#059669',
-  emeraldSoft: '#DCFCE7',
-  danger: '#DC2626',
-  dangerSoft: '#FEE2E2',
-};
+/* ─── Filter Chips ─── */
+const COMMODITY_FILTERS = [
+  { key: '', label: 'All' },
+  { key: 'Potato', label: 'Potato' },
+  { key: 'Onion', label: 'Onion' },
+  { key: 'Tomato', label: 'Tomato' },
+  { key: 'Apple', label: 'Apple' },
+  { key: 'Rice', label: 'Rice' },
+  { key: 'Wheat', label: 'Wheat' },
+  { key: 'Soybean', label: 'Soyabean' },
+  { key: 'Maize', label: 'Maize' },
+];
 
-const COMMODITIES = ['All', 'Potato', 'Onion', 'Tomato', 'Rice', 'Wheat', 'Soybean', 'Chana', 'Maize'];
+/* ─── Trend Badge Colors ─── */
+const TREND_STYLES: Record<string, { bg: string; text: string; icon: string; soft: string }> = {
+  up: { bg: '#CAECDC', text: '#0A8660', icon: 'trending-up', soft: '#F1FBF6' },
+  down: { bg: '#FDE0E0', text: '#D03030', icon: 'trending-down', soft: '#FEF3F3' },
+  stable: { bg: '#E8ECF0', text: '#5F6B7A', icon: 'remove', soft: '#F5F7F9' },
+};
 
 function formatTimeAgo(isoStr: string): string {
   const diff = Date.now() - new Date(isoStr).getTime();
@@ -82,60 +85,9 @@ function formatTimeAgo(isoStr: string): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-/* ─── Price Card ─── */
-function PriceCard({ item }: { item: MandiPrice }) {
-  const visual = getCommodityVisual(item.commodity);
-  const [imgError, setImgError] = useState(false);
-  const trendColor = item.trend === 'up' ? UI.emerald : item.trend === 'down' ? UI.danger : '#6B7280';
-  const trendBg = item.trend === 'up' ? UI.emeraldSoft : item.trend === 'down' ? UI.dangerSoft : '#F3F4F6';
-  const trendIcon = item.trend === 'up' ? 'trending-up' : item.trend === 'down' ? 'trending-down' : 'remove';
-
-  return (
-    <View style={s.card}>
-      <View style={[s.cardImageWrap, { backgroundColor: visual.bg }]}>
-        {!imgError ? (
-          <Image
-            source={{ uri: visual.imageUrl }}
-            style={s.cardImage}
-            resizeMode="cover"
-            onError={() => setImgError(true)}
-          />
-        ) : (
-          <Ionicons name="leaf" size={28} color={visual.accent || UI.forest} />
-        )}
-      </View>
-      <View style={s.cardBody}>
-        <View style={s.cardTopRow}>
-          <Text style={s.cardCommodity} numberOfLines={1}>{item.commodity}</Text>
-          <View style={[s.trendPill, { backgroundColor: trendBg }]}>
-            <Ionicons name={trendIcon as any} size={12} color={trendColor} />
-            <Text style={[s.trendText, { color: trendColor }]}>
-              {item.trend === 'up' ? 'Up' : item.trend === 'down' ? 'Down' : 'Stable'}
-            </Text>
-          </View>
-        </View>
-        <Text style={s.cardMandi} numberOfLines={1}>
-          <Ionicons name="location-outline" size={11} color={UI.muted} /> {item.mandi}, {item.district}
-        </Text>
-        {item.variety && item.variety !== '-' && (
-          <Text style={s.cardVariety} numberOfLines={1}>{item.variety}</Text>
-        )}
-        <View style={s.priceRow}>
-          <Text style={s.priceLabel}>Modal</Text>
-          <Text style={s.priceValue}>₹{item.modalPrice?.toLocaleString('en-IN')}</Text>
-          <Text style={s.priceUnit}>/{item.unit || 'Qtl'}</Text>
-        </View>
-        <View style={s.priceRange}>
-          <Text style={s.priceRangeText}>
-            ₹{item.minPrice?.toLocaleString('en-IN')} — ₹{item.maxPrice?.toLocaleString('en-IN')}
-          </Text>
-        </View>
-      </View>
-    </View>
-  );
-}
-
-/* ─── Main Screen ─── */
+/* ═══════════════════════════════════════════ */
+/*             MAIN COMPONENT                  */
+/* ═══════════════════════════════════════════ */
 export default function MandiPricesTab() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
@@ -145,12 +97,12 @@ export default function MandiPricesTab() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCommodity, setSelectedCommodity] = useState('All');
+  const [search, setSearch] = useState('');
+  const [commodityFilter, setCommodityFilter] = useState('');
   const [detectedState, setDetectedState] = useState<string | null>(null);
   const [detectedCity, setDetectedCity] = useState<string | null>(null);
 
-  // Detect user's location for nearby filtering
+  // ── Location Detection ──
   useEffect(() => {
     (async () => {
       try {
@@ -167,13 +119,17 @@ export default function MandiPricesTab() {
           }
         }
       } catch {
-        // Location not available — use user's profile state
+        // GPS unavailable — fallback to profile
       }
     })();
   }, []);
 
   const userState = detectedState || user?.state || null;
+  const locationLabel = detectedCity
+    ? `${detectedCity}, ${userState || ''}`
+    : userState || 'All India';
 
+  // ── Fetch Prices ──
   const fetchPrices = useCallback(async () => {
     try {
       setError(false);
@@ -186,11 +142,10 @@ export default function MandiPricesTab() {
         const mapped: MandiPrice[] = [];
         let idx = 0;
         for (const group of res.data) {
-          const mandis = group.mandis || [];
-          for (const m of mandis) {
+          for (const m of (group.mandis || [])) {
             idx++;
             mapped.push({
-              id: `${idx}-${group.commodity || 'unk'}-${m.mandi || 'unk'}-${m.district || 'unk'}`,
+              id: `${idx}-${group.commodity || ''}-${m.mandi || ''}-${m.variety || ''}`,
               commodity: group.commodity || 'Unknown',
               state: m.state || '',
               district: m.district || '',
@@ -224,123 +179,235 @@ export default function MandiPricesTab() {
     fetchPrices();
   }, [fetchPrices]);
 
-  const filtered = prices.filter((p) => {
-    if (selectedCommodity !== 'All' && p.commodity.toLowerCase() !== selectedCommodity.toLowerCase()) return false;
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      return p.commodity.toLowerCase().includes(q) || p.mandi.toLowerCase().includes(q) || p.district.toLowerCase().includes(q);
-    }
-    return true;
-  });
+  // ── Filtering ──
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return prices.filter((p) => {
+      if (commodityFilter && p.commodity.toLowerCase() !== commodityFilter.toLowerCase()) return false;
+      if (q) {
+        return (
+          p.commodity.toLowerCase().includes(q) ||
+          p.mandi.toLowerCase().includes(q) ||
+          p.district.toLowerCase().includes(q) ||
+          p.variety.toLowerCase().includes(q)
+        );
+      }
+      return true;
+    });
+  }, [prices, search, commodityFilter]);
 
-  return (
-    <View style={[s.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="light-content" />
+  /* ─── Price Card ─── */
+  const renderPrice = ({ item, index }: { item: MandiPrice; index: number }) => {
+    const visual = getCommodityVisual(item.commodity);
+    const tc = TREND_STYLES[item.trend] || TREND_STYLES.stable;
+    const iconColors = ['#167B67', '#6666D8', '#C87A2E', '#2E7DC8'];
+    const iconBgs = ['#E6F3EE', '#EEF0FD', '#FFF3E6', '#E6F0FA'];
 
-      {/* ── Hero Header ── */}
-      <LinearGradient
-        colors={['#0A3A2A', '#135647', '#1A6B58']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={s.header}
-      >
-        <View style={s.headerTop}>
-          <View>
-            <Text style={s.headerEyebrow}>LIVE MARKET DATA</Text>
-            <Text style={s.headerTitle}>Mandi Prices</Text>
-            {(detectedCity || userState) && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
-                <Ionicons name="location" size={12} color="rgba(255,255,255,0.6)" />
-                <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', fontWeight: '600' }}>
-                  {detectedCity ? `${detectedCity}, ` : ''}{userState || ''}
-                </Text>
-              </View>
-            )}
-          </View>
-          {meta?.fetchedAt && (
-            <View style={s.liveBadge}>
-              <View style={s.liveDot} />
-              <Text style={s.liveText}>{formatTimeAgo(meta.fetchedAt)}</Text>
+    return (
+      <View style={s.card}>
+        <View style={s.cardTop}>
+          <View style={s.cardLeft}>
+            <View style={[s.cardIcon, { backgroundColor: iconBgs[index % 4] }]}>
+              {visual.imageUrl ? (
+                <Image
+                  source={{ uri: visual.imageUrl }}
+                  style={s.cardIconImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Ionicons name="leaf" size={18} color={iconColors[index % 4]} />
+              )}
             </View>
-          )}
+            <View style={s.cardMain}>
+              <Text style={s.cardCommodity} numberOfLines={1}>
+                {item.commodity}
+              </Text>
+              <Text style={s.cardMandi} numberOfLines={1}>
+                {item.mandi}{item.district ? `, ${item.district}` : ''}
+              </Text>
+            </View>
+          </View>
+
+          <View style={[s.trendChip, { backgroundColor: tc.soft, borderColor: tc.bg }]}>
+            <Ionicons name={tc.icon as any} size={12} color={tc.text} />
+            <Text style={[s.trendChipText, { color: tc.text }]} numberOfLines={1}>
+              {item.trend === 'up' ? 'UP' : item.trend === 'down' ? 'DOWN' : 'STABLE'}
+            </Text>
+          </View>
         </View>
 
-        {/* Search */}
-        <View style={s.searchBar}>
-          <Ionicons name="search" size={16} color={UI.muted} />
-          <TextInput
-            style={s.searchInput}
-            placeholder="Search commodity, mandi..."
-            placeholderTextColor={UI.subtle}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={18} color={UI.muted} />
-            </TouchableOpacity>
+        {/* Info Row */}
+        <View style={s.infoRow}>
+          {item.variety && item.variety !== '-' && (
+            <View style={s.infoPill}>
+              <Ionicons name="leaf-outline" size={13} color="#7B8693" />
+              <Text style={s.infoPillText} numberOfLines={1}>{item.variety}</Text>
+            </View>
           )}
+          <View style={s.infoPill}>
+            <Ionicons name="scale-outline" size={13} color="#7B8693" />
+            <Text style={s.infoPillText}>per {item.unit || 'Qtl'}</Text>
+          </View>
+        </View>
+
+        {/* Price Row */}
+        <View style={s.priceRow}>
+          <View style={s.priceMain}>
+            <Text style={s.priceLabel}>Modal</Text>
+            <Text style={s.priceValue}>₹{item.modalPrice?.toLocaleString('en-IN')}</Text>
+          </View>
+          <View style={s.priceRange}>
+            <Text style={s.priceRangeLabel}>Range</Text>
+            <Text style={s.priceRangeValue}>
+              ₹{item.minPrice?.toLocaleString('en-IN')} — ₹{item.maxPrice?.toLocaleString('en-IN')}
+            </Text>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  /* ─── List Header (Premium — matches Bookings) ─── */
+  const ListHeader = () => (
+    <View style={s.headerWrap}>
+      <LinearGradient
+        colors={['#FFFFFF', '#FBFCFA']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={[s.topShell, { paddingTop: insets.top + 8 }]}
+      >
+        <View style={s.topBar}>
+          <TouchableOpacity style={s.iconBtn} activeOpacity={0.84} onPress={hapticLight}>
+            <Ionicons name="menu" size={24} color="#062F27" />
+          </TouchableOpacity>
+
+          <View style={s.brandWrap}>
+            <Text style={s.brandText}>SheetKosh</Text>
+            <Text style={s.brandSub}>Market prices</Text>
+          </View>
+
+          <TouchableOpacity style={s.avatarRing} activeOpacity={0.86} onPress={hapticLight}>
+            <Image
+              source={{ uri: user?.avatarUrl || 'https://i.pravatar.cc/120?img=12' }}
+              style={s.avatar}
+            />
+          </TouchableOpacity>
         </View>
       </LinearGradient>
 
-      {/* ── Commodity Filters ── */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={s.filterBar}
-        contentContainerStyle={s.filterContent}
-      >
-        {COMMODITIES.map((c) => {
-          const isActive = selectedCommodity === c;
-          return (
-            <TouchableOpacity
-              key={c}
-              style={[s.filterPill, isActive && s.filterPillActive]}
-              onPress={() => { hapticSelection(); setSelectedCommodity(c); }}
-              activeOpacity={0.8}
-            >
-              <Text style={[s.filterPillText, isActive && s.filterPillTextActive]}>{c}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+      <View style={s.heroSection}>
+        <View style={s.heroBadge}>
+          <View style={s.heroBadgeDot} />
+          <Text style={s.heroBadgeText}>
+            {meta?.source === 'live' ? 'Live prices' : meta?.source === 'cached' ? 'Cached prices' : 'Market data'}
+            {meta?.fetchedAt ? ` · ${formatTimeAgo(meta.fetchedAt)}` : ''}
+          </Text>
+        </View>
 
-      {/* ── Price List ── */}
+        <Text style={s.pageTitle}>Mandi Prices</Text>
+
+        <View style={s.locationRow}>
+          <Ionicons name="location" size={14} color="#86908B" />
+          <Text style={s.locationText}>{locationLabel}</Text>
+        </View>
+
+        {/* Search */}
+        <View style={s.searchWrap}>
+          <View style={s.searchBox}>
+            <View style={s.searchIconWrap}>
+              <Ionicons name="search-outline" size={20} color="#7E848D" />
+            </View>
+            <TextInput
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Search commodity, mandi, district..."
+              placeholderTextColor="#8E949C"
+              style={s.searchInput}
+            />
+            {search.length > 0 && (
+              <TouchableOpacity onPress={() => setSearch('')} activeOpacity={0.82}>
+                <Ionicons name="close-circle" size={18} color="#A1A7AF" />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        {/* Commodity Filter Chips */}
+        <FlatList
+          data={COMMODITY_FILTERS}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(f) => f.key || 'all'}
+          contentContainerStyle={s.filterContent}
+          renderItem={({ item: f }) => {
+            const active = commodityFilter === f.key;
+            return (
+              <TouchableOpacity
+                style={[s.filterChip, active && s.filterChipActive]}
+                onPress={() => {
+                  setCommodityFilter(f.key);
+                  hapticSelection();
+                }}
+                activeOpacity={0.86}
+              >
+                <Text style={[s.filterChipText, active && s.filterChipTextActive]}>
+                  {f.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          }}
+        />
+      </View>
+    </View>
+  );
+
+  return (
+    <View style={s.screen}>
+      <StatusBar barStyle="dark-content" />
+
       {loading ? (
-        <View style={s.loadingWrap}>
-          <View style={s.loadingDot} />
-          <Text style={s.loadingText}>Fetching latest prices...</Text>
+        <View style={{ flex: 1 }}>
+          <ListHeader />
+          <View style={s.emptyWrap}>
+            <ActivityIndicator size="small" color="#0A4E40" />
+            <Text style={s.emptySubtitle}>Fetching latest prices...</Text>
+          </View>
         </View>
       ) : error ? (
-        <View style={s.emptyWrap}>
-          <Ionicons name="cloud-offline-outline" size={40} color={UI.subtle} />
-          <Text style={s.emptyTitle}>Failed to load prices</Text>
-          <TouchableOpacity style={s.retryBtn} onPress={fetchPrices}>
-            <Text style={s.retryBtnText}>Retry</Text>
-          </TouchableOpacity>
+        <View style={{ flex: 1 }}>
+          <ListHeader />
+          <View style={s.emptyWrap}>
+            <Ionicons name="cloud-offline-outline" size={36} color="#A0A8B4" />
+            <Text style={s.emptyTitle}>Failed to load prices</Text>
+            <TouchableOpacity style={s.retryBtn} onPress={fetchPrices} activeOpacity={0.85}>
+              <Text style={s.retryBtnText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       ) : (
         <FlatList
           data={filtered}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <PriceCard item={item} />}
+          renderItem={renderPrice}
+          ListHeaderComponent={ListHeader}
           contentContainerStyle={s.listContent}
-          showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={UI.forest} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0A4E40" />
           }
+          ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+          showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={s.emptyWrap}>
-              <Ionicons name="leaf-outline" size={40} color={UI.subtle} />
+              <Ionicons name="leaf-outline" size={36} color="#A0A8B4" />
               <Text style={s.emptyTitle}>No prices found</Text>
-              <Text style={s.emptySubtitle}>Try a different commodity or search</Text>
+              <Text style={s.emptySubtitle}>Try a different commodity or search term</Text>
             </View>
           }
           ListFooterComponent={
             <View style={{ height: 120 }}>
               {meta && (
                 <Text style={s.footerText}>
-                  {filtered.length} results • Source: {meta.source === 'live' ? 'Live API' : meta.source === 'cached' ? 'Cached' : 'Fallback'}
+                  {filtered.length} results · {meta.totalCommodities || 0} commodities · {meta.totalMandis || 0} mandis
                 </Text>
               )}
             </View>
@@ -351,225 +418,330 @@ export default function MandiPricesTab() {
   );
 }
 
-/* ─── Styles ─── */
+/* ═══════════════════════════════════════════ */
+/*               STYLES                        */
+/* ═══════════════════════════════════════════ */
 const s = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
-    backgroundColor: UI.canvas,
+    backgroundColor: '#F5F6F2',
   },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 20,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+
+  /* ── Top Bar (matches Bookings) ── */
+  headerWrap: {
+    marginBottom: 8,
   },
-  headerTop: {
+  topShell: {
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#ECEFE8',
+  },
+  topBar: {
+    paddingHorizontal: 18,
+    paddingBottom: 12,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 16,
+    alignItems: 'center',
   },
-  headerEyebrow: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.5)',
-    letterSpacing: 1.5,
-    marginBottom: 4,
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F2F4F0',
+    borderWidth: 1,
+    borderColor: '#E4E9E1',
   },
-  headerTitle: {
-    fontSize: 26,
+  brandWrap: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  brandText: {
+    fontSize: 22,
+    lineHeight: 26,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#062F27',
     letterSpacing: -0.5,
   },
-  liveBadge: {
+  brandSub: {
+    marginTop: 2,
+    fontSize: 11,
+    color: '#86908B',
+    fontWeight: '500',
+  },
+  avatarRing: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    padding: 2,
+    backgroundColor: '#D8B24A',
+    shadowColor: '#9E7B24',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  avatar: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+
+  /* ── Hero Section ── */
+  heroSection: {
+    paddingTop: 16,
+    paddingHorizontal: 18,
+    paddingBottom: 6,
+  },
+  heroBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: '#EAF4EF',
+    borderWidth: 1,
+    borderColor: '#DAEAE2',
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-    gap: 5,
+    marginBottom: 14,
   },
-  liveDot: {
-    width: 7,
-    height: 7,
+  heroBadgeDot: {
+    width: 8,
+    height: 8,
     borderRadius: 4,
-    backgroundColor: '#34D399',
+    backgroundColor: '#0B8A68',
+    marginRight: 8,
   },
-  liveText: {
+  heroBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.8)',
+    color: '#175A4B',
+    letterSpacing: 0.2,
   },
-  searchBar: {
+  pageTitle: {
+    fontSize: 32,
+    lineHeight: 36,
+    fontWeight: '900',
+    color: '#052F25',
+    letterSpacing: -1.2,
+  },
+  locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: Platform.OS === 'ios' ? 12 : 8,
-    gap: 8,
+    gap: 5,
+    marginTop: 6,
+  },
+  locationText: {
+    fontSize: 13,
+    color: '#86908B',
+    fontWeight: '600',
+  },
+
+  /* ── Search (matches Bookings) ── */
+  searchWrap: {
+    marginTop: 16,
+    marginBottom: 14,
+  },
+  searchBox: {
+    minHeight: 56,
+    borderRadius: 20,
+    backgroundColor: '#FCFCFA',
+    borderWidth: 1,
+    borderColor: '#DCE2DA',
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#203128',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.04,
+    shadowRadius: 14,
+    elevation: 2,
+  },
+  searchIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F2F4F1',
+    marginRight: 8,
   },
   searchInput: {
     flex: 1,
     fontSize: 14,
     fontWeight: '500',
-    color: UI.ink,
+    color: '#1A2A24',
+    paddingVertical: Platform.OS === 'ios' ? 16 : 12,
   },
-  filterBar: {
-    maxHeight: 52,
-    borderBottomWidth: 1,
-    borderBottomColor: UI.border,
-    backgroundColor: UI.surface,
-  },
+
+  /* ── Filter Chips (matches Bookings) ── */
   filterContent: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
     gap: 8,
+    paddingVertical: 4,
   },
-  filterPill: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: UI.surfaceAlt,
+  filterChip: {
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: UI.border,
+    borderColor: '#E0E5DD',
   },
-  filterPillActive: {
-    backgroundColor: UI.forest,
-    borderColor: UI.forest,
+  filterChipActive: {
+    backgroundColor: '#0A4E40',
+    borderColor: '#0A4E40',
   },
-  filterPillText: {
+  filterChipText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: UI.muted,
+    fontWeight: '700',
+    color: '#5D6962',
   },
-  filterPillTextActive: {
+  filterChipTextActive: {
     color: '#FFFFFF',
   },
+
+  /* ── List ── */
   listContent: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
     paddingBottom: 100,
   },
 
-  /* Card */
+  /* ── Card (matches Bookings card style) ── */
   card: {
-    flexDirection: 'row',
-    backgroundColor: UI.surface,
-    borderRadius: 16,
-    marginBottom: 10,
+    marginHorizontal: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
     borderWidth: 1,
-    borderColor: UI.border,
-    overflow: 'hidden',
-    shadowColor: '#173D31',
-    shadowOffset: { width: 0, height: 4 },
+    borderColor: '#E8ECE5',
+    shadowColor: '#203128',
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.04,
-    shadowRadius: 8,
+    shadowRadius: 12,
     elevation: 2,
   },
-  cardImageWrap: {
-    width: 80,
-    height: 100,
+  cardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  cardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 10,
+  },
+  cardIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
-  cardImage: {
-    width: 80,
-    height: 100,
+  cardIconImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
   },
-  cardBody: {
+  cardMain: {
     flex: 1,
-    padding: 12,
-    gap: 3,
-  },
-  cardTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
   },
   cardCommodity: {
     fontSize: 15,
     fontWeight: '800',
-    color: UI.ink,
-    flex: 1,
+    color: '#0B2520',
     letterSpacing: -0.3,
-  },
-  trendPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-    gap: 3,
-  },
-  trendText: {
-    fontSize: 11,
-    fontWeight: '700',
   },
   cardMandi: {
     fontSize: 12,
-    color: UI.muted,
     fontWeight: '500',
-  },
-  cardVariety: {
-    fontSize: 11,
-    color: UI.subtle,
-    fontWeight: '500',
-  },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 4,
-    marginTop: 4,
-  },
-  priceLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: UI.muted,
-  },
-  priceValue: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: UI.forest,
-    letterSpacing: -0.3,
-  },
-  priceUnit: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: UI.subtle,
-  },
-  priceRange: {
+    color: '#7B8693',
     marginTop: 2,
   },
-  priceRangeText: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: UI.subtle,
+  trendChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+    gap: 4,
+    marginLeft: 8,
+  },
+  trendChipText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
 
-  /* States */
-  loadingWrap: {
-    flex: 1,
+  /* ── Info Row ── */
+  infoRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+    flexWrap: 'wrap',
+  },
+  infoPill: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: '#F4F6F3',
+    borderRadius: 10,
   },
-  loadingDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: UI.forest,
-    opacity: 0.3,
-  },
-  loadingText: {
-    fontSize: 14,
+  infoPillText: {
+    fontSize: 12,
     fontWeight: '600',
-    color: UI.muted,
+    color: '#5D6962',
   },
+
+  /* ── Price Row ── */
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F2EE',
+  },
+  priceMain: {
+    gap: 2,
+  },
+  priceLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#86908B',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  priceValue: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#0A4E40',
+    letterSpacing: -0.5,
+  },
+  priceRange: {
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  priceRangeLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#86908B',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  priceRangeValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#5D6962',
+  },
+
+  /* ── Empty / Error States ── */
   emptyWrap: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -579,18 +751,18 @@ const s = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: UI.ink,
+    color: '#0B2520',
   },
   emptySubtitle: {
     fontSize: 13,
     fontWeight: '500',
-    color: UI.muted,
+    color: '#86908B',
   },
   retryBtn: {
     paddingHorizontal: 24,
     paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: UI.forest,
+    borderRadius: 14,
+    backgroundColor: '#0A4E40',
     marginTop: 8,
   },
   retryBtnText: {
@@ -602,7 +774,7 @@ const s = StyleSheet.create({
     textAlign: 'center',
     fontSize: 12,
     fontWeight: '500',
-    color: UI.subtle,
+    color: '#A0A8B4',
     marginTop: 16,
   },
 });

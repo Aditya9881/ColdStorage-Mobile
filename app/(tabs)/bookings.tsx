@@ -252,9 +252,9 @@ export default function BookingsTab() {
 
         <Text style={s.pageTitle}>My Bookings</Text>
 
-        <Text style={s.pageSubTitle}>
+        {/* <Text style={s.pageSubTitle}>
           Track booking progress, storage activity, and dispatch updates in one place.
-        </Text>
+        </Text> */}
 
         <View style={s.searchWrap}>
           <View style={s.searchBox}>
