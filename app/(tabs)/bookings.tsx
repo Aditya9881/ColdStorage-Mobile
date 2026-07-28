@@ -27,6 +27,7 @@ import {
   StatusBar,
   TextInput,
   Image,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -86,6 +87,47 @@ export default function BookingsTab() {
   const [hasMore, setHasMore] = useState(true);
   const [search, setSearch] = useState('');
   const hasTriggeredEndRef = useRef(false);
+
+  // ── Facility Picker State ──
+  const [showFacilityPicker, setShowFacilityPicker] = useState(false);
+  const [facilities, setFacilities] = useState<any[]>([]);
+  const [facilitiesLoading, setFacilitiesLoading] = useState(false);
+  const [facilitySearch, setFacilitySearch] = useState('');
+
+  const fetchFacilities = useCallback(async () => {
+    setFacilitiesLoading(true);
+    try {
+      const res = await api.get<any>('/discover/facilities?limit=50');
+      if (res.success && res.data) {
+        const facs = Array.isArray(res.data) ? res.data : res.data.facilities || [];
+        const active = facs.filter(
+          (f: any) => f.status === 'ACTIVE' || f.isVerified || f.verifiedAt
+        );
+        setFacilities(active);
+      }
+    } catch (err) {
+      console.error('Failed to fetch facilities:', err);
+    } finally {
+      setFacilitiesLoading(false);
+    }
+  }, []);
+
+  const openFacilityPicker = useCallback(() => {
+    hapticLight();
+    setShowFacilityPicker(true);
+    fetchFacilities();
+  }, [fetchFacilities]);
+
+  const filteredFacilities = useMemo(() => {
+    if (!facilitySearch.trim()) return facilities;
+    const q = facilitySearch.toLowerCase();
+    return facilities.filter(
+      (f) =>
+        f.name?.toLowerCase().includes(q) ||
+        f.city?.toLowerCase().includes(q) ||
+        f.state?.toLowerCase().includes(q)
+    );
+  }, [facilities, facilitySearch]);
 
   // ── Data ────────────────────────────────────────────────────────────────────
 
@@ -383,10 +425,7 @@ export default function BookingsTab() {
       <TouchableOpacity
         style={s.fab}
         activeOpacity={0.88}
-        onPress={() => {
-          hapticLight();
-          router.push('/discover' as any);
-        }}
+        onPress={openFacilityPicker}
       >
         <LinearGradient
           colors={['#0E6B5A', '#0A4E40']}
@@ -397,6 +436,116 @@ export default function BookingsTab() {
           <Ionicons name="add" size={28} color="#FFFFFF" />
         </LinearGradient>
       </TouchableOpacity>
+
+      {/* ── Facility Picker Modal ── */}
+      <Modal
+        visible={showFacilityPicker}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowFacilityPicker(false)}
+      >
+        <TouchableOpacity
+          style={s.pickerOverlay}
+          activeOpacity={1}
+          onPress={() => setShowFacilityPicker(false)}
+        >
+          <View style={s.pickerSheet}>
+            <View style={s.pickerHandle} />
+
+            <View style={s.pickerHeader}>
+              <View>
+                <Text style={s.pickerTitle}>Choose Cold Storage</Text>
+                <Text style={s.pickerSub}>Select a facility to book storage</Text>
+              </View>
+              <TouchableOpacity
+                style={s.pickerClose}
+                onPress={() => setShowFacilityPicker(false)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="close" size={20} color="#718079" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Search */}
+            <View style={s.pickerSearchWrap}>
+              <Ionicons name="search-outline" size={17} color="#8B939D" />
+              <TextInput
+                value={facilitySearch}
+                onChangeText={setFacilitySearch}
+                placeholder="Search by name, city..."
+                placeholderTextColor="#9FA8B2"
+                style={s.pickerSearchInput}
+              />
+              {facilitySearch.length > 0 && (
+                <TouchableOpacity onPress={() => setFacilitySearch('')}>
+                  <Ionicons name="close-circle" size={17} color="#B2BAC6" />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Facility List */}
+            {facilitiesLoading ? (
+              <View style={s.pickerCenter}>
+                <ActivityIndicator size="small" color="#0A4E40" />
+                <Text style={s.pickerCenterText}>Finding nearby storages...</Text>
+              </View>
+            ) : filteredFacilities.length === 0 ? (
+              <View style={s.pickerCenter}>
+                <Ionicons name="business-outline" size={32} color="#C4CBC7" />
+                <Text style={s.pickerCenterText}>No facilities found</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={filteredFacilities}
+                keyExtractor={(item) => item.id}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 20 }}
+                ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={s.facilityCard}
+                    activeOpacity={0.85}
+                    onPress={() => {
+                      hapticLight();
+                      setShowFacilityPicker(false);
+                      setFacilitySearch('');
+                      setTimeout(() => {
+                        router.push({
+                          pathname: '/book-storage',
+                          params: {
+                            facilityId: item.id,
+                            facilityName: item.name || 'Cold Storage',
+                          },
+                        } as any);
+                      }, 200);
+                    }}
+                  >
+                    <View style={s.facilityIcon}>
+                      <Ionicons name="snow-outline" size={20} color="#0E6B5A" />
+                    </View>
+                    <View style={s.facilityInfo}>
+                      <Text style={s.facilityName} numberOfLines={1}>
+                        {item.name || 'Cold Storage'}
+                      </Text>
+                      <Text style={s.facilityLocation} numberOfLines={1}>
+                        {[item.city, item.state].filter(Boolean).join(', ') || 'Location not set'}
+                      </Text>
+                      {item.totalCapacityMT != null && (
+                        <Text style={s.facilityCap}>
+                          {item.totalCapacityMT} MT capacity
+                        </Text>
+                      )}
+                    </View>
+                    <View style={s.facilityBook}>
+                      <Ionicons name="arrow-forward" size={16} color="#0A4E40" />
+                    </View>
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -772,5 +921,142 @@ const s = StyleSheet.create({
     borderRadius: 29,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+
+  /* ── Facility Picker Modal ── */
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  pickerSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    maxHeight: '75%',
+    paddingBottom: Platform.OS === 'ios' ? 34 : 16,
+  },
+  pickerHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#DDE2DD',
+    alignSelf: 'center',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F2EE',
+  },
+  pickerTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0B2520',
+    letterSpacing: -0.3,
+  },
+  pickerSub: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#86908B',
+    marginTop: 2,
+  },
+  pickerClose: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F2F4F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pickerSearchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginVertical: 12,
+    paddingHorizontal: 14,
+    backgroundColor: '#F6F8F5',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E4E9E1',
+    minHeight: 44,
+    gap: 8,
+  },
+  pickerSearchInput: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1A2A24',
+    paddingVertical: Platform.OS === 'ios' ? 12 : 8,
+  },
+  pickerCenter: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 50,
+    gap: 10,
+  },
+  pickerCenterText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#86908B',
+  },
+  facilityCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    padding: 14,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E8ECE5',
+    shadowColor: '#203128',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 1,
+  },
+  facilityIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#E6F3EE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  facilityInfo: {
+    flex: 1,
+  },
+  facilityName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0B2520',
+    letterSpacing: -0.2,
+  },
+  facilityLocation: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#7B8693',
+    marginTop: 2,
+  },
+  facilityCap: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#0E6B5A',
+    marginTop: 3,
+  },
+  facilityBook: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: '#E8F3EE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
   },
 });
