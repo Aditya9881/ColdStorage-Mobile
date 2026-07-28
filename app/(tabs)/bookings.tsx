@@ -385,7 +385,7 @@ export default function BookingsTab() {
         activeOpacity={0.88}
         onPress={() => {
           hapticLight();
-          router.push('/book-storage' as any);
+          router.push('/discover' as any);
         }}
       >
         <LinearGradient
