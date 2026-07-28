@@ -26,6 +26,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -197,32 +198,35 @@ export default function MandiPricesTab() {
   const renderPrice = ({ item, index }: { item: MandiPrice; index: number }) => {
     const visual = getCommodityVisual(item.commodity);
     const trend = TREND_STYLES[item.trend] || TREND_STYLES.stable;
-    const iconBg = ICON_BACKGROUNDS[index % ICON_BACKGROUNDS.length];
-    const iconColor = ICON_COLORS[index % ICON_COLORS.length];
 
     return (
-      <TouchableOpacity style={s.card} activeOpacity={0.88}>
-        <View style={s.cardTop}>
-          <View style={s.cardLeft}>
-            <View style={[s.iconBox, { backgroundColor: iconBg }]}>
-              {visual?.imageUrl ? (
-                <Image source={{ uri: visual.imageUrl }} style={s.iconImage} resizeMode="cover" />
-              ) : (
-                <Ionicons name="leaf-outline" size={17} color={iconColor} />
-              )}
-            </View>
+      <View style={s.card}>
+        {/* ── Top: Image + Title + Trend ── */}
+        <View style={s.cardHeader}>
+          <View style={s.cardImageWrap}>
+            {visual?.imageUrl ? (
+              <Image source={{ uri: visual.imageUrl }} style={s.cardImage} resizeMode="cover" />
+            ) : (
+              <LinearGradient
+                colors={['#E6F3EE', '#D4EBE2']}
+                style={s.cardImagePlaceholder}
+              >
+                <Ionicons name="leaf" size={22} color="#0E6B5A" />
+              </LinearGradient>
+            )}
+          </View>
 
-            <View style={s.cardTextWrap}>
-              <Text style={s.commodityName} numberOfLines={1}>
-                {item.commodity}
-              </Text>
+          <View style={s.cardTitleArea}>
+            <Text style={s.commodityName} numberOfLines={1}>{item.commodity}</Text>
+            <View style={s.mandiRow}>
+              <Ionicons name="location-outline" size={12} color="#9CA3AF" />
               <Text style={s.mandiName} numberOfLines={1}>
                 {item.mandi}{item.district ? `, ${item.district}` : ''}
               </Text>
             </View>
           </View>
 
-          <View style={[s.trendBadge, { backgroundColor: trend.bg, borderColor: trend.border }]}>
+          <View style={[s.trendChip, { backgroundColor: trend.bg, borderColor: trend.border }]}>
             <Ionicons name={trend.icon as any} size={11} color={trend.text} />
             <Text style={[s.trendText, { color: trend.text }]}>
               {item.trend === 'up' ? 'UP' : item.trend === 'down' ? 'DOWN' : 'STABLE'}
@@ -230,36 +234,48 @@ export default function MandiPricesTab() {
           </View>
         </View>
 
-        <View style={s.cardDivider} />
-
-        <View style={s.pillsRow}>
-          {item.variety && item.variety !== '-' ? (
-            <View style={s.pill}>
-              <Ionicons name="leaf-outline" size={12} color="#6C7882" />
-              <Text style={s.pillText} numberOfLines={1}>{item.variety}</Text>
+        {/* ── Tags: Variety + Unit ── */}
+        <View style={s.tagsRow}>
+          {item.variety && item.variety !== '-' && (
+            <View style={s.tag}>
+              <Ionicons name="pricetag-outline" size={11} color="#6B7280" />
+              <Text style={s.tagText}>{item.variety}</Text>
             </View>
-          ) : null}
-
-          <View style={s.pill}>
-            <Ionicons name="scale-outline" size={12} color="#6C7882" />
-            <Text style={s.pillText}>per {item.unit || 'Qtl'}</Text>
+          )}
+          <View style={s.tag}>
+            <Ionicons name="cube-outline" size={11} color="#6B7280" />
+            <Text style={s.tagText}>per {item.unit || 'Qtl'}</Text>
           </View>
-        </View>
-
-        <View style={s.priceRow}>
-          <View>
-            <Text style={s.priceLabel}>Modal Price</Text>
-            <Text style={s.modalPrice}>₹{item.modalPrice?.toLocaleString('en-IN') || '0'}</Text>
-          </View>
-
-          <View style={s.rangeBox}>
-            <Text style={s.priceLabel}>Range</Text>
-            <Text style={s.rangeText}>
-              ₹{item.minPrice?.toLocaleString('en-IN') || '0'} — ₹{item.maxPrice?.toLocaleString('en-IN') || '0'}
+          <View style={s.tag}>
+            <Ionicons name="calendar-outline" size={11} color="#6B7280" />
+            <Text style={s.tagText}>
+              {new Date(item.arrivalDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
             </Text>
           </View>
         </View>
-      </TouchableOpacity>
+
+        {/* ── Price Banner ── */}
+        <LinearGradient
+          colors={['#F0FAF5', '#E8F5EE']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={s.priceBanner}
+        >
+          <View style={s.priceMain}>
+            <Text style={s.priceLabel}>MODAL PRICE</Text>
+            <Text style={s.modalPrice}>₹{item.modalPrice?.toLocaleString('en-IN') || '0'}</Text>
+          </View>
+
+          <View style={s.priceDivider} />
+
+          <View style={s.priceRange}>
+            <Text style={s.priceLabel}>RANGE</Text>
+            <Text style={s.rangeText}>
+              ₹{item.minPrice?.toLocaleString('en-IN')} – ₹{item.maxPrice?.toLocaleString('en-IN')}
+            </Text>
+          </View>
+        </LinearGradient>
+      </View>
     );
   };
 
@@ -612,151 +628,165 @@ const s = StyleSheet.create({
     flexGrow: 1,
   },
 
+  /* ── Card ── */
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    paddingHorizontal: 13,
-    paddingTop: 13,
-    paddingBottom: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#E5E9E2',
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E8ECE5',
     shadowColor: '#182D20',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
+    elevation: 3,
   },
 
-  cardTop: {
+  cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 11,
+    padding: 14,
+    paddingBottom: 10,
   },
 
-  cardLeft: {
-    flexDirection: 'row',
+  cardImageWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: '#F0F2EE',
+  },
+
+  cardImage: {
+    width: 52,
+    height: 52,
+  },
+
+  cardImagePlaceholder: {
+    width: 52,
+    height: 52,
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  cardTitleArea: {
     flex: 1,
     marginRight: 8,
   },
 
-  iconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-    overflow: 'hidden',
-  },
-
-  iconImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-  },
-
-  cardTextWrap: {
-    flex: 1,
-  },
-
   commodityName: {
-    fontSize: 13.5,
+    fontSize: 16,
     fontWeight: '800',
-    color: '#17202C',
-    letterSpacing: -0.1,
-    lineHeight: 18,
+    color: '#0B2520',
+    letterSpacing: -0.3,
+  },
+
+  mandiRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    marginTop: 3,
   },
 
   mandiName: {
-    fontSize: 11.5,
+    fontSize: 12,
     fontWeight: '500',
-    color: '#98A2AE',
-    marginTop: 2,
+    color: '#9CA3AF',
+    flex: 1,
   },
 
-  trendBadge: {
+  trendChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     paddingVertical: 5,
-    paddingHorizontal: 8,
-    borderRadius: 9,
+    paddingHorizontal: 10,
+    borderRadius: 20,
     borderWidth: 1,
     flexShrink: 0,
-    maxWidth: 108,
   },
 
   trendText: {
     fontSize: 9,
     fontWeight: '800',
     textTransform: 'uppercase',
-    letterSpacing: 0.55,
+    letterSpacing: 0.6,
   },
 
-  cardDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: '#EEF1EB',
-    marginBottom: 10,
-  },
-
-  pillsRow: {
+  /* ── Tags ── */
+  tagsRow: {
     flexDirection: 'row',
     gap: 6,
-    marginBottom: 10,
+    paddingHorizontal: 14,
+    paddingBottom: 10,
     flexWrap: 'wrap',
   },
 
-  pill: {
+  tag: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingVertical: 5,
+    gap: 4,
+    paddingVertical: 4,
     paddingHorizontal: 10,
-    borderRadius: 9,
-    backgroundColor: '#F3F5F1',
+    borderRadius: 8,
+    backgroundColor: '#F5F7F3',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#E4E8E0',
   },
 
-  pillText: {
-    fontSize: 11.5,
+  tagText: {
+    fontSize: 11,
     fontWeight: '600',
-    color: '#636E7A',
+    color: '#5D6962',
   },
 
-  priceRow: {
+  /* ── Price Banner ── */
+  priceBanner: {
     flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E8ECE5',
+  },
+
+  priceMain: {
+    flex: 1,
+  },
+
+  priceDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: '#D0E8DC',
+    marginHorizontal: 16,
+  },
+
+  priceRange: {
+    flex: 1,
     alignItems: 'flex-end',
-    justifyContent: 'space-between',
   },
 
   priceLabel: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
-    color: '#A0A8B3',
-    letterSpacing: 0.45,
-    textTransform: 'uppercase',
+    color: '#86908B',
+    letterSpacing: 0.8,
     marginBottom: 2,
   },
 
   modalPrice: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '900',
     color: '#0A4E40',
-    letterSpacing: -0.4,
-  },
-
-  rangeBox: {
-    alignItems: 'flex-end',
-    marginLeft: 12,
-    flexShrink: 1,
+    letterSpacing: -0.5,
   },
 
   rangeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#5F6B77',
-    textAlign: 'right',
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#4A5E55',
   },
 
   centerState: {
