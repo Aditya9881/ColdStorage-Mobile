@@ -976,9 +976,17 @@ export default function HomeScreen() {
               activeOpacity={0.85}
               onPress={() => handleNavigation('/market-prices')}
             >
-              {/* Commodity Emoji Header */}
+              {/* Commodity Image Header */}
               <View style={[styles.commodityImageArea, { backgroundColor: visual.bg }]}>
-                <Text style={styles.commodityEmoji}>{visual.emoji}</Text>
+                {visual.imageUrl ? (
+                  <Image
+                    source={{ uri: visual.imageUrl }}
+                    style={styles.commodityPhoto}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Text style={styles.commodityEmoji}>{visual.emoji}</Text>
+                )}
                 <View
                   style={[
                     styles.trendBadgeOverlay,
@@ -1954,6 +1962,16 @@ commodityImageArea: {
   alignItems: 'center',
   justifyContent: 'center',
   position: 'relative',
+  overflow: 'hidden',
+  borderTopLeftRadius: 14,
+  borderTopRightRadius: 14,
+},
+
+commodityPhoto: {
+  width: '100%',
+  height: '100%',
+  borderTopLeftRadius: 14,
+  borderTopRightRadius: 14,
 },
 
 commodityEmoji: {
