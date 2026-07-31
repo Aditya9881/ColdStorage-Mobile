@@ -154,8 +154,27 @@ export default function BookingDetailScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchBooking(); }} tintColor="#2D6A4F" />}
       >
-        {/* ─── QR Code Section ─── */}
-        {booking.qrCodeData && !isTerminal && (
+        {/* ─── Pending Approval Card (shown before owner confirms) ─── */}
+        {booking.status === 'PENDING' && (
+          <View style={styles.pendingCard}>
+            <View style={styles.pendingIconWrap}>
+              <Ionicons name="hourglass-outline" size={36} color="#F59E0B" />
+            </View>
+            <Text style={styles.pendingTitle}>Awaiting Owner Approval</Text>
+            <Text style={styles.pendingDesc}>
+              Your booking request has been sent to{' '}
+              <Text style={{ fontWeight: '700' }}>{booking.facility?.name || 'the facility'}</Text>.
+              {'\n\n'}Your booking QR code and confirmation will appear here once the cold storage owner approves your request.
+            </Text>
+            <View style={styles.pendingBadge}>
+              <View style={[styles.statusDot, { backgroundColor: '#F59E0B' }]} />
+              <Text style={styles.pendingBadgeText}>PENDING APPROVAL</Text>
+            </View>
+          </View>
+        )}
+
+        {/* ─── QR Code Section (shown only AFTER owner confirmation) ─── */}
+        {booking.qrCodeData && booking.status !== 'PENDING' && !isTerminal && (
           <View style={styles.qrCard}>
             <Text style={styles.qrTitle}>Show this at the facility</Text>
             <View style={styles.qrBox}>
@@ -393,6 +412,33 @@ const styles = StyleSheet.create({
   shareBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
 
   scrollContent: { padding: 20 },
+
+  // Pending Approval Card
+  pendingCard: {
+    backgroundColor: '#FFFBEB', borderRadius: 18, padding: 24, alignItems: 'center',
+    marginBottom: 16, borderWidth: 1.5, borderColor: '#FDE68A',
+    shadowColor: '#F59E0B', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08, shadowRadius: 8, elevation: 2,
+  },
+  pendingIconWrap: {
+    width: 64, height: 64, borderRadius: 32,
+    backgroundColor: '#FEF3C7', alignItems: 'center', justifyContent: 'center',
+    marginBottom: 12,
+  },
+  pendingTitle: {
+    fontSize: 16, fontWeight: '700', color: '#92400E', marginBottom: 8, textAlign: 'center',
+  },
+  pendingDesc: {
+    fontSize: 13, color: '#78716C', lineHeight: 20, textAlign: 'center', paddingHorizontal: 8,
+  },
+  pendingBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 14,
+    paddingVertical: 6, paddingHorizontal: 14,
+    backgroundColor: '#FEF3C7', borderRadius: 20, borderWidth: 1, borderColor: '#FDE68A',
+  },
+  pendingBadgeText: {
+    fontSize: 11, fontWeight: '700', color: '#B45309', letterSpacing: 0.8,
+  },
 
   // QR Card
   qrCard: {

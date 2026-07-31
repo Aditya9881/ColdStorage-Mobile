@@ -175,8 +175,8 @@ export default function BookStorageScreen() {
       if (res.success && res.data) {
         hapticSuccess();
         Alert.alert(
-          'Booking Created!',
-          `Your booking #${res.data.bookingNumber} has been submitted. You'll receive confirmation shortly.`,
+          'Booking Request Sent!',
+          `Your booking request has been submitted to the cold storage. You'll be notified once the owner approves your booking.`,
           [
             {
               text: 'View Booking',
