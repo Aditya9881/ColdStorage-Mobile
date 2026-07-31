@@ -942,7 +942,7 @@ export default function HomeScreen() {
 
         <TouchableOpacity
           style={styles.mandiSeeAllButton}
-          onPress={() => handleNavigation('/market-prices')}
+          onPress={() => handleNavigation('/(tabs)/mandi-prices')}
           activeOpacity={0.82}
         >
           <Text style={styles.mandiSeeAllText}>See all</Text>
@@ -974,7 +974,7 @@ export default function HomeScreen() {
             <TouchableOpacity
               style={styles.premiumTickerCard}
               activeOpacity={0.85}
-              onPress={() => handleNavigation('/market-prices')}
+              onPress={() => handleNavigation('/(tabs)/mandi-prices')}
             >
               {/* Commodity Image Header */}
               <View style={[styles.commodityImageArea, { backgroundColor: visual.bg }]}>
