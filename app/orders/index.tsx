@@ -15,15 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, Stack } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '@/lib/api-client';
-import {
-  Colors,
-  Spacing,
-  BorderRadius,
-  FontSize,
-  FontWeight,
-  FontFamily,
-} from '@/constants/Colors';
-import { useColorScheme } from 'react-native';
+import SubPageHeader from '@/components/SubPageHeader';
 
 const STATUS_MAP: Record<
   string,
@@ -72,8 +64,6 @@ const FILTERS = ['All', 'Pending', 'Approved', 'Dispatched', 'Completed', 'Rejec
 export default function OrdersScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const colorScheme = (useColorScheme() ?? 'light') as 'light' | 'dark';
-  const colors = Colors[colorScheme];
 
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -198,45 +188,34 @@ export default function OrdersScreen() {
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <LinearGradient
-        colors={['#0D2F2A', '#14532D', '#185B4A']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}
-      >
-        <View style={styles.headerGlowA} />
-        <View style={{ height: insets.top + 8 }} />
+      <SubPageHeader
+        title="Orders"
+        subtitle="Track approvals, dispatches, and completed sales"
+      />
 
-        <View style={styles.headerRow}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={20} color="#FFF" />
-          </TouchableOpacity>
-
-          <View style={{ flex: 1 }}>
-            <Text style={styles.headerTitle}>Orders</Text>
-            <Text style={styles.headerSub}>
-              Track approvals, dispatches, and completed sales
-            </Text>
+      <View style={styles.statsRow}>
+        <LinearGradient
+          colors={['#0D2F2A', '#14532D', '#1A6B52']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.statsCard}
+        >
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{stats.total}</Text>
+            <Text style={styles.statLabel}>Total</Text>
           </View>
-        </View>
-
-        <View style={styles.summaryRow}>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryValue}>{stats.total}</Text>
-            <Text style={styles.summaryLabel}>Total</Text>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{stats.pending}</Text>
+            <Text style={styles.statLabel}>Pending</Text>
           </View>
-
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryValue}>{stats.pending}</Text>
-            <Text style={styles.summaryLabel}>Pending</Text>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{stats.completed}</Text>
+            <Text style={styles.statLabel}>Completed</Text>
           </View>
-
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryValue}>{stats.completed}</Text>
-            <Text style={styles.summaryLabel}>Completed</Text>
-          </View>
-        </View>
-      </LinearGradient>
+        </LinearGradient>
+      </View>
 
       <View style={styles.filtersWrap}>
         <ScrollView
@@ -297,11 +276,10 @@ export default function OrdersScreen() {
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F6F3',
+    backgroundColor: '#F5F7F4',
   },
 
   center: {
@@ -310,113 +288,79 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  header: {
-    paddingHorizontal: 20,
-    paddingBottom: 18,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
-    overflow: 'hidden',
+  statsRow: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
   },
 
-  headerGlowA: {
-    position: 'absolute',
-    width: 220,
-    height: 220,
-    borderRadius: 220,
-    right: -70,
-    top: -30,
-    backgroundColor: 'rgba(34,197,94,0.10)',
-  },
-
-  headerRow: {
+  statsCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 16,
+    borderRadius: 18,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
   },
 
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 13,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
+  statItem: {
+    flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
   },
 
-  headerTitle: {
-    fontSize: 26,
+  statValue: {
+    fontSize: 20,
     color: '#FFF',
     fontWeight: '800',
-    fontFamily: FontFamily.extrabold,
     letterSpacing: -0.3,
   },
 
-  headerSub: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.72)',
+  statLabel: {
     marginTop: 3,
-    fontFamily: FontFamily.medium,
+    fontSize: 10,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.55)',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
   },
 
-  summaryRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-
-  summaryCard: {
-    flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.10)',
-    borderRadius: 18,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  summaryValue: {
-    fontSize: 22,
-    color: '#FFF',
-    fontWeight: '800',
-    fontFamily: FontFamily.extrabold,
-  },
-
-  summaryLabel: {
-    marginTop: 4,
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.70)',
-    fontFamily: FontFamily.medium,
+  statDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: 'rgba(255,255,255,0.12)',
   },
 
   filtersWrap: {
-    paddingTop: 12,
+    paddingTop: 14,
   },
 
   filterChips: {
     paddingHorizontal: 16,
+    paddingRight: 32,
     gap: 8,
   },
 
   filterChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 14,
-    backgroundColor: '#E7ECE7',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#D9E0D7',
+    borderColor: '#E2E9E3',
   },
 
   filterChipActive: {
     backgroundColor: '#14532D',
     borderColor: '#14532D',
+    shadowColor: '#14532D',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 3,
   },
 
   filterChipText: {
-    fontSize: 12,
-    color: '#627082',
+    fontSize: 13,
+    color: '#6B7A72',
     fontWeight: '600',
-    fontFamily: FontFamily.semibold,
   },
 
   filterChipTextActive: {
@@ -424,15 +368,15 @@ const styles = StyleSheet.create({
   },
 
   countRow: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
+    paddingHorizontal: 16,
+    paddingTop: 12,
     paddingBottom: 6,
   },
 
   countText: {
-    fontSize: 11,
-    color: '#7C8A9F',
-    fontFamily: FontFamily.medium,
+    fontSize: 12,
+    color: '#86908B',
+    fontWeight: '500',
   },
 
   list: {
@@ -441,17 +385,17 @@ const styles = StyleSheet.create({
   },
 
   card: {
-    backgroundColor: '#FFFEFC',
-    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E8E5DD',
+    borderColor: '#E2E9E3',
     padding: 16,
-    marginBottom: 14,
-    shadowColor: '#172B22',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    elevation: 4,
+    marginBottom: 12,
+    shadowColor: '#163C2D',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
   },
 
   cardTop: {
@@ -461,18 +405,16 @@ const styles = StyleSheet.create({
   },
 
   commodity: {
-    fontSize: 18,
-    color: '#171A2B',
+    fontSize: 17,
+    color: '#0B2520',
     fontWeight: '800',
-    fontFamily: FontFamily.extrabold,
     letterSpacing: -0.2,
   },
 
   meta: {
     fontSize: 12,
-    color: '#8C96A6',
-    marginTop: 4,
-    fontFamily: FontFamily.regular,
+    color: '#86908B',
+    marginTop: 3,
   },
 
   badge: {
@@ -480,45 +422,47 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingVertical: 6,
     borderRadius: 999,
   },
 
   badgeText: {
     fontSize: 11,
     fontWeight: '700',
-    fontFamily: FontFamily.semibold,
   },
 
   amountPanel: {
-    backgroundColor: '#F6F3EA',
-    borderRadius: 18,
-    padding: 16,
+    backgroundColor: '#F0F7F4',
+    borderRadius: 14,
+    padding: 14,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E0EDE6',
   },
 
   amountLabel: {
     fontSize: 11,
-    color: '#8C96A6',
-    fontFamily: FontFamily.medium,
+    color: '#86908B',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
 
   price: {
     marginTop: 4,
-    fontSize: 30,
-    lineHeight: 36,
+    fontSize: 28,
+    lineHeight: 34,
     color: '#14532D',
     fontWeight: '800',
-    fontFamily: FontFamily.extrabold,
     letterSpacing: -0.4,
     fontVariant: ['tabular-nums'] as any,
   },
 
   priceDetail: {
-    marginTop: 4,
+    marginTop: 3,
     fontSize: 12,
-    color: '#7C8A9F',
-    fontFamily: FontFamily.medium,
+    color: '#6B7A72',
+    fontWeight: '500',
   },
 
   infoRow: {
@@ -531,16 +475,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#F3F5F3',
+    backgroundColor: '#F2F5F0',
     borderRadius: 999,
     paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: '#E4E9E1',
   },
 
   infoPillText: {
-    fontSize: 11,
-    color: '#7C8A9F',
-    fontFamily: FontFamily.medium,
+    fontSize: 11.5,
+    color: '#6B7A72',
+    fontWeight: '500',
   },
 
   emptyState: {
@@ -550,28 +496,26 @@ const styles = StyleSheet.create({
   },
 
   emptyIconWrap: {
-    width: 74,
-    height: 74,
-    borderRadius: 24,
-    backgroundColor: '#E9EEEA',
+    width: 72,
+    height: 72,
+    borderRadius: 22,
+    backgroundColor: '#E8F5EE',
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   emptyTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#0B2520',
     marginTop: 18,
-    fontFamily: FontFamily.bold,
   },
 
   emptyText: {
-    fontSize: 14,
-    color: '#8C96A6',
-    marginTop: 10,
+    fontSize: 13,
+    color: '#86908B',
+    marginTop: 8,
     textAlign: 'center',
-    lineHeight: 21,
-    fontFamily: FontFamily.regular,
+    lineHeight: 20,
   },
 });

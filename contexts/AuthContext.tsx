@@ -33,6 +33,7 @@ export interface ProfileUpdateData {
   city?: string;
   state?: string;
   pincode?: string;
+  avatarUrl?: string | null;
 }
 
 interface AuthContextType extends AuthState {

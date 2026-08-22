@@ -31,6 +31,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { storage } from '@/lib/storage';
 import { hapticLight } from '@/lib/haptics';
 import Constants from 'expo-constants';
+import { DetailUI } from '@/components/DetailScreenCard';
+import { SectionHeader, PremiumRow, PremiumToggle, DangerAction } from '@/components/SettingsRows';
 
 type Language = 'en' | 'hi';
 
@@ -43,18 +45,18 @@ interface NotifPrefs {
 
 const UI = {
   light: {
-    bg: '#F5F6F2',
-    surface: '#FFFFFF',
-    surfaceSoft: '#F8FAF7',
-    border: '#DCE3DC',
-    borderSoft: '#E7ECE7',
-    text: '#15221C',
-    textMuted: '#6E7C76',
-    textSoft: '#99A39E',
-    forest: '#032F25',
+    bg: DetailUI.canvas,
+    surface: DetailUI.surface,
+    surfaceSoft: '#FBFCFA',
+    border: DetailUI.border,
+    borderSoft: DetailUI.borderSoft,
+    text: DetailUI.ink,
+    textMuted: DetailUI.muted,
+    textSoft: DetailUI.subtle,
+    forest: DetailUI.primaryDark,
     forestDeep: '#02261E',
-    forestMid: '#0A5A4B',
-    mintBg: '#E8F2EA',
+    forestMid: DetailUI.primaryMid,
+    mintBg: '#E8F3EE',
     teal: '#0D7A72',
     tealSoft: '#E8F7F5',
     emerald: '#2F8E65',
@@ -63,12 +65,12 @@ const UI = {
     blueSoft: '#EAF6FB',
     purple: '#7A63BE',
     purpleSoft: '#F2EEFF',
-    gold: '#B98A2E',
-    goldSoft: '#F8F0DA',
+    gold: '#D8B24A',
+    goldSoft: '#FFF7E5',
     orange: '#C47A22',
     orangeSoft: '#FFF1E3',
-    red: '#B93333',
-    redSoft: '#F7DEDA',
+    red: DetailUI.danger,
+    redSoft: DetailUI.dangerSoft,
     white: '#FFFFFF',
   },
   dark: {
@@ -740,26 +742,6 @@ function HeroStat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function SectionHeader({
-  eyebrow,
-  title,
-  subtitle,
-  theme,
-}: {
-  eyebrow: string;
-  title: string;
-  subtitle: string;
-  theme: any;
-}) {
-  return (
-    <View style={styles.sectionHeaderWrap}>
-      <Text style={[styles.sectionEyebrow, { color: theme.teal }]}>{eyebrow}</Text>
-      <Text style={[styles.sectionTitle, { color: theme.text }]}>{title}</Text>
-      <Text style={[styles.sectionSubtitle, { color: theme.textMuted }]}>{subtitle}</Text>
-    </View>
-  );
-}
-
 function LanguageCard({
   flag,
   title,
@@ -807,154 +789,6 @@ function LanguageCard({
       ) : (
         <Ionicons name="ellipse-outline" size={22} color={theme.textSoft} />
       )}
-    </TouchableOpacity>
-  );
-}
-
-function PremiumToggle({
-  icon,
-  iconColor,
-  iconBg,
-  label,
-  subtitle,
-  value,
-  onToggle,
-  theme,
-  first,
-  last,
-}: {
-  icon: React.ComponentProps<typeof Ionicons>['name'];
-  iconColor: string;
-  iconBg: string;
-  label: string;
-  subtitle: string;
-  value: boolean;
-  onToggle: () => void;
-  theme: any;
-  first?: boolean;
-  last?: boolean;
-}) {
-  return (
-    <View
-      style={[
-        styles.rowBase,
-        !last && { borderBottomWidth: 1, borderBottomColor: theme.borderSoft },
-        first && { marginTop: 2 },
-      ]}
-    >
-      <View style={[styles.rowIconWrap, { backgroundColor: iconBg }]}>
-        <Ionicons name={icon} size={20} color={iconColor} />
-      </View>
-
-      <View style={styles.rowTextWrap}>
-        <Text style={[styles.rowTitle, { color: theme.text }]}>{label}</Text>
-        <Text style={[styles.rowSubtitle, { color: theme.textMuted }]}>{subtitle}</Text>
-      </View>
-
-      <Switch
-        value={value}
-        onValueChange={onToggle}
-        trackColor={{ false: theme.border, true: `${theme.teal}77` }}
-        thumbColor={value ? theme.white : '#F4F3F4'}
-        ios_backgroundColor={theme.border}
-      />
-    </View>
-  );
-}
-
-function PremiumRow({
-  icon,
-  iconColor,
-  iconBg,
-  label,
-  subtitle,
-  value,
-  onPress,
-  theme,
-  showArrow,
-  first,
-  last,
-}: {
-  icon: React.ComponentProps<typeof Ionicons>['name'];
-  iconColor: string;
-  iconBg: string;
-  label: string;
-  subtitle: string;
-  value?: string;
-  onPress?: () => void;
-  theme: any;
-  showArrow?: boolean;
-  first?: boolean;
-  last?: boolean;
-}) {
-  const Wrapper = onPress ? TouchableOpacity : View;
-
-  return (
-    <Wrapper
-      style={[
-        styles.rowBase,
-        !last && { borderBottomWidth: 1, borderBottomColor: theme.borderSoft },
-        first && { marginTop: 2 },
-      ]}
-      onPress={onPress}
-      activeOpacity={0.84}
-    >
-      <View style={[styles.rowIconWrap, { backgroundColor: iconBg }]}>
-        <Ionicons name={icon} size={20} color={iconColor} />
-      </View>
-
-      <View style={styles.rowTextWrap}>
-        <Text style={[styles.rowTitle, { color: theme.text }]}>{label}</Text>
-        <Text style={[styles.rowSubtitle, { color: theme.textMuted }]}>{subtitle}</Text>
-      </View>
-
-      {value ? <Text style={[styles.rowValue, { color: theme.textMuted }]}>{value}</Text> : null}
-      {showArrow ? <Ionicons name="chevron-forward" size={18} color={theme.textSoft} /> : null}
-    </Wrapper>
-  );
-}
-
-function DangerAction({
-  icon,
-  label,
-  subtitle,
-  color,
-  bg,
-  onPress,
-  theme,
-  first,
-  last,
-}: {
-  icon: React.ComponentProps<typeof Ionicons>['name'];
-  label: string;
-  subtitle: string;
-  color: string;
-  bg: string;
-  onPress: () => void;
-  theme: any;
-  first?: boolean;
-  last?: boolean;
-}) {
-  return (
-    <TouchableOpacity
-      style={[
-        styles.rowBase,
-        !last && { borderBottomWidth: 1, borderBottomColor: theme.borderSoft },
-        first && { marginTop: 2 },
-      ]}
-      activeOpacity={0.84}
-      onPress={onPress}
-    >
-      <View style={[styles.rowIconWrap, { backgroundColor: bg }]}>
-        <Ionicons name={icon} size={20} color={color} />
-      </View>
-
-      <View style={styles.rowTextWrap}>
-        <Text style={[styles.rowTitle, { color }]}>{label}</Text>
-        <Text style={[styles.rowSubtitle, { color: theme.textMuted }]}>{subtitle}</Text>
-      </View>
-
-      <Ionicons name="chevron-forward" size={18} color={theme.textSoft} />
     </TouchableOpacity>
   );
 }

@@ -372,7 +372,7 @@ export default function BookingsTab() {
         <TouchableOpacity
           style={s.emptyAction}
           onPress={() => {
-            router.push('/(tabs)/discover');
+            router.push('/discover');
             hapticLight();
           }}
           activeOpacity={0.84}
@@ -1032,7 +1032,7 @@ const s = StyleSheet.create({
   facilityInfo: {
     flex: 1,
   },
-  facilityName: {
+  facilityNameAlt: {
     fontSize: 15,
     fontWeight: '700',
     color: '#0B2520',

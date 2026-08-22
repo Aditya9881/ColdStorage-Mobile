@@ -12,7 +12,7 @@ import { enqueue, generateIdempotencyKey } from './offline-queue';
 //   e.g. EXPO_PUBLIC_API_URL=http://localhost:4000/api/v1
 const CUSTOM_BASE = process.env.EXPO_PUBLIC_API_URL;
 
-export const API_BASE = CUSTOM_BASE || 'https://coldstorage-api.onrender.com/api/v1';
+export const API_BASE = CUSTOM_BASE || 'https://coldstorage-4lql.onrender.com/api/v1';
 
 const TOKEN_KEY = 'auth_access_token';
 const REFRESH_KEY = 'auth_refresh_token';

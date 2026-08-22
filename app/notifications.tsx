@@ -31,6 +31,8 @@ import { SkeletonList } from '@/components/ui/Skeleton';
 import ErrorState from '@/components/ui/ErrorState';
 import EmptyState from '@/components/ui/EmptyState';
 import { hapticLight } from '@/lib/haptics';
+import { DetailUI } from '@/components/DetailScreenCard';
+import SubPageHeader from '@/components/SubPageHeader';
 
 interface AppNotification {
   id: string;
@@ -52,15 +54,15 @@ const TYPE_CONFIG: Record<string, { icon: string; color: string; bg: string }> =
 };
 
 const UI = {
-  bg: '#F6F7F3',
-  surface: '#FFFFFF',
-  text: '#18212F',
-  textMuted: '#6B7280',
-  textSoft: '#9CA3AF',
-  border: '#E8ECE5',
-  forest: '#2D6A4F',
-  forestDeep: '#163528',
-  forestMid: '#1F513B',
+  bg: DetailUI.canvas,
+  surface: DetailUI.surface,
+  text: DetailUI.ink,
+  textMuted: DetailUI.muted,
+  textSoft: DetailUI.subtle,
+  border: DetailUI.border,
+  forest: DetailUI.primary,
+  forestDeep: DetailUI.primaryDark,
+  forestMid: DetailUI.primaryMid,
   unreadBg: '#F3FBF6',
   unreadBorder: '#D6F1DF',
 };
@@ -195,11 +197,8 @@ export default function NotificationsScreen() {
       <>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={[styles.container, { backgroundColor: UI.bg }]}>
-          <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-          <LinearGradient colors={gradientColors} style={[styles.header, { paddingTop: insets.top + 12 }]}>
-            <Text style={styles.headerTitle}>Notifications</Text>
-            <Text style={styles.headerSub}>Loading updates...</Text>
-          </LinearGradient>
+          <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+          <SubPageHeader title="Notifications" subtitle="Loading updates..." />
           <View style={{ paddingTop: 14 }}>
             <SkeletonList count={5} />
           </View>
@@ -213,22 +212,8 @@ export default function NotificationsScreen() {
       <>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={[styles.container, { backgroundColor: UI.bg }]}>
-          <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-          <LinearGradient colors={gradientColors} style={[styles.header, { paddingTop: insets.top + 12 }]}>
-            <View style={styles.headerTop}>
-              <TouchableOpacity
-                onPress={() => router.back()}
-                style={styles.backBtn}
-                activeOpacity={0.82}
-              >
-                <Ionicons name="arrow-back" size={21} color="#FFF" />
-              </TouchableOpacity>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.headerTitle}>Notifications</Text>
-                <Text style={styles.headerSub}>Could not load updates</Text>
-              </View>
-            </View>
-          </LinearGradient>
+          <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+          <SubPageHeader title="Notifications" subtitle="Could not load updates" />
           <View style={{ flex: 1 }}>
             <ErrorState variant="network" onRetry={fetchNotifications} />
           </View>
@@ -283,51 +268,41 @@ export default function NotificationsScreen() {
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.container, { backgroundColor: UI.bg }]}>
-        <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+        <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
 
-        <LinearGradient colors={gradientColors} style={[styles.header, { paddingTop: insets.top + 12 }]}>
-          <View style={styles.heroGlowA} />
-          <View style={styles.heroGlowB} />
+        <SubPageHeader
+          title="Notifications"
+          subtitle={
+            unreadCount > 0
+              ? `${unreadCount} unread updates`
+              : user?.role === 'OWNER'
+              ? 'Facility alerts & bookings'
+              : user?.role === 'BUYER'
+              ? 'Orders & marketplace alerts'
+              : 'Storage & market updates'
+          }
+          rightIcon="notifications-outline"
+          rightIconColor="#D3A03A"
+        />
 
-          <View style={styles.headerTop}>
-            <TouchableOpacity
-              onPress={() => router.back()}
-              style={styles.backBtn}
-              activeOpacity={0.82}
-            >
-              <Ionicons name="arrow-back" size={21} color="#FFF" />
-            </TouchableOpacity>
-
-            <View style={{ flex: 1 }}>
-              <Text style={styles.headerTitle}>Notifications</Text>
-              <Text style={styles.headerSub}>
-                {unreadCount > 0
-                  ? `${unreadCount} unread updates`
-                  : user?.role === 'OWNER'
-                  ? 'Facility alerts & bookings'
-                  : user?.role === 'BUYER'
-                  ? 'Orders & marketplace alerts'
-                  : 'Storage & market updates'}
-              </Text>
+        <View style={styles.statsRow}>
+          <LinearGradient
+            colors={gradientColors}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.statsCard}
+          >
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{notifications.length}</Text>
+              <Text style={styles.statLabel}>TOTAL</Text>
             </View>
-
-            <View style={styles.headerIcon}>
-              <Ionicons name="notifications-outline" size={20} color="#FBBF24" />
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{unreadCount}</Text>
+              <Text style={styles.statLabel}>UNREAD</Text>
             </View>
-          </View>
-
-          <View style={styles.summaryStrip}>
-            <View style={styles.summaryBox}>
-              <Text style={styles.summaryNumber}>{notifications.length}</Text>
-              <Text style={styles.summaryLabel}>TOTAL</Text>
-            </View>
-            <View style={styles.summaryDivider} />
-            <View style={styles.summaryBox}>
-              <Text style={styles.summaryNumber}>{unreadCount}</Text>
-              <Text style={styles.summaryLabel}>UNREAD</Text>
-            </View>
-          </View>
-        </LinearGradient>
+          </LinearGradient>
+        </View>
 
         {unreadCount > 0 && (
           <View style={styles.topBar}>
@@ -390,110 +365,43 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  header: {
-    paddingTop: 12, // overridden inline with insets
-    paddingBottom: 22,
-    paddingHorizontal: 20,
-    overflow: 'hidden',
+  statsRow: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
   },
 
-  heroGlowA: {
-    position: 'absolute',
-    top: -70,
-    right: -40,
-    width: 180,
-    height: 180,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-  },
-
-  heroGlowB: {
-    position: 'absolute',
-    bottom: -60,
-    left: -20,
-    width: 140,
-    height: 140,
-    borderRadius: 999,
-    backgroundColor: 'rgba(52,211,153,0.10)',
-  },
-
-  headerTop: {
+  statsCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 18,
+    borderRadius: 18,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
   },
 
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+  statItem: {
+    flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
   },
 
-  headerIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.10)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  headerTitle: {
-    fontSize: 22,
+  statValue: {
+    fontSize: 20,
+    color: '#FFF',
     fontWeight: '800',
-    color: '#FFFFFF',
     letterSpacing: -0.3,
   },
 
-  headerSub: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.64)',
-    marginTop: 2,
-    fontWeight: '500',
-  },
-
-  summaryStrip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.09)',
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-
-  summaryBox: {
-    minWidth: 74,
-    alignItems: 'center',
-  },
-
-  summaryNumber: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-
-  summaryLabel: {
+  statLabel: {
+    marginTop: 3,
     fontSize: 10,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.54)',
-    letterSpacing: 0.7,
-    marginTop: 2,
+    color: 'rgba(255,255,255,0.55)',
+    letterSpacing: 0.6,
   },
 
-  summaryDivider: {
+  statDivider: {
     width: 1,
     height: 28,
-    backgroundColor: 'rgba(255,255,255,0.10)',
-    marginHorizontal: 4,
+    backgroundColor: 'rgba(255,255,255,0.12)',
   },
 
   topBar: {
@@ -503,13 +411,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEF1EA',
   },
 
   unreadLabel: {
     fontSize: 13,
-    color: '#6B7280',
+    color: '#86908B',
     fontWeight: '600',
   },
 
@@ -530,12 +436,12 @@ const styles = StyleSheet.create({
 
   sectionHeader: {
     fontSize: 11,
-    fontWeight: '800',
-    color: '#9CA3AF',
+    fontWeight: '700',
+    color: '#2D6A4F',
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 1.2,
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 18,
     paddingBottom: 8,
   },
 
@@ -556,12 +462,12 @@ const styles = StyleSheet.create({
 
   notifCardRead: {
     backgroundColor: '#FFFFFF',
-    borderColor: '#EEF1EA',
+    borderColor: '#E2E9E3',
   },
 
   notifCardUnread: {
-    backgroundColor: UI.unreadBg,
-    borderColor: UI.unreadBorder,
+    backgroundColor: '#F0F9F3',
+    borderColor: '#D0EBDA',
   },
 
   iconCircle: {
@@ -586,8 +492,8 @@ const styles = StyleSheet.create({
 
   notifTitle: {
     fontSize: 15,
-    fontWeight: '800',
-    color: UI.text,
+    fontWeight: '700',
+    color: '#0B2520',
     flex: 1,
     letterSpacing: -0.1,
   },
@@ -603,7 +509,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     marginTop: 5,
-    color: UI.textMuted,
+    color: '#86908B',
     fontWeight: '500',
   },
 
@@ -616,16 +522,16 @@ const styles = StyleSheet.create({
 
   notifTime: {
     fontSize: 11,
-    color: UI.textSoft,
+    color: '#A3ADA7',
     fontWeight: '500',
   },
 
   newBadge: {
     fontSize: 10,
     fontWeight: '800',
-    color: UI.forest,
+    color: '#14532D',
     backgroundColor: '#DDF5E5',
-    paddingHorizontal: 7,
+    paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 999,
     overflow: 'hidden',

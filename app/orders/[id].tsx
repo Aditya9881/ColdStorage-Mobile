@@ -16,6 +16,7 @@ import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/contexts/AuthContext';
+import { DetailUI } from '@/components/DetailScreenCard';
 
 const ORDER_STEPS = [
   { status: 'PENDING_APPROVAL', label: 'Order Placed' },
@@ -26,28 +27,28 @@ const ORDER_STEPS = [
 
 const UI = {
   light: {
-    bg: '#F3F6F2',
-    surface: '#FFFFFF',
-    surfaceSoft: '#F7FAF6',
-    surfaceMuted: '#EEF4EF',
-    border: '#DEE7DF',
-    text: '#183427',
-    textMuted: '#6D7C73',
-    textSoft: '#97A59D',
-    forest: '#163D2B',
-    forest2: '#245841',
-    forestSoft: '#E7F2EA',
-    gold: '#D6A447',
-    goldSoft: '#FBF0D8',
-    warning: '#B7791F',
-    warningSoft: '#FFF5DF',
-    danger: '#C95B55',
-    dangerSoft: '#FDEDEC',
-    success: '#18805D',
-    successSoft: '#E9F8F1',
+    bg: DetailUI.canvas,
+    surface: DetailUI.surface,
+    surfaceSoft: '#FBFCFA',
+    surfaceMuted: '#F3F5F1',
+    border: DetailUI.border,
+    text: DetailUI.ink,
+    textMuted: DetailUI.muted,
+    textSoft: DetailUI.subtle,
+    forest: DetailUI.primaryDark,
+    forest2: DetailUI.primaryMid,
+    forestSoft: '#E8F3EE',
+    gold: '#D8B24A',
+    goldSoft: '#FFF7E5',
+    warning: DetailUI.warning,
+    warningSoft: DetailUI.warningSoft,
+    danger: DetailUI.danger,
+    dangerSoft: DetailUI.dangerSoft,
+    success: DetailUI.success,
+    successSoft: DetailUI.successSoft,
     blue: '#3E79C9',
     blueSoft: '#ECF3FD',
-    cardShadow: '#173526',
+    cardShadow: '#182D20',
     white: '#FFFFFF',
   },
   dark: {
@@ -81,7 +82,7 @@ function formatMoney(value?: number) {
   return `₹${Number(value || 0).toLocaleString('en-IN')}`;
 }
 
-function getStatusMeta(status: string, palette: typeof UI.light) {
+function getStatusMeta(status: string, palette: Record<string, string>) {
   switch (status) {
     case 'PENDING_APPROVAL':
       return {

@@ -18,6 +18,7 @@ import { SkeletonList } from '@/components/ui/Skeleton';
 import ErrorState from '@/components/ui/ErrorState';
 import EmptyState from '@/components/ui/EmptyState';
 import { hapticLight, hapticSelection } from '@/lib/haptics';
+import SubPageHeader from '@/components/SubPageHeader';
 
 const COMMODITY_ICON: Record<string, string> = {
   POTATO: 'nutrition-outline',
@@ -176,18 +177,7 @@ export default function InventoryScreen() {
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.container}>
           <StatusBar barStyle="dark-content" backgroundColor={UI.canvas} />
-          <View style={[styles.topSpacer, { height: insets.top + 8 }]} />
-          <View style={styles.topBar}>
-            <TouchableOpacity style={styles.iconBtn} onPress={() => router.back()}>
-              <Ionicons name="arrow-back" size={19} color={UI.text} />
-            </TouchableOpacity>
-
-            <View style={styles.titleWrap}>
-              <Text style={styles.screenTitle}>My Storage</Text>
-            </View>
-
-            <View style={styles.iconBtnGhost} />
-          </View>
+          <SubPageHeader title="My Storage" />
           <SkeletonList count={4} />
         </View>
       </>
@@ -335,28 +325,10 @@ export default function InventoryScreen() {
       <View style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor={UI.canvas} />
 
-        <View style={[styles.topSpacer, { height: insets.top + 8 }]} />
-
-        <View style={styles.topBar}>
-          <TouchableOpacity
-            style={styles.iconBtn}
-            onPress={() => {
-              router.back();
-              hapticLight();
-            }}
-          >
-            <Ionicons name="arrow-back" size={19} color={UI.text} />
-          </TouchableOpacity>
-
-          <View style={styles.titleWrap}>
-            <Text style={styles.screenTitle}>My Storage</Text>
-            <Text style={styles.screenSub}>
-              Check stored crops, stock left, and charges
-            </Text>
-          </View>
-
-          <View style={styles.iconBtnGhost} />
-        </View>
+        <SubPageHeader
+          title="My Storage"
+          subtitle="Check stored crops, stock left, and charges"
+        />
 
         <View style={styles.searchSection}>
           <View style={styles.searchBox}>
@@ -469,7 +441,7 @@ export default function InventoryScreen() {
                   ? undefined
                   : {
                       label: 'Find Storage',
-                      onPress: () => router.push('/(tabs)/discover'),
+                      onPress: () => router.push('/discover'),
                     }
               }
             />

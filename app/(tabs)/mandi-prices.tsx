@@ -603,7 +603,7 @@ const s = StyleSheet.create({
 
   chipList: {
     paddingLeft: 16,
-    paddingRight: 8,
+    paddingRight: 32,
     gap: 7,
   },
 
@@ -869,3 +869,6 @@ const s = StyleSheet.create({
     marginTop: 16,
   },
 });
+
+
+

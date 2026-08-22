@@ -23,7 +23,6 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { hapticLight } from '@/lib/haptics';
@@ -129,10 +128,7 @@ export default function SharedTabHeader({ subtitle = '' }: SharedTabHeaderProps)
 
   return (
     <>
-      <LinearGradient
-        colors={['#FFFFFF', '#FBFCFA']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
+      <View
         style={[s.topShell, { paddingTop: insets.top + 8 }]}
       >
         <View style={s.topBar}>
@@ -166,7 +162,7 @@ export default function SharedTabHeader({ subtitle = '' }: SharedTabHeaderProps)
             )}
           </TouchableOpacity>
         </View>
-      </LinearGradient>
+      </View>
 
       {/* ── Quick Actions Drawer Modal ── */}
       <Modal
@@ -230,22 +226,25 @@ const s = StyleSheet.create({
   /* ── Top Bar ── */
   topShell: {
     backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#ECEFE8',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 2,
   },
   topBar: {
-    paddingHorizontal: 18,
-    paddingBottom: 12,
+    paddingHorizontal: 16,
+    paddingBottom: 14,
     flexDirection: 'row',
     alignItems: 'center',
   },
   iconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F2F4F0',
+    backgroundColor: '#F2F5F0',
     borderWidth: 1,
     borderColor: '#E4E9E1',
   },
@@ -261,17 +260,17 @@ const s = StyleSheet.create({
     letterSpacing: -0.5,
   },
   brandSub: {
-    marginTop: 2,
-    fontSize: 11,
+    marginTop: 1,
+    fontSize: 11.5,
     color: '#86908B',
     fontWeight: '500',
   },
 
   /* ── Avatar ── */
   avatarRing: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     padding: 2,
     backgroundColor: '#D8B24A',
     shadowColor: '#9E7B24',
@@ -283,14 +282,14 @@ const s = StyleSheet.create({
   avatar: {
     width: '100%',
     height: '100%',
-    borderRadius: 22,
+    borderRadius: 20,
     borderWidth: 2,
     borderColor: '#FFFFFF',
   },
   avatarFallback: {
     width: '100%',
     height: '100%',
-    borderRadius: 22,
+    borderRadius: 20,
     borderWidth: 2,
     borderColor: '#FFFFFF',
     backgroundColor: '#F8F6F0',
@@ -298,7 +297,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarLetter: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '800',
     color: '#8B7A40',
   },

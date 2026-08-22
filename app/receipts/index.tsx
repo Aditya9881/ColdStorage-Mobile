@@ -16,6 +16,7 @@ import { useRouter, useFocusEffect, Stack } from 'expo-router';
 import { api } from '@/lib/api-client';
 import StatusChip from '@/components/ui/StatusChip';
 import EmptyState from '@/components/ui/EmptyState';
+import { DetailUI } from '@/components/DetailScreenCard';
 
 interface Receipt {
   id: string;
@@ -38,25 +39,25 @@ const TABS = ['ALL', 'ACTIVE', 'PLEDGED', 'REVOKED'] as const;
 type Tab = typeof TABS[number];
 
 const UI = {
-  bg: '#F6F7F3',
-  surface: '#FFFFFF',
-  surfaceAlt: '#FAFBF8',
-  surfaceSoft: '#EEF3ED',
-  text: '#18212F',
-  textMuted: '#6B7280',
-  textSoft: '#9CA3AF',
-  border: '#E7ECE4',
-  borderSoft: '#EEF1EA',
-  forest: '#2D6A4F',
-  forestDeep: '#163528',
-  forestSoft: '#ECF8F1',
-  successSoft: '#ECFDF5',
+  bg: DetailUI.canvas,
+  surface: DetailUI.surface,
+  surfaceAlt: '#FBFCFA',
+  surfaceSoft: '#F3F5F1',
+  text: DetailUI.ink,
+  textMuted: DetailUI.muted,
+  textSoft: DetailUI.subtle,
+  border: DetailUI.border,
+  borderSoft: DetailUI.borderSoft,
+  forest: DetailUI.primary,
+  forestDeep: DetailUI.primaryDark,
+  forestSoft: '#E8F3EE',
+  successSoft: DetailUI.successSoft,
   violetSoft: '#F5F3FF',
-  goldSoft: '#FFFBEB',
-  dangerSoft: '#FEF2F2',
+  goldSoft: DetailUI.warningSoft,
+  dangerSoft: DetailUI.dangerSoft,
   violet: '#7C3AED',
-  gold: '#D97706',
-  danger: '#DC2626',
+  gold: DetailUI.warning,
+  danger: DetailUI.danger,
 };
 
 export default function ReceiptListScreen() {

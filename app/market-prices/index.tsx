@@ -22,21 +22,36 @@ import { SkeletonList } from '@/components/ui/Skeleton';
 import ErrorState from '@/components/ui/ErrorState';
 import { hapticLight, hapticSelection } from '@/lib/haptics';
 import { getCommodityVisual, getCommodityCategory } from '@/lib/commodityImages';
+import { DetailUI } from '@/components/DetailScreenCard';
 
 
 interface MandiPrice {
   id: string;
   commodity: string;
+  variety?: string;
   state: string;
   district: string;
+  market: string;
   mandi: string;
-  variety: string;
   minPrice: number;
   maxPrice: number;
   modalPrice: number;
-  unit: string;
   arrivalDate: string;
+  unit: string;
   trend: 'up' | 'down' | 'stable';
+}
+
+interface GroupedPrices {
+  commodity: string;
+  prices: {
+    id: string;
+    state: string;
+    district: string;
+    market: string;
+    minPrice: number;
+    maxPrice: number;
+    modalPrice: number;
+  }[];
 }
 
 interface PricesMeta {
@@ -49,23 +64,23 @@ interface PricesMeta {
 
 /* ─── Theme ─── */
 const UI = {
-  canvas: '#F5F7F4',
-  surface: '#FFFFFF',
-  surfaceAlt: '#F8FAF7',
-  surfaceMuted: '#F2F5F1',
-  border: '#E2E9E3',
-  text: '#15231D',
-  muted: '#718079',
-  subtle: '#96A19B',
-  forest: '#103E34',
-  forestMid: '#1A5D4F',
-  forestSoft: '#E8F5EF',
-  gold: '#C88C20',
-  goldSoft: '#F6F2E7',
-  emerald: '#059669',
+  canvas: DetailUI.canvas,
+  surface: DetailUI.surface,
+  surfaceAlt: '#FBFCFA',
+  surfaceMuted: '#F3F5F1',
+  border: DetailUI.border,
+  text: DetailUI.ink,
+  muted: DetailUI.muted,
+  subtle: DetailUI.subtle,
+  forest: DetailUI.primary,
+  forestMid: DetailUI.primaryMid,
+  forestSoft: '#E8F3EE',
+  gold: '#D8B24A',
+  goldSoft: '#FFF7E5',
+  emerald: DetailUI.success,
   emeraldSoft: '#DCFCE7',
-  danger: '#DC2626',
-  dangerSoft: '#FEE2E2',
+  danger: DetailUI.danger,
+  dangerSoft: DetailUI.dangerSoft,
 };
 
 function formatTimeAgo(isoStr: string): string {
@@ -227,6 +242,7 @@ export default function MarketPricesScreen() {
               commodity: group.commodity || 'Unknown',
               state: m.state || '—',
               district: m.district || '',
+              market: m.name || '—',
               mandi: m.name || '—',
               variety: m.variety || 'Other',
               minPrice,

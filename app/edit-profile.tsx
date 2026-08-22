@@ -29,6 +29,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { useAuth, ProfileUpdateData } from '@/contexts/AuthContext';
 import { hapticLight, hapticSuccess } from '@/lib/haptics';
 
@@ -43,23 +44,24 @@ const INDIAN_STATES = [
 ];
 
 /* ─── Theme ─── */
+import { DetailUI } from '@/components/DetailScreenCard';
 const UI = {
-  canvas: '#F5F6F2',
-  surface: '#FFFFFF',
-  border: '#DCE3DC',
-  borderFocus: '#1A5D4F',
-  text: '#16231D',
-  muted: '#6E7C76',
-  subtle: '#99A39E',
-  forest: '#032F25',
-  forestMid: '#0A5A4B',
-  forestSoft: '#E8F5EF',
-  gold: '#C88C20',
-  goldSoft: '#F8EFD8',
-  danger: '#DC2626',
-  dangerSoft: '#FEF2F2',
-  success: '#059669',
-  successSoft: '#ECFDF5',
+  canvas: DetailUI.canvas,
+  surface: DetailUI.surface,
+  border: DetailUI.border,
+  borderFocus: DetailUI.primary,
+  text: DetailUI.ink,
+  muted: DetailUI.muted,
+  subtle: DetailUI.subtle,
+  forest: DetailUI.primaryDark,
+  forestMid: DetailUI.primaryMid,
+  forestSoft: '#E8F3EE',
+  gold: '#D8B24A',
+  goldSoft: '#FFF7E5',
+  danger: DetailUI.danger,
+  dangerSoft: DetailUI.dangerSoft,
+  success: DetailUI.success,
+  successSoft: DetailUI.successSoft,
 };
 
 export default function EditProfileScreen() {
@@ -144,14 +146,35 @@ export default function EditProfileScreen() {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.8,
+      quality: 1,
+      exif: false,
     });
 
     if (!result.canceled && result.assets[0]) {
-      setAvatarUri(result.assets[0].uri);
+      const asset = result.assets[0];
       hapticLight();
-      // Photo upload would be handled here with FormData to a /users/me/avatar endpoint
-      // For now, just show the selected photo locally
+
+      try {
+        // Resize to 200x200 thumbnail and get base64
+        const manipulated = await ImageManipulator.manipulateAsync(
+          asset.uri,
+          [{ resize: { width: 200, height: 200 } }],
+          { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+        );
+
+        if (manipulated.base64) {
+          const dataUri = `data:image/jpeg;base64,${manipulated.base64}`;
+          setAvatarUri(dataUri);
+
+          // Upload to backend
+          await updateProfile({ avatarUrl: dataUri });
+          await refreshProfile();
+          hapticSuccess();
+        }
+      } catch (err: any) {
+        Alert.alert('Upload Failed', err.message || 'Could not upload photo.');
+        setAvatarUri(user?.avatarUrl || null);
+      }
     }
   }
 

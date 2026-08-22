@@ -14,26 +14,27 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/contexts/AuthContext';
+import { DetailUI } from '@/components/DetailScreenCard';
 
 const WATCHLIST_KEY = 'buyer_watchlist';
 
 const UI = {
-  canvas: '#F5F7F4',
-  surface: '#FFFFFF',
-  forest: '#103E34',
-  forestDeep: '#082B24',
+  canvas: DetailUI.canvas,
+  surface: DetailUI.surface,
+  forest: DetailUI.primary,
+  forestDeep: DetailUI.primaryDark,
   emerald: '#17A56D',
   emeraldSoft: '#E8F7EF',
-  teal: '#0D8D8A',
+  teal: DetailUI.primaryMid,
   tealSoft: '#E8F9F7',
   blue: '#2589AA',
   blueSoft: '#EAF8FC',
-  gold: '#D29424',
-  goldSoft: '#FFF5DE',
-  ink: '#15231D',
-  muted: '#718079',
-  subtle: '#96A19B',
-  border: '#E2E9E3',
+  gold: '#D8B24A',
+  goldSoft: '#FFF7E5',
+  ink: DetailUI.ink,
+  muted: DetailUI.muted,
+  subtle: DetailUI.subtle,
+  border: DetailUI.border,
   whiteTransparent: 'rgba(255,255,255,0.14)',
 };
 

@@ -27,6 +27,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, Stack } from 'expo-router';
 import { api } from '@/lib/api-client';
 import { hapticLight } from '@/lib/haptics';
+import { DetailUI } from '@/components/DetailScreenCard';
+import SubPageHeader from '@/components/SubPageHeader';
 
 const STATUS_FILTERS = [
   { key: '', label: 'All' },
@@ -53,16 +55,16 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; icon: string; so
 };
 
 const UI = {
-  bg: '#F6F7F3',
-  surface: '#FFFFFF',
-  text: '#18212F',
-  textMuted: '#6B7280',
-  textSoft: '#9CA3AF',
-  border: '#ECEFE8',
-  forest: '#2D6A4F',
-  forestDeep: '#163528',
-  forestMid: '#1F513B',
-  gold: '#F59E0B',
+  bg: DetailUI.canvas,
+  surface: DetailUI.surface,
+  text: DetailUI.ink,
+  textMuted: DetailUI.muted,
+  textSoft: DetailUI.subtle,
+  border: DetailUI.borderSoft,
+  forest: DetailUI.primary,
+  forestDeep: DetailUI.primaryDark,
+  forestMid: DetailUI.primaryMid,
+  gold: '#D8B24A',
 };
 
 export default function MyBookingsScreen() {
@@ -255,46 +257,42 @@ export default function MyBookingsScreen() {
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.screen}>
-        <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+        <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+
+        <SubPageHeader
+          title="My Bookings"
+          subtitle={`${total} total bookings`}
+        />
 
         <Animated.View style={{ opacity: heroFade }}>
-          <LinearGradient colors={[UI.forestDeep, UI.forestMid, UI.forest]} style={[styles.header, { paddingTop: insets.top + 12 }]}>
-            <View style={styles.heroGlowA} />
-            <View style={styles.heroGlowB} />
-
-            <View style={styles.headerTopRow}>
-              <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.82}>
-                <Ionicons name="arrow-back" size={21} color="#FFF" />
-              </TouchableOpacity>
-
-              <View style={{ flex: 1 }}>
-                <Text style={styles.headerTitle}>My Bookings</Text>
-                <Text style={styles.headerSub}>{total} total bookings</Text>
+          <View style={styles.statsRow}>
+            <LinearGradient
+              colors={[UI.forestDeep, UI.forestMid, UI.forest]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.statsCard}
+            >
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{total}</Text>
+                <Text style={styles.statLabel}>TOTAL</Text>
               </View>
-            </View>
-
-            <View style={styles.summaryRow}>
-              <View style={styles.summaryCard}>
-                <Text style={styles.summaryNumber}>{total}</Text>
-                <Text style={styles.summaryLabel}>TOTAL</Text>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{statusStats.pending}</Text>
+                <Text style={styles.statLabel}>PENDING</Text>
               </View>
-              <View style={styles.summaryDivider} />
-              <View style={styles.summaryCard}>
-                <Text style={styles.summaryNumber}>{statusStats.pending}</Text>
-                <Text style={styles.summaryLabel}>PENDING</Text>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{statusStats.active}</Text>
+                <Text style={styles.statLabel}>ACTIVE</Text>
               </View>
-              <View style={styles.summaryDivider} />
-              <View style={styles.summaryCard}>
-                <Text style={styles.summaryNumber}>{statusStats.active}</Text>
-                <Text style={styles.summaryLabel}>ACTIVE</Text>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{statusStats.completed}</Text>
+                <Text style={styles.statLabel}>DONE</Text>
               </View>
-              <View style={styles.summaryDivider} />
-              <View style={styles.summaryCard}>
-                <Text style={styles.summaryNumber}>{statusStats.completed}</Text>
-                <Text style={styles.summaryLabel}>DONE</Text>
-              </View>
-            </View>
-          </LinearGradient>
+            </LinearGradient>
+          </View>
         </Animated.View>
 
         <Animated.View style={{ flex: 1, transform: [{ translateY: listRise }] }}>
@@ -344,7 +342,7 @@ export default function MyBookingsScreen() {
               <TouchableOpacity
                 style={styles.discoverBtn}
                 onPress={() => {
-                  router.push('/(tabs)/discover');
+                  router.push('/discover');
                   hapticLight();
                 }}
                 activeOpacity={0.84}
@@ -402,100 +400,43 @@ const styles = StyleSheet.create({
     paddingHorizontal: 34,
   },
 
-  header: {
+  statsRow: {
+    paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 22,
-    paddingHorizontal: 20,
-    overflow: 'hidden',
   },
 
-  heroGlowA: {
-    position: 'absolute',
-    top: -70,
-    right: -40,
-    width: 180,
-    height: 180,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.07)',
-  },
-
-  heroGlowB: {
-    position: 'absolute',
-    bottom: -60,
-    left: -30,
-    width: 140,
-    height: 140,
-    borderRadius: 999,
-    backgroundColor: 'rgba(52,211,153,0.09)',
-  },
-
-  headerTopRow: {
+  statsCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 18,
+    borderRadius: 18,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
   },
 
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
-  },
-
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#FFF',
-    letterSpacing: -0.4,
-  },
-
-  headerSub: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.62)',
-    marginTop: 2,
-    fontWeight: '500',
-  },
-
-  summaryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-  },
-
-  summaryCard: {
+  statItem: {
     flex: 1,
     alignItems: 'center',
   },
 
-  summaryNumber: {
+  statValue: {
     fontSize: 20,
+    color: '#FFF',
     fontWeight: '800',
-    color: '#FFFFFF',
     letterSpacing: -0.3,
   },
 
-  summaryLabel: {
+  statLabel: {
+    marginTop: 3,
     fontSize: 10,
     fontWeight: '700',
     color: 'rgba(255,255,255,0.55)',
     letterSpacing: 0.6,
-    marginTop: 3,
   },
 
-  summaryDivider: {
+  statDivider: {
     width: 1,
     height: 30,
-    backgroundColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: 'rgba(255,255,255,0.12)',
   },
 
   filterRow: {
@@ -505,7 +446,7 @@ const styles = StyleSheet.create({
   filterContent: {
     paddingHorizontal: 16,
     gap: 8,
-    paddingRight: 24,
+    paddingRight: 32,
   },
 
   filterChip: {

@@ -26,6 +26,7 @@ import { api } from '@/lib/api-client';
 import { hapticLight, hapticSuccess } from '@/lib/haptics';
 import { getCommodityVisual } from '@/lib/commodityImages';
 import SharedTabHeader from '@/components/SharedTabHeader';
+import { getStatusColor, getStatusBg, formatTimeAgo } from '@/lib/status-helpers';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -66,18 +67,7 @@ function getGreeting(): string {
   return 'Good Evening';
 }
 
-function formatTimeAgo(isoStr: string): string {
-  const diff = Date.now() - new Date(isoStr).getTime();
-  const minutes = Math.floor(diff / 60000);
 
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-
-  return `${Math.floor(hours / 24)}d ago`;
-}
 
 interface DashboardData {
   totalLots: number;
@@ -1224,41 +1214,7 @@ function DashboardStat({
   );
 }
 
-function getStatusColor(status: string): string {
-  const map: Record<string, string> = {
-    PENDING: '#92400E',
-    CONFIRMED: '#1E40AF',
-    ARRIVED: '#5B21B6',
-    WEIGHING: '#4338CA',
-    STORED: '#065F46',
-    DISPATCH_REQUESTED: '#9A3412',
-    DISPATCHING: '#9D174D',
-    DISPATCHED: '#155E75',
-    COMPLETED: '#065F46',
-    CANCELLED: '#991B1B',
-    REJECTED: '#991B1B',
-  };
 
-  return map[status] || '#4B5563';
-}
-
-function getStatusBg(status: string): string {
-  const map: Record<string, string> = {
-    PENDING: '#FEF3C7',
-    CONFIRMED: '#DBEAFE',
-    ARRIVED: '#EDE9FE',
-    WEIGHING: '#E0E7FF',
-    STORED: '#D1FAE5',
-    DISPATCH_REQUESTED: '#FFEDD5',
-    DISPATCHING: '#FCE7F3',
-    DISPATCHED: '#CFFAFE',
-    COMPLETED: '#D1FAE5',
-    CANCELLED: '#FECACA',
-    REJECTED: '#FECACA',
-  };
-
-  return map[status] || '#F3F4F6';
-}
 
 const styles = StyleSheet.create({
   screen: {

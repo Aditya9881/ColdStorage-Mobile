@@ -69,36 +69,48 @@ interface MarketPrice {
 
 type LanguageKey = 'hi' | 'en';
 
-const UI = {
-  bg: '#F4F7F3',
-  bgAlt: '#EEF4EE',
-  surface: '#FFFFFF',
-  surfaceWarm: '#FAFCF8',
-  border: '#DFE8E0',
-  text: '#173526',
-  textMuted: '#67796F',
-  textSoft: '#96A59C',
+import { DetailUI } from '@/components/DetailScreenCard';
 
-  forest: '#113D31',
-  forestDeep: '#0A2B22',
-  forestAlt: '#1A5746',
-  forestSoft: '#E7F2E9',
+const UI = {
+  bg: DetailUI.canvas,
+  bgAlt: '#EEF4EE',
+  surface: DetailUI.surface,
+  surfaceWarm: '#FBFCFA',
+  border: DetailUI.border,
+  text: DetailUI.ink,
+  textMuted: DetailUI.muted,
+  textSoft: DetailUI.subtle,
+
+  forest: DetailUI.primary,
+  forestDeep: DetailUI.primaryDark,
+  forestAlt: DetailUI.primaryMid,
+  forestSoft: '#E8F3EE',
   forestSoftStrong: '#D7EBDD',
 
-  gold: '#D7A23F',
-  goldSoft: '#FFF4D9',
+  gold: '#D8B24A',
+  goldSoft: '#FFF7E5',
 
   blue: '#3F76C4',
   blueSoft: '#EAF2FF',
 
-  danger: '#C95A54',
-  dangerSoft: '#FFF1EF',
+  danger: DetailUI.danger,
+  dangerSoft: DetailUI.dangerSoft,
 
-  warning: '#A87312',
-  warningSoft: '#FFF4DE',
+  warning: DetailUI.warning,
+  warningSoft: DetailUI.warningSoft,
 
   white: '#FFFFFF',
 };
+
+// ── Curated warehouse / cold-storage stock images ──
+const WAREHOUSE_IMAGES = [
+  'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1553413077-190dd305871c?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1565891741441-64926e441838?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1587293852726-70cdb56c2866?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=800&q=80',
+];
 
 const COPY = {
   hi: {
@@ -384,9 +396,11 @@ export default function DiscoverScreen() {
   const [authModalVisible, setAuthModalVisible] = useState(false);
   const [authActionMessage, setAuthActionMessage] = useState('');
   const [brokenPriceImages, setBrokenPriceImages] = useState<Record<string, boolean>>({});
+  const [brokenFacilityImages, setBrokenFacilityImages] = useState<Record<string, boolean>>({});
 
   const headerFade = useRef(new Animated.Value(0)).current;
   const contentSlide = useRef(new Animated.Value(20)).current;
+  const cardAnims = useRef<Animated.Value[]>([]).current;
   const t = COPY[language];
 
   const animateIn = () => {
@@ -582,6 +596,19 @@ export default function DiscoverScreen() {
       .slice(0, 6);
   }, [facilities]);
 
+  // Staggered card animations
+  useEffect(() => {
+    while (cardAnims.length < visibleFacilities.length) {
+      cardAnims.push(new Animated.Value(0));
+    }
+    if (visibleFacilities.length > 0) {
+      const anims = visibleFacilities.map((_, i) =>
+        Animated.timing(cardAnims[i], { toValue: 1, duration: 400, delay: i * 100, useNativeDriver: true })
+      );
+      Animated.stagger(80, anims).start();
+    }
+  }, [visibleFacilities.length]);
+
   const visiblePrices = useMemo(() => {
     return marketPrices.filter((item) => item?.commodity && item?.mandis?.length).slice(0, 8);
   }, [marketPrices]);
@@ -624,42 +651,38 @@ export default function DiscoverScreen() {
               colors={['#0B2F26', '#114235', '#1B5A48']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={[styles.hero, { paddingTop: insets.top + 10 }]}
+              style={[styles.hero, { paddingTop: insets.top + 8 }]}
             >
               <View style={styles.heroGlowOne} />
               <View style={styles.heroGlowTwo} />
-              <View style={styles.heroGlowThree} />
 
               <View style={styles.heroTopBar}>
                 <View style={styles.brandRow}>
                   <View style={styles.brandMark}>
-                    <Ionicons name="snow-outline" size={20} color={UI.gold} />
+                    <Ionicons name="snow-outline" size={18} color={UI.gold} />
                   </View>
 
                   <View style={styles.brandTextWrap}>
-                    <Text style={styles.brandMiniText}>{t.trusted}</Text>
                     <Text style={styles.brandName}>{t.appName}</Text>
+                    <Text style={styles.heroSubheading}>{t.homeSub}</Text>
                   </View>
                 </View>
 
-                <TouchableOpacity
-                  style={styles.loginButton}
-                  onPress={() => router.push('/(auth)/login')}
-                  activeOpacity={0.88}
-                >
-                  <Ionicons name="person-outline" size={16} color="#F8FBF8" />
-                  <Text style={styles.loginButtonText}>{t.signIn}</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.heroMainContent}>
-                <View style={styles.heroBadge}>
-                  <Ionicons name="sparkles-outline" size={12} color={UI.gold} />
-                  <Text style={styles.heroBadgeText}>{t.liveCapacity}</Text>
-                </View>
-
-                <Text style={styles.heroHeading}>{t.storageNearYou}</Text>
-                <Text style={styles.heroSubheading}>{t.homeSub}</Text>
+                {!isAuthenticated ? (
+                  <TouchableOpacity
+                    style={styles.loginButton}
+                    onPress={() => router.push('/(auth)/login')}
+                    activeOpacity={0.88}
+                  >
+                    <Ionicons name="person-outline" size={15} color="#F8FBF8" />
+                    <Text style={styles.loginButtonText}>{t.signIn}</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View style={styles.heroBadge}>
+                    <Ionicons name="sparkles-outline" size={11} color={UI.gold} />
+                    <Text style={styles.heroBadgeText}>{t.liveCapacity}</Text>
+                  </View>
+                )}
               </View>
 
               <View style={styles.heroUtilityRow}>
@@ -761,7 +784,7 @@ export default function DiscoverScreen() {
                   <Text style={styles.emptySub}>{t.emptyFacilitiesSub}</Text>
                 </View>
               ) : (
-                visibleFacilities.map((facility) => {
+                visibleFacilities.map((facility, idx) => {
                   const spaceStatus = getSpaceStatus(
                     Number(facility.availableCapacity || 0),
                     Number(facility.totalCapacity || 0),
@@ -776,117 +799,147 @@ export default function DiscoverScreen() {
                   const distanceText =
                     facility.distanceKm !== undefined && facility.distanceKm !== null
                       ? `${Number(facility.distanceKm).toFixed(1)} ${t.km}`
-                      : '—';
+                      : null;
+
+                  const imageUrl = WAREHOUSE_IMAGES[idx % WAREHOUSE_IMAGES.length];
+                  const hasBrokenImage = brokenFacilityImages[facility.id];
+                  const avgRating = Number(facility.avgRating || 0);
+                  const commodityList = facility.commodities?.slice(0, 3).join(', ') || facility.storageType || 'Cold storage';
+
+                  // Card animation
+                  const anim = cardAnims[idx];
+                  const cardStyle = anim ? {
+                    opacity: anim,
+                    transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }],
+                  } : {};
 
                   return (
-                    <TouchableOpacity
-                      key={facility.id}
-                      style={styles.facilityCard}
-                      activeOpacity={0.93}
-                      onPress={() => {
-                        if (isAuthenticated) {
-                          router.push(`/facility/${facility.id}`);
-                        } else {
-                          handleGatedAction('details');
-                        }
-                      }}
-                    >
-                      <View style={styles.facilityTopRow}>
-                        <View style={styles.facilityIconBox}>
-                          <Ionicons name="business-outline" size={22} color={UI.forest} />
-                        </View>
-
-                        <View style={styles.facilityTitleWrap}>
-                          <View style={styles.facilityNameRow}>
-                            <Text style={styles.facilityName} numberOfLines={1}>
-                              {facility.name}
-                            </Text>
-
-                            <View style={styles.verifiedBadge}>
-                              <Ionicons name="checkmark-circle" size={13} color={UI.forest} />
-                              <Text style={styles.verifiedText}>{t.verified}</Text>
-                            </View>
-                          </View>
-
-                          <Text style={styles.facilityLocation} numberOfLines={1}>
-                            {facility.city}, {facility.state}
-                          </Text>
-                        </View>
-
-                        <View style={styles.distanceBox}>
-                          <Ionicons name="navigate-outline" size={14} color={UI.forest} />
-                          <Text style={styles.distanceText}>{distanceText}</Text>
-                        </View>
-                      </View>
-
-                      <View style={styles.facilityDivider} />
-
-                      <View style={styles.capacityRow}>
-                        <View style={{ flex: 1 }}>
-                          <View style={styles.capacityTextRow}>
-                            <Text style={styles.capacityLabel}>{spaceStatus.label}</Text>
-                            <Text style={styles.capacityAmount}>
-                              {available.toLocaleString('en-IN')} MT
-                            </Text>
-                          </View>
-
-                          <View style={styles.capacityTrack}>
-                            <View
-                              style={[
-                                styles.capacityFill,
-                                {
-                                  width: `${capacityPercentage}%`,
-                                  backgroundColor: spaceStatus.color,
-                                },
-                              ]}
+                    <Animated.View key={facility.id} style={[styles.facilityCard, cardStyle]}>
+                      <TouchableOpacity
+                        activeOpacity={0.93}
+                        onPress={() => {
+                          if (isAuthenticated) {
+                            router.push(`/facility/${facility.id}`);
+                          } else {
+                            handleGatedAction('details');
+                          }
+                        }}
+                      >
+                        {/* ── Image Section ── */}
+                        <View style={styles.facilityImageWrap}>
+                          {!hasBrokenImage ? (
+                            <Image
+                              source={{ uri: imageUrl }}
+                              style={styles.facilityImage}
+                              resizeMode="cover"
+                              onError={() => setBrokenFacilityImages(prev => ({ ...prev, [facility.id]: true }))}
                             />
+                          ) : (
+                            <LinearGradient colors={['#0F3D30', '#1A5746']} style={styles.facilityImageFallback}>
+                              <Ionicons name="snow-outline" size={32} color="rgba(255,255,255,0.35)" />
+                            </LinearGradient>
+                          )}
+                          {/* Verified badge on image */}
+                          <View style={styles.imageVerifiedBadge}>
+                            <Ionicons name="checkmark-circle" size={12} color="#FFFFFF" />
+                            <Text style={styles.imageVerifiedText}>{t.verified}</Text>
+                          </View>
+                        </View>
+
+                        {/* ── Info Section ── */}
+                        <View style={styles.facilityInfoSection}>
+                          {/* Name + Rating row */}
+                          <View style={styles.facilityNameRatingRow}>
+                            <View style={{ flex: 1, minWidth: 0 }}>
+                              <Text style={styles.facilityName} numberOfLines={1}>{facility.name}</Text>
+                              <View style={styles.facilityLocDistRow}>
+                                <Ionicons name="location-outline" size={12} color={UI.textMuted} />
+                                <Text style={styles.facilityLocation} numberOfLines={1}>
+                                  {facility.city}, {facility.state}
+                                  {distanceText ? ` • ` : ''}
+                                </Text>
+                                {distanceText && <Text style={styles.distanceHighlight}>{distanceText} away</Text>}
+                              </View>
+                            </View>
+                            {avgRating > 0 && (
+                              <View style={styles.ratingBox}>
+                                <Ionicons name="star" size={14} color="#D8B24A" />
+                                <Text style={styles.ratingText}>{avgRating.toFixed(1)}</Text>
+                              </View>
+                            )}
                           </View>
 
-                          <Text style={styles.capacityFootnote}>
-                            {available.toLocaleString('en-IN')} {t.mtAvailable}
-                            {' · '}
-                            {total.toLocaleString('en-IN')} {t.mtTotal}
-                          </Text>
-                        </View>
+                          {/* Capacity + details (only after login) */}
+                          {isAuthenticated ? (
+                            <>
+                              <View style={styles.capacitySection}>
+                                <View style={styles.capacityTextRow}>
+                                  <Text style={styles.capacityLabel}>{t.spaceAvailable}</Text>
+                                  <Text style={styles.capacityAmount}>
+                                    {available.toLocaleString('en-IN')} / {total.toLocaleString('en-IN')} MT
+                                  </Text>
+                                </View>
+                                <View style={styles.capacityTrack}>
+                                  <View style={[styles.capacityFill, { width: `${capacityPercentage}%`, backgroundColor: spaceStatus.color }]} />
+                                </View>
+                                <View style={styles.capacityStatusRow}>
+                                  <Ionicons name={spaceStatus.icon} size={13} color={spaceStatus.color} />
+                                  <Text style={[styles.capacityStatusText, { color: spaceStatus.color }]}>
+                                    {capacityPercentage > 50 ? 'High capacity available' : spaceStatus.label}
+                                  </Text>
+                                </View>
+                              </View>
 
-                        <View
-                          style={[
-                            styles.spaceStatusPill,
-                            { backgroundColor: spaceStatus.bg },
-                          ]}
-                        >
-                          <Ionicons
-                            name={spaceStatus.icon}
-                            size={15}
-                            color={spaceStatus.color}
-                          />
-                        </View>
-                      </View>
+                              <View style={styles.commodityInfoRow}>
+                                <Ionicons name="information-circle-outline" size={13} color={UI.textSoft} />
+                                <Text style={styles.commodityInfoText} numberOfLines={1}>
+                                  Ideal for {commodityList}
+                                </Text>
+                              </View>
 
-                      <View style={styles.facilityBottomRow}>
-                        <View style={styles.commodityTag}>
-                          <Ionicons name="leaf-outline" size={14} color={UI.textMuted} />
-                          <Text style={styles.commodityTagText} numberOfLines={1}>
-                            {facility.commodities?.[0] || facility.storageType || 'Cold storage'}
-                          </Text>
-                        </View>
+                              <View style={styles.facilityDivider} />
 
-                        <TouchableOpacity
-                          style={styles.bookButton}
-                          activeOpacity={0.87}
-                          onPress={() => {
-                            if (isAuthenticated) {
-                              router.push(`/facility/${facility.id}`);
-                            } else {
-                              handleGatedAction('book');
-                            }
-                          }}
-                        >
-                          <Text style={styles.bookButtonText}>{t.bookNow}</Text>
-                          <Ionicons name="arrow-forward" size={15} color="#FFFFFF" />
-                        </TouchableOpacity>
-                      </View>
-                    </TouchableOpacity>
+                              <View style={styles.facilityBottomRow}>
+                                <View>
+                                  <Text style={styles.startingFromLabel}>Starting from</Text>
+                                  <Text style={styles.startingPrice}>₹13<Text style={styles.startingPriceUnit}>/MT/mo</Text></Text>
+                                </View>
+                                <TouchableOpacity
+                                  style={styles.bookButton}
+                                  activeOpacity={0.87}
+                                  onPress={() => router.push(`/facility/${facility.id}`)}
+                                >
+                                  <Text style={styles.bookButtonText}>{t.bookNow}</Text>
+                                  <Ionicons name="arrow-forward" size={15} color="#FFFFFF" />
+                                </TouchableOpacity>
+                              </View>
+                            </>
+                          ) : (
+                            <>
+                              <View style={styles.facilityDivider} />
+                              <View style={styles.facilityBottomRow}>
+                                <TouchableOpacity
+                                  style={styles.signInTeaser}
+                                  onPress={() => handleGatedAction('details')}
+                                  activeOpacity={0.8}
+                                >
+                                  <Ionicons name="lock-closed-outline" size={13} color={UI.forest} />
+                                  <Text style={styles.signInTeaserText}>Sign in to see capacity & pricing</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                  style={styles.bookButton}
+                                  activeOpacity={0.87}
+                                  onPress={() => handleGatedAction('book')}
+                                >
+                                  <Text style={styles.bookButtonText}>{t.bookNow}</Text>
+                                  <Ionicons name="arrow-forward" size={15} color="#FFFFFF" />
+                                </TouchableOpacity>
+                              </View>
+                            </>
+                          )}
+                        </View>
+                      </TouchableOpacity>
+                    </Animated.View>
                   );
                 })
               )}
@@ -1106,11 +1159,10 @@ const styles = StyleSheet.create({
 
   hero: {
     overflow: 'hidden',
-    minHeight: 332,
     paddingHorizontal: 18,
-    paddingBottom: 24,
-    borderBottomLeftRadius: 34,
-    borderBottomRightRadius: 34,
+    paddingBottom: 18,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
   },
 
   heroGlowOne: {
@@ -1159,9 +1211,9 @@ const styles = StyleSheet.create({
   },
 
   brandMark: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.10)',
@@ -1182,12 +1234,11 @@ const styles = StyleSheet.create({
   },
 
   brandName: {
-    marginTop: 2,
     color: '#FFFFFF',
-    fontSize: 23,
+    fontSize: 20,
     fontWeight: '800',
-    lineHeight: 28,
-    letterSpacing: -0.4,
+    lineHeight: 24,
+    letterSpacing: -0.3,
   },
 
   loginButton: {
@@ -1209,7 +1260,7 @@ const styles = StyleSheet.create({
   },
 
   heroMainContent: {
-    marginTop: 24,
+    marginTop: 16,
   },
 
   heroBadge: {
@@ -1233,24 +1284,24 @@ const styles = StyleSheet.create({
   },
 
   heroHeading: {
-    marginTop: 16,
+    marginTop: 10,
     color: '#FFFFFF',
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: '800',
-    lineHeight: 38,
-    letterSpacing: -0.6,
+    lineHeight: 30,
+    letterSpacing: -0.4,
   },
 
   heroSubheading: {
-    marginTop: 8,
-    maxWidth: '88%',
-    color: '#C4D5CA',
-    fontSize: 15,
-    lineHeight: 22,
+    marginTop: 2,
+    color: '#9CB8A7',
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 17,
   },
 
   heroUtilityRow: {
-    marginTop: 24,
+    marginTop: 14,
     flexDirection: 'row',
     alignItems: 'stretch',
     gap: 10,
@@ -1413,103 +1464,115 @@ const styles = StyleSheet.create({
   },
 
   facilityCard: {
-    marginBottom: 15,
-    padding: 17,
-    borderRadius: 24,
+    marginBottom: 18,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: UI.border,
     backgroundColor: UI.surface,
     shadowColor: '#173726',
-    shadowOffset: { width: 0, height: 7 },
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.10,
+    shadowRadius: 22,
+    elevation: 4,
+    overflow: 'hidden',
   },
 
-  facilityTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+  // Image section
+  facilityImageWrap: {
+    height: 170,
+    backgroundColor: '#E8EFE9',
+    position: 'relative',
   },
 
-  facilityIconBox: {
-    width: 50,
-    height: 50,
-    borderRadius: 16,
+  facilityImage: {
+    width: '100%',
+    height: '100%',
+  },
+
+  facilityImageFallback: {
+    width: '100%',
+    height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: UI.forestSoft,
   },
 
-  facilityTitleWrap: {
-    flex: 1,
-    minWidth: 0,
-  },
-
-  facilityNameRow: {
+  imageVerifiedBadge: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: 'rgba(10, 78, 64, 0.82)',
+  },
+
+  imageVerifiedText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+
+  // Info section (below image)
+  facilityInfoSection: {
+    padding: 16,
+  },
+
+  facilityNameRatingRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 14,
   },
 
   facilityName: {
-    maxWidth: '62%',
     color: UI.text,
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     lineHeight: 22,
     letterSpacing: -0.2,
   },
 
-  verifiedBadge: {
-    paddingHorizontal: 7,
-    paddingVertical: 4,
-    borderRadius: 8,
+  facilityLocDistRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: UI.forestSoft,
-  },
-
-  verifiedText: {
-    color: UI.forest,
-    fontSize: 9,
-    fontWeight: '800',
+    gap: 3,
+    marginTop: 4,
+    flexWrap: 'wrap',
   },
 
   facilityLocation: {
-    marginTop: 3,
     color: UI.textMuted,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
   },
 
-  distanceBox: {
-    minWidth: 58,
-    paddingVertical: 7,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-    alignItems: 'center',
-    gap: 2,
-    backgroundColor: '#F2F6F2',
+  distanceHighlight: {
+    color: UI.forest,
+    fontSize: 12,
+    fontWeight: '700',
   },
 
-  distanceText: {
-    color: UI.forest,
-    fontSize: 10,
+  ratingBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+  },
+
+  ratingText: {
+    color: UI.text,
+    fontSize: 15,
     fontWeight: '800',
   },
 
-  facilityDivider: {
-    height: 1,
-    marginVertical: 15,
-    backgroundColor: '#E9EFEB',
-  },
-
-  capacityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 11,
+  // Capacity section
+  capacitySection: {
+    marginBottom: 10,
   },
 
   capacityTextRow: {
@@ -1521,20 +1584,20 @@ const styles = StyleSheet.create({
   },
 
   capacityLabel: {
-    color: UI.textMuted,
-    fontSize: 12,
+    color: UI.text,
+    fontSize: 13,
     fontWeight: '700',
   },
 
   capacityAmount: {
-    color: UI.forest,
-    fontSize: 16,
+    color: UI.text,
+    fontSize: 15,
     fontWeight: '900',
     letterSpacing: -0.2,
   },
 
   capacityTrack: {
-    height: 9,
+    height: 8,
     borderRadius: 999,
     overflow: 'hidden',
     backgroundColor: '#E8EFE9',
@@ -1546,47 +1609,71 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
 
-  capacityFootnote: {
+  capacityStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     marginTop: 7,
+  },
+
+  capacityStatusText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  // Commodity info
+  commodityInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 2,
+  },
+
+  commodityInfoText: {
+    flex: 1,
     color: UI.textSoft,
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '600',
   },
 
-  spaceStatusPill: {
-    width: 34,
-    height: 34,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
+  facilityDivider: {
+    height: 1,
+    marginVertical: 14,
+    backgroundColor: '#E9EFEB',
   },
 
+  // Bottom: price + book
   facilityBottomRow: {
-    marginTop: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 10,
   },
 
-  commodityTag: {
-    flex: 1,
-    minWidth: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
+  startingFromLabel: {
+    color: UI.textMuted,
+    fontSize: 10,
+    fontWeight: '600',
+    marginBottom: 2,
   },
 
-  commodityTagText: {
-    flex: 1,
+  startingPrice: {
+    color: UI.text,
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+
+  startingPriceUnit: {
     color: UI.textMuted,
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0,
   },
 
   bookButton: {
-    minHeight: 42,
-    paddingHorizontal: 17,
+    minHeight: 44,
+    paddingHorizontal: 18,
     borderRadius: 13,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1598,6 +1685,21 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '800',
+  },
+
+  signInTeaser: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minWidth: 0,
+  },
+
+  signInTeaserText: {
+    flex: 1,
+    color: UI.forest,
+    fontSize: 12,
+    fontWeight: '700',
   },
 
   priceScroll: {
@@ -1632,7 +1734,8 @@ const styles = StyleSheet.create({
   },
 
   priceImageShade: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: 'rgba(8,35,25,0.10)',
   },
 

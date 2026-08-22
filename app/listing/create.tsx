@@ -16,26 +16,27 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '@/lib/api-client';
+import { DetailUI } from '@/components/DetailScreenCard';
 
 type WizardStep = 1 | 2 | 3;
 
 const UI = {
-  canvas: '#F5F7F4',
-  surface: '#FFFFFF',
-  forest: '#103E34',
-  forestDeep: '#082B24',
-  teal: '#0D8D8A',
+  canvas: DetailUI.canvas,
+  surface: DetailUI.surface,
+  forest: DetailUI.primary,
+  forestDeep: DetailUI.primaryDark,
+  teal: DetailUI.primaryMid,
   tealSoft: '#E8F9F7',
   emerald: '#17A56D',
   emeraldSoft: '#E8F7EF',
   blue: '#2589AA',
   blueSoft: '#EAF8FC',
-  gold: '#D29424',
-  goldSoft: '#FFF5DE',
-  ink: '#15231D',
-  muted: '#718079',
-  subtle: '#96A19B',
-  border: '#E2E9E3',
+  gold: '#D8B24A',
+  goldSoft: '#FFF7E5',
+  ink: DetailUI.ink,
+  muted: DetailUI.muted,
+  subtle: DetailUI.subtle,
+  border: DetailUI.border,
   lavender: '#F0EBFF',
   lavenderText: '#7457BE',
 };

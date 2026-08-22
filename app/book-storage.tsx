@@ -24,6 +24,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { api } from '@/lib/api-client';
 import { hapticLight, hapticSuccess, hapticError } from '@/lib/haptics';
+import { DetailUI } from '@/components/DetailScreenCard';
 
 const COMMODITY_CATEGORIES = [
   { key: 'POTATO', label: 'Potato', icon: 'leaf-outline', tint: '#D97706', soft: '#FFF7ED' },
@@ -44,19 +45,19 @@ const TIME_SLOTS = [
 const DURATION_PRESETS = ['7', '15', '30', '60', '90'];
 
 const UI = {
-  bg: '#F6F7F3',
-  surface: '#FFFFFF',
-  text: '#18212F',
-  textMuted: '#6B7280',
-  textSoft: '#9CA3AF',
-  border: '#E7ECE5',
-  forest: '#2D6A4F',
-  forestDeep: '#163528',
-  forestMid: '#1F513B',
-  success: '#059669',
-  error: '#DC2626',
-  errorSoft: '#FEF2F2',
-  gold: '#FBBF24',
+  bg: DetailUI.canvas,
+  surface: DetailUI.surface,
+  text: DetailUI.ink,
+  textMuted: DetailUI.muted,
+  textSoft: DetailUI.subtle,
+  border: DetailUI.border,
+  forest: DetailUI.primary,
+  forestDeep: DetailUI.primaryDark,
+  forestMid: DetailUI.primaryMid,
+  success: DetailUI.success,
+  error: DetailUI.danger,
+  errorSoft: DetailUI.dangerSoft,
+  gold: '#D8B24A',
 };
 
 export default function BookStorageScreen() {

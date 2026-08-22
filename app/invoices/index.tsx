@@ -16,6 +16,7 @@ import { useRouter, useFocusEffect, Stack } from 'expo-router';
 import { api } from '@/lib/api-client';
 import StatusChip from '@/components/ui/StatusChip';
 import EmptyState from '@/components/ui/EmptyState';
+import { DetailUI } from '@/components/DetailScreenCard';
 
 interface Invoice {
   id: string;
@@ -36,25 +37,25 @@ const TABS = ['ALL', 'ISSUED', 'PAID', 'OVERDUE'] as const;
 type Tab = typeof TABS[number];
 
 const UI = {
-  bg: '#F6F4EE',
-  surface: '#FFFFFF',
-  surfaceAlt: '#FBF9F4',
-  surfaceSoft: '#F2EEE6',
-  text: '#1B2230',
-  textMuted: '#6F7785',
-  textSoft: '#9AA3AF',
-  border: '#E7E1D7',
-  borderSoft: '#F0E9DF',
-  forest: '#2F7654',
-  forestDeep: '#24563F',
-  forestSoft: '#EAF4EE',
-  gold: '#D8A23C',
-  goldSoft: '#FBF4E7',
-  goldBorder: '#EED9A6',
-  danger: '#D94B4B',
-  dangerSoft: '#FFF3F3',
-  success: '#159A63',
-  successSoft: '#E9F8F1',
+  bg: DetailUI.canvas,
+  surface: DetailUI.surface,
+  surfaceAlt: '#FBFCFA',
+  surfaceSoft: '#F3F5F1',
+  text: DetailUI.ink,
+  textMuted: DetailUI.muted,
+  textSoft: DetailUI.subtle,
+  border: DetailUI.border,
+  borderSoft: DetailUI.borderSoft,
+  forest: DetailUI.primary,
+  forestDeep: DetailUI.primaryDark,
+  forestSoft: '#E8F3EE',
+  gold: '#D8B24A',
+  goldSoft: '#FFF7E5',
+  goldBorder: '#F2DFB2',
+  danger: DetailUI.danger,
+  dangerSoft: DetailUI.dangerSoft,
+  success: DetailUI.success,
+  successSoft: DetailUI.successSoft,
 };
 
 export default function InvoiceListScreen() {

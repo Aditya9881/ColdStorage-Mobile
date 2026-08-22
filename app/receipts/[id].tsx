@@ -16,6 +16,7 @@ import { useLocalSearchParams, useRouter, useFocusEffect, Stack } from 'expo-rou
 import QRCode from 'react-native-qrcode-svg';
 import { api } from '@/lib/api-client';
 import StatusChip from '@/components/ui/StatusChip';
+import { DetailUI } from '@/components/DetailScreenCard';
 
 interface ReceiptDetail {
   id: string;
@@ -43,26 +44,26 @@ interface ReceiptDetail {
 }
 
 const UI = {
-  bg: '#F6F7F3',
-  surface: '#FFFFFF',
-  surfaceAlt: '#FAFBF8',
-  surfaceSoft: '#EEF3ED',
-  text: '#18212F',
-  textMuted: '#6B7280',
-  textSoft: '#9CA3AF',
-  border: '#E7ECE4',
-  borderSoft: '#EEF1EA',
-  forest: '#2D6A4F',
-  forestDeep: '#163528',
-  forestSoft: '#ECF8F1',
-  success: '#059669',
-  successSoft: '#ECFDF5',
-  warning: '#D97706',
-  warningSoft: '#FFFBEB',
+  bg: DetailUI.canvas,
+  surface: DetailUI.surface,
+  surfaceAlt: '#FBFCFA',
+  surfaceSoft: '#F3F5F1',
+  text: DetailUI.ink,
+  textMuted: DetailUI.muted,
+  textSoft: DetailUI.subtle,
+  border: DetailUI.border,
+  borderSoft: DetailUI.borderSoft,
+  forest: DetailUI.primary,
+  forestDeep: DetailUI.primaryDark,
+  forestSoft: '#E8F3EE',
+  success: DetailUI.success,
+  successSoft: DetailUI.successSoft,
+  warning: DetailUI.warning,
+  warningSoft: DetailUI.warningSoft,
   violet: '#7C3AED',
   violetSoft: '#F5F3FF',
-  danger: '#DC2626',
-  dangerSoft: '#FEF2F2',
+  danger: DetailUI.danger,
+  dangerSoft: DetailUI.dangerSoft,
 };
 
 export default function ReceiptDetailScreen() {

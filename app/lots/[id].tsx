@@ -1,77 +1,47 @@
+/**
+ * SheetKosh — Lot Detail Screen (Unified UI)
+ *
+ * Uses shared components: DetailScreenHeader, SectionCard, SectionHeader,
+ * DetailRow, DetailGrid, DetailBottomBar
+ *
+ * Features:
+ * - Hero stats (weight, grade, days stored)
+ * - Storage facility info
+ * - Live chamber health (temp + humidity)
+ * - Inventory details grid
+ * - Rent ledger (gold accent card)
+ * - eNWR financing card
+ * - Bottom dock: Receipt QR + List for Sale
+ */
 import React, { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  ActivityIndicator,
-  TouchableOpacity,
-  Alert,
-  StatusBar,
+  View, Text, ScrollView, StyleSheet, ActivityIndicator,
+  TouchableOpacity, Alert, StatusBar, RefreshControl, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { api } from '@/lib/api-client';
+import { hapticLight } from '@/lib/haptics';
 
-type LotStatus = {
-  label: string;
-  color: string;
-  bg: string;
+import DetailScreenHeader from '@/components/DetailScreenHeader';
+import DetailBottomBar from '@/components/DetailBottomBar';
+import {
+  SectionCard, SectionHeader, DetailRow, DetailGrid, CardDivider, DetailUI,
+} from '@/components/DetailScreenCard';
+
+// ─── Status Map ─────────────────────────────────────────────
+
+const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
+  STORED: { label: 'Stored', color: '#059669', bg: '#ECFDF5' },
+  PARTIALLY_RELEASED: { label: 'Partially Released', color: '#D97706', bg: '#FFFBEB' },
+  FULLY_RELEASED: { label: 'Fully Released', color: '#6B7280', bg: '#F3F4F6' },
+  INTAKE_PENDING: { label: 'Intake Pending', color: '#0891B2', bg: '#ECFEFF' },
+  EXPIRED: { label: 'Expired', color: '#DC2626', bg: '#FEF2F2' },
 };
 
-const STATUS_MAP: Record<string, LotStatus> = {
-  STORED: {
-    label: 'Stored',
-    color: '#087F5B',
-    bg: '#E5F8EF',
-  },
-  PARTIALLY_RELEASED: {
-    label: 'Partially Released',
-    color: '#B96A10',
-    bg: '#FFF5DE',
-  },
-  FULLY_RELEASED: {
-    label: 'Fully Released',
-    color: '#667085',
-    bg: '#F2F4F7',
-  },
-  INTAKE_PENDING: {
-    label: 'Intake Pending',
-    color: '#087D9D',
-    bg: '#E8F8FC',
-  },
-  EXPIRED: {
-    label: 'Expired',
-    color: '#C63E42',
-    bg: '#FFF0F0',
-  },
-};
-
-const UI = {
-  canvas: '#F5F7F4',
-  surface: '#FFFFFF',
-  forest: '#103E34',
-  forestDeep: '#082B24',
-  forestLight: '#1C5A48',
-  teal: '#0D8D8A',
-  tealSoft: '#E8F9F7',
-  emerald: '#17A56D',
-  emeraldSoft: '#E8F7EF',
-  gold: '#C88C20',
-  goldSoft: '#FFF7E5',
-  blue: '#2589AA',
-  blueSoft: '#EAF8FC',
-  ink: '#15231D',
-  muted: '#718079',
-  subtle: '#96A19B',
-  border: '#E2E9E3',
-  danger: '#D94A4A',
-  dangerSoft: '#FFF0F0',
-  lavender: '#F0EBFF',
-  lavenderText: '#7457BE',
-};
+// ─── Component ──────────────────────────────────────────────
 
 export default function LotDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -83,179 +53,75 @@ export default function LotDetailScreen() {
   const [loadError, setLoadError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
-  async function loadLotDetails(isManualRetry = false) {
-    if (!id) {
-      setLot(null);
-      setLoadError('No lot was selected.');
-      setLoading(false);
-      return;
-    }
-
-    if (isManualRetry) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
-
+  async function loadLotDetails(isRetry = false) {
+    if (!id) { setLoadError('No lot selected.'); setLoading(false); return; }
+    if (isRetry) setRefreshing(true); else setLoading(true);
     setLoadError('');
 
     try {
       const lotsRes = await api.get<any>('/inventory/my-lots?limit=100');
-
       if (!lotsRes.success || !lotsRes.data?.lots) {
-        setLot(null);
-        setLoadError('Unable to load this lot. Please try again.');
-        return;
+        setLoadError('Unable to load this lot.'); return;
       }
-
-      const foundLot = lotsRes.data.lots.find(
-        (item: any) => String(item.id) === String(id)
-      );
-
-      if (!foundLot) {
-        setLot(null);
-        setLoadError('This lot is no longer available in your inventory.');
-        return;
-      }
-
+      const foundLot = lotsRes.data.lots.find((item: any) => String(item.id) === String(id));
+      if (!foundLot) { setLoadError('Lot no longer available.'); return; }
       setLot(foundLot);
 
       try {
-        const healthRes = await api.get<any>(
-          `/inventory/my-lots/${id}/health`
-        );
-
-        if (healthRes.success) {
-          setHealth(healthRes.data);
-        }
-      } catch {
-        setHealth(null);
-      }
+        const healthRes = await api.get<any>(`/inventory/my-lots/${id}/health`);
+        if (healthRes.success) setHealth(healthRes.data);
+      } catch { setHealth(null); }
     } catch (error: any) {
-      const message = String(error?.message || '').toLowerCase();
-
-      const isRateLimited =
-        error?.status === 429 ||
-        error?.code === 'RATE_LIMITED' ||
-        message.includes('too many requests') ||
-        message.includes('rate limit');
-
-      if (isRateLimited) {
-        setLoadError(
-          'Too many requests. Please wait a few seconds before trying again.'
-        );
+      const msg = String(error?.message || '').toLowerCase();
+      if (error?.status === 429 || msg.includes('rate limit')) {
+        setLoadError('Too many requests. Please wait a moment.');
       } else {
-        setLoadError(
-          error?.message || 'Unable to load lot details. Please try again.'
-        );
+        setLoadError(error?.message || 'Unable to load lot details.');
       }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      setLoading(false); setRefreshing(false);
     }
   }
 
-  useEffect(() => {
-    loadLotDetails();
-  }, [id]);
+  useEffect(() => { loadLotDetails(); }, [id]);
 
+  // ── Loading ──
   if (loading) {
     return (
       <>
         <Stack.Screen options={{ headerShown: false }} />
-        <StatusBar
-          barStyle="light-content"
-          translucent
-          backgroundColor="transparent"
-        />
-
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={UI.forest} />
-          <Text style={styles.loadingText}>Loading lot details...</Text>
+        <StatusBar barStyle="dark-content" />
+        <View style={s.center}>
+          <ActivityIndicator size="large" color={DetailUI.primary} />
+          <Text style={s.centerText}>Loading lot details...</Text>
         </View>
       </>
     );
   }
 
-  if (loadError && !lot) {
+  // ── Error / Not Found ──
+  if (loadError || !lot) {
     return (
       <>
         <Stack.Screen options={{ headerShown: false }} />
         <StatusBar barStyle="dark-content" />
-
-        <SafeAreaView style={styles.errorScreen} edges={['top', 'bottom']}>
-          <View style={styles.errorCard}>
-            <View style={styles.errorIcon}>
-              <Ionicons
-                name="cloud-offline-outline"
-                size={35}
-                color="#C26935"
-              />
+        <SafeAreaView style={s.errorScreen} edges={['top', 'bottom']}>
+          <View style={s.errorCard}>
+            <View style={s.errorIcon}>
+              <Ionicons name={loadError ? 'cloud-offline-outline' : 'alert-circle-outline'} size={35} color={loadError ? '#C26935' : DetailUI.muted} />
             </View>
-
-            <Text style={styles.errorTitle}>Could not load lot</Text>
-
-            <Text style={styles.errorDescription}>{loadError}</Text>
-
-            <TouchableOpacity
-              style={styles.retryButton}
-              onPress={() => loadLotDetails(true)}
-              activeOpacity={0.85}
-              disabled={refreshing}
-            >
-              {refreshing ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <>
-                  <Ionicons name="refresh-outline" size={18} color="#FFFFFF" />
-                  <Text style={styles.retryButtonText}>Try Again</Text>
-                </>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.goBackButton}
-              onPress={() => router.back()}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="arrow-back" size={17} color={UI.forest} />
-              <Text style={styles.goBackText}>Go Back</Text>
-            </TouchableOpacity>
-          </View>
-        </SafeAreaView>
-      </>
-    );
-  }
-
-  if (!lot) {
-    return (
-      <>
-        <Stack.Screen options={{ headerShown: false }} />
-        <StatusBar barStyle="dark-content" />
-
-        <SafeAreaView style={styles.errorScreen} edges={['top', 'bottom']}>
-          <View style={styles.errorCard}>
-            <View style={styles.emptyIcon}>
-              <Ionicons
-                name="alert-circle-outline"
-                size={38}
-                color={UI.muted}
-              />
-            </View>
-
-            <Text style={styles.errorTitle}>Lot not found</Text>
-
-            <Text style={styles.errorDescription}>
-              This lot may no longer be available in your inventory.
-            </Text>
-
-            <TouchableOpacity
-              onPress={() => router.back()}
-              style={styles.retryButton}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="arrow-back" size={17} color="#FFFFFF" />
-              <Text style={styles.retryButtonText}>Go Back</Text>
+            <Text style={s.errorTitle}>{loadError ? 'Could not load lot' : 'Lot not found'}</Text>
+            <Text style={s.errorDesc}>{loadError || 'This lot may no longer be available.'}</Text>
+            {loadError && (
+              <TouchableOpacity style={s.retryBtn} onPress={() => loadLotDetails(true)} disabled={refreshing} activeOpacity={0.85}>
+                {refreshing ? <ActivityIndicator size="small" color="#FFF" /> : (
+                  <><Ionicons name="refresh-outline" size={18} color="#FFF" /><Text style={s.retryText}>Try Again</Text></>
+                )}
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={s.goBackBtn} onPress={() => router.back()} activeOpacity={0.8}>
+              <Ionicons name="arrow-back" size={16} color={DetailUI.primary} />
+              <Text style={s.goBackText}>Go Back</Text>
             </TouchableOpacity>
           </View>
         </SafeAreaView>
@@ -264,1216 +130,332 @@ export default function LotDetailScreen() {
   }
 
   const badge = STATUS_MAP[lot.status] || STATUS_MAP.STORED;
-
   const weight = Number(lot.currentWeightKg || 0);
   const intakeWeight = Number(lot.intakeWeightKg || 0);
   const daysSinceIntake = Number(lot.daysSinceIntake || 0);
   const rent = Number(lot.estimatedRent || 0);
-
-  const estimatedMarketPrice = Number(
-    lot.pricePerKg || lot.listingPrice || 0
-  );
-
-  const estimatedLotValue =
-    estimatedMarketPrice > 0 ? weight * estimatedMarketPrice : 0;
-
+  const estimatedMarketPrice = Number(lot.pricePerKg || lot.listingPrice || 0);
+  const estimatedLotValue = estimatedMarketPrice > 0 ? weight * estimatedMarketPrice : 0;
   const loanEligibility = estimatedLotValue * 0.7;
-
-  const canTakeAction =
-    lot.status === 'STORED' || lot.status === 'PARTIALLY_RELEASED';
-
-  const facilityLocation = [
-    lot.facility?.city,
-    lot.facility?.state,
-    lot.chamber?.chamberNumber
-      ? `Chamber ${lot.chamber.chamberNumber}`
-      : null,
-  ]
-    .filter(Boolean)
-    .join(' · ');
-
+  const canTakeAction = lot.status === 'STORED' || lot.status === 'PARTIALLY_RELEASED';
+  const facilityLocation = [lot.facility?.city, lot.facility?.state, lot.chamber?.chamberNumber ? `Chamber ${lot.chamber.chamberNumber}` : null].filter(Boolean).join(' · ');
   const hasHealthData = Boolean(health?.current);
 
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <StatusBar
-        barStyle="light-content"
-        translucent
-        backgroundColor="transparent"
-      />
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-      <View style={styles.screen}>
+      <View style={s.screen}>
         <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
+          style={s.scrollView}
+          contentContainerStyle={s.scrollContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadLotDetails(true); }} tintColor={DetailUI.primary} />}
         >
-          <LinearGradient
-            colors={[UI.forestDeep, UI.forest, '#087B73']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.hero}
-          >
+          {/* ─── Hero Section ─── */}
+          <LinearGradient colors={['#082B24', DetailUI.primary, '#087B73']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.hero}>
             <SafeAreaView edges={['top']}>
-              <View style={styles.heroTopRow}>
-                <TouchableOpacity
-                  onPress={() => router.back()}
-                  style={styles.backButton}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="chevron-back" size={27} color="#FFFFFF" />
+              <View style={s.heroTopRow}>
+                <TouchableOpacity onPress={() => { hapticLight(); router.back(); }} style={s.heroBtn} activeOpacity={0.8}>
+                  <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
                 </TouchableOpacity>
-
-                <Text style={styles.heroNavTitle}>Lot Details</Text>
-
-                <TouchableOpacity
-                  style={styles.moreButton}
-                  activeOpacity={0.8}
-                  onPress={() =>
-                    Alert.alert(
-                      'Lot options',
-                      'More actions for this lot will be available here.'
-                    )
-                  }
-                >
-                  <Ionicons
-                    name="ellipsis-horizontal"
-                    size={21}
-                    color="#FFFFFF"
-                  />
+                <Text style={s.heroNavTitle}>Lot Details</Text>
+                <TouchableOpacity style={s.heroBtn} activeOpacity={0.8} onPress={() => Alert.alert('Lot options', 'More actions coming soon.')}>
+                  <Ionicons name="ellipsis-horizontal" size={20} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>
             </SafeAreaView>
 
-            <View style={styles.heroContent}>
-              <View style={styles.lotIdentityRow}>
-                <View style={styles.heroLotIcon}>
-                  <Ionicons name="cube-outline" size={25} color="#FFFFFF" />
+            <View style={s.heroContent}>
+              <View style={s.lotIdentityRow}>
+                <View style={s.heroLotIcon}>
+                  <Ionicons name="cube-outline" size={24} color="#FFFFFF" />
                 </View>
-
-                <View style={styles.lotIdentityText}>
-                  <Text style={styles.heroLotNumber}>
-                    {lot.lotNumber || 'WAREHOUSE LOT'}
-                  </Text>
-
-                  <Text style={styles.heroTitle} numberOfLines={1}>
-                    {lot.commodityName || 'Unnamed Lot'}
-                  </Text>
-
-                  <Text style={styles.heroSubtitle}>
-                    {(lot.commodityCategory || 'Agricultural Produce')
-                      .replace(/_/g, ' ')
-                      .toUpperCase()}
-                  </Text>
+                <View style={s.lotIdentityText}>
+                  <Text style={s.heroLotNumber}>{lot.lotNumber || 'WAREHOUSE LOT'}</Text>
+                  <Text style={s.heroTitle} numberOfLines={1}>{lot.commodityName || 'Unnamed Lot'}</Text>
+                  <Text style={s.heroSubtitle}>{(lot.commodityCategory || 'Agricultural Produce').replace(/_/g, ' ').toUpperCase()}</Text>
                 </View>
-
-                <View
-                  style={[styles.statusPill, { backgroundColor: badge.bg }]}
-                >
-                  <View
-                    style={[
-                      styles.statusDot,
-                      { backgroundColor: badge.color },
-                    ]}
-                  />
-                  <Text style={[styles.statusText, { color: badge.color }]}>
-                    {badge.label}
-                  </Text>
+                <View style={[s.statusPill, { backgroundColor: badge.bg }]}>
+                  <View style={[s.statusDot, { backgroundColor: badge.color }]} />
+                  <Text style={[s.statusLabel, { color: badge.color }]}>{badge.label}</Text>
                 </View>
               </View>
 
-              <View style={styles.heroStats}>
-                <HeroStat
-                  value={`${(weight / 1000).toFixed(2)}`}
-                  label="MT AVAILABLE"
-                />
-
-                <View style={styles.heroStatDivider} />
-
-                <HeroStat value={lot.qualityGrade || '—'} label="GRADE" />
-
-                <View style={styles.heroStatDivider} />
-
-                <HeroStat
-                  value={`${daysSinceIntake}`}
-                  label="DAYS STORED"
-                />
+              <View style={s.heroStats}>
+                <View style={s.heroStat}>
+                  <Text style={s.heroStatValue}>{(weight / 1000).toFixed(2)}</Text>
+                  <Text style={s.heroStatLabel}>MT AVAILABLE</Text>
+                </View>
+                <View style={s.heroStatDivider} />
+                <View style={s.heroStat}>
+                  <Text style={s.heroStatValue}>{lot.qualityGrade || '—'}</Text>
+                  <Text style={s.heroStatLabel}>GRADE</Text>
+                </View>
+                <View style={s.heroStatDivider} />
+                <View style={s.heroStat}>
+                  <Text style={s.heroStatValue}>{daysSinceIntake}</Text>
+                  <Text style={s.heroStatLabel}>DAYS STORED</Text>
+                </View>
               </View>
             </View>
           </LinearGradient>
 
-          <View style={styles.content}>
-            <View style={styles.sectionIntro}>
-              <Text style={styles.sectionIntroEyebrow}>LOT OVERVIEW</Text>
-              <Text style={styles.sectionIntroTitle}>
-                Storage, condition and value
-              </Text>
-            </View>
-
-            <View style={styles.sectionCard}>
-              <View style={styles.sectionHeader}>
-                <View
-                  style={[
-                    styles.iconBox,
-                    { backgroundColor: UI.emeraldSoft },
-                  ]}
-                >
-                  <Ionicons
-                    name="business-outline"
-                    size={20}
-                    color={UI.forestLight}
-                  />
-                </View>
-
-                <View style={styles.sectionTitleWrap}>
-                  <Text style={styles.sectionEyebrow}>STORAGE FACILITY</Text>
-                  <Text style={styles.sectionTitle} numberOfLines={1}>
-                    {lot.facility?.name || 'Storage facility unavailable'}
-                  </Text>
-                </View>
+          {/* ─── Cards ─── */}
+          <View style={s.cardsArea}>
+            {/* ─── Storage Facility ─── */}
+            <SectionCard>
+              <SectionHeader icon="business-outline" title={lot.facility?.name || 'Facility'} eyebrow="STORAGE FACILITY" />
+              <CardDivider />
+              <View style={s.locationRow}>
+                <Ionicons name="location-outline" size={16} color={DetailUI.muted} />
+                <Text style={s.locationText}>{facilityLocation || 'Location unavailable'}</Text>
               </View>
+            </SectionCard>
 
-              <View style={styles.locationMeta}>
-                <Ionicons
-                  name="location-outline"
-                  size={17}
-                  color={UI.muted}
-                />
-                <Text style={styles.locationText}>
-                  {facilityLocation || 'Location details unavailable'}
-                </Text>
-              </View>
-            </View>
-
+            {/* ─── Chamber Health ─── */}
             {hasHealthData && (
-              <View style={styles.sectionCard}>
-                <View style={styles.healthHeader}>
+              <SectionCard>
+                <View style={s.healthHeaderRow}>
                   <View>
-                    <Text style={styles.sectionEyebrow}>
-                      CHAMBER CONDITIONS
-                    </Text>
-                    <Text style={styles.sectionTitle}>
-                      Live Storage Health
-                    </Text>
+                    <Text style={s.eyebrow}>CHAMBER CONDITIONS</Text>
+                    <Text style={s.sectionTitle}>Live Storage Health</Text>
                   </View>
-
-                  <View
-                    style={[
-                      styles.livePill,
-                      health.current.isAlert && styles.livePillAlert,
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.liveDot,
-                        health.current.isAlert && styles.liveDotAlert,
-                      ]}
-                    />
-                    <Text
-                      style={[
-                        styles.liveText,
-                        health.current.isAlert && styles.liveTextAlert,
-                      ]}
-                    >
+                  <View style={[s.livePill, health.current.isAlert && s.livePillAlert]}>
+                    <View style={[s.liveDot, health.current.isAlert && s.liveDotAlert]} />
+                    <Text style={[s.liveText, health.current.isAlert && s.liveTextAlert]}>
                       {health.current.isAlert ? 'ALERT' : 'LIVE'}
                     </Text>
                   </View>
                 </View>
 
-                <View style={styles.healthGrid}>
-                  <HealthTile
-                    icon="thermometer-outline"
-                    value={`${Number(health.current.temperature || 0).toFixed(
-                      1
-                    )}°C`}
-                    label="TEMPERATURE"
-                    color={
-                      health.current.isAlert ? UI.danger : UI.emerald
-                    }
-                    background={
-                      health.current.isAlert
-                        ? UI.dangerSoft
-                        : UI.emeraldSoft
-                    }
-                  />
-
-                  <HealthTile
-                    icon="water-outline"
-                    value={
-                      health.current.humidity !== null &&
-                      health.current.humidity !== undefined
-                        ? `${Number(health.current.humidity).toFixed(0)}%`
-                        : '—'
-                    }
-                    label="HUMIDITY"
-                    color={UI.blue}
-                    background={UI.blueSoft}
-                  />
+                <View style={s.healthGrid}>
+                  <View style={[s.healthTile, { backgroundColor: health.current.isAlert ? DetailUI.dangerSoft : '#E8F7EF' }]}>
+                    <Ionicons name="thermometer-outline" size={22} color={health.current.isAlert ? DetailUI.danger : '#059669'} />
+                    <Text style={[s.healthValue, { color: health.current.isAlert ? DetailUI.danger : '#059669' }]}>
+                      {Number(health.current.temperature || 0).toFixed(1)}°C
+                    </Text>
+                    <Text style={s.healthLabel}>TEMPERATURE</Text>
+                  </View>
+                  <View style={[s.healthTile, { backgroundColor: '#EAF8FC' }]}>
+                    <Ionicons name="water-outline" size={22} color="#2589AA" />
+                    <Text style={[s.healthValue, { color: '#2589AA' }]}>
+                      {health.current.humidity != null ? `${Number(health.current.humidity).toFixed(0)}%` : '—'}
+                    </Text>
+                    <Text style={s.healthLabel}>HUMIDITY</Text>
+                  </View>
                 </View>
 
-                <View style={styles.healthFooter}>
-                  <Ionicons
-                    name={
-                      health.current.isAlert
-                        ? 'alert-circle-outline'
-                        : 'checkmark-circle-outline'
-                    }
-                    size={18}
-                    color={
-                      health.current.isAlert ? UI.danger : UI.emerald
-                    }
-                  />
-
-                  <Text style={styles.healthFooterText}>
-                    {health.current.isAlert
-                      ? 'Attention required: chamber conditions are outside the ideal range.'
-                      : 'Conditions are stable and monitored in real time.'}
+                <CardDivider />
+                <View style={s.healthFooterRow}>
+                  <Ionicons name={health.current.isAlert ? 'alert-circle-outline' : 'checkmark-circle-outline'} size={17} color={health.current.isAlert ? DetailUI.danger : '#059669'} />
+                  <Text style={s.healthFooterText}>
+                    {health.current.isAlert ? 'Attention required: chamber conditions outside ideal range.' : 'Conditions stable and monitored in real time.'}
                   </Text>
                 </View>
-              </View>
+              </SectionCard>
             )}
 
-            <View style={styles.sectionCard}>
-              <View style={styles.sectionHeader}>
-                <View
-                  style={[
-                    styles.iconBox,
-                    { backgroundColor: UI.lavender },
-                  ]}
-                >
-                  <Ionicons
-                    name="cube-outline"
-                    size={20}
-                    color={UI.lavenderText}
-                  />
-                </View>
-
-                <View style={styles.sectionTitleWrap}>
-                  <Text style={styles.sectionEyebrow}>INVENTORY DETAILS</Text>
-                  <Text style={styles.sectionTitle}>Lot Information</Text>
-                </View>
+            {/* ─── Inventory Details ─── */}
+            <SectionCard>
+              <SectionHeader icon="cube-outline" title="Lot Information" eyebrow="INVENTORY DETAILS" iconBg="#F0EBFF" iconColor="#7457BE" />
+              <View style={s.factGrid}>
+                <FactTile icon="scale-outline" label="Current Weight" value={`${(weight / 1000).toFixed(2)} MT`} />
+                <FactTile icon="download-outline" label="Intake Weight" value={`${(intakeWeight / 1000).toFixed(2)} MT`} />
+                <FactTile icon="layers-outline" label="Total Bags" value={`${lot.bagCount || '—'}`} />
+                <FactTile icon="water-outline" label="Moisture" value={lot.moistureContent != null ? `${Number(lot.moistureContent)}%` : '—'} />
               </View>
+            </SectionCard>
 
-              <View style={styles.factGrid}>
-                <PremiumFact
-                  icon="scale-outline"
-                  label="Current Weight"
-                  value={`${(weight / 1000).toFixed(2)} MT`}
-                />
-
-                <PremiumFact
-                  icon="download-outline"
-                  label="Intake Weight"
-                  value={`${(intakeWeight / 1000).toFixed(2)} MT`}
-                />
-
-                <PremiumFact
-                  icon="layers-outline"
-                  label="Total Bags"
-                  value={`${lot.bagCount || '—'}`}
-                />
-
-                <PremiumFact
-                  icon="water-outline"
-                  label="Moisture"
-                  value={
-                    lot.moistureContent !== null &&
-                    lot.moistureContent !== undefined
-                      ? `${Number(lot.moistureContent)}%`
-                      : '—'
-                  }
-                />
+            {/* ─── Rent Ledger ─── */}
+            <View style={s.rentCard}>
+              <SectionHeader icon="wallet-outline" title="Rent Ledger" eyebrow="ACCRUED STORAGE RENT" iconBg="#FFF0C7" iconColor="#D8B24A" />
+              <Text style={s.rentAmount}>₹{rent.toLocaleString()}</Text>
+              <View style={s.rentFormula}>
+                <Text style={s.rentFormulaText}>{daysSinceIntake} days</Text>
+                <Text style={s.rentFormulaOp}>×</Text>
+                <Text style={s.rentFormulaText}>₹{Number(lot.appliedRate || 0).toFixed(0)}/MT/day</Text>
+                <Text style={s.rentFormulaOp}>×</Text>
+                <Text style={s.rentFormulaText}>{(weight / 1000).toFixed(2)} MT</Text>
               </View>
             </View>
 
-            <View style={styles.rentCard}>
-              <View style={styles.rentTopRow}>
-                <View style={styles.rentIconBox}>
-                  <Ionicons
-                    name="wallet-outline"
-                    size={22}
-                    color={UI.gold}
-                  />
-                </View>
-
-                <View style={styles.rentHeaderText}>
-                  <Text style={styles.rentEyebrow}>ACCRUED STORAGE RENT</Text>
-                  <Text style={styles.rentTitle}>Rent Ledger</Text>
-                </View>
-
-                <Ionicons
-                  name="receipt-outline"
-                  size={21}
-                  color="#A78A55"
-                />
-              </View>
-
-              <Text style={styles.rentAmount}>₹{rent.toLocaleString()}</Text>
-
-              <View style={styles.rentFormula}>
-                <Text style={styles.rentFormulaText}>
-                  {daysSinceIntake} days
-                </Text>
-                <Text style={styles.rentFormulaDivider}>×</Text>
-                <Text style={styles.rentFormulaText}>
-                  ₹{Number(lot.appliedRate || 0).toFixed(0)}/MT/day
-                </Text>
-                <Text style={styles.rentFormulaDivider}>×</Text>
-                <Text style={styles.rentFormulaText}>
-                  {(weight / 1000).toFixed(2)} MT
-                </Text>
-              </View>
-            </View>
-
+            {/* ─── eNWR Financing ─── */}
             {canTakeAction && (
-              <View style={styles.financeCard}>
-                <View style={styles.financeTopRow}>
-                  <View style={styles.financeBadge}>
-                    <Ionicons
-                      name="shield-checkmark"
-                      size={15}
-                      color="#2563EB"
-                    />
-                    <Text style={styles.financeBadgeText}>eNWR SECURED</Text>
+              <SectionCard style={s.financeCard}>
+                <View style={s.financeTopRow}>
+                  <View style={s.financeBadge}>
+                    <Ionicons name="shield-checkmark" size={14} color="#2563EB" />
+                    <Text style={s.financeBadgeText}>eNWR SECURED</Text>
                   </View>
-
-                  <Ionicons
-                    name="chevron-forward"
-                    size={20}
-                    color={UI.muted}
-                  />
+                  <Ionicons name="chevron-forward" size={18} color={DetailUI.subtle} />
                 </View>
-
-                <Text style={styles.financeTitle}>
-                  Unlock value from your stock
-                </Text>
-
-                <Text style={styles.financeDescription}>
-                  Use your digital warehouse receipt to access financing without
-                  selling your produce today.
-                </Text>
-
-                <View style={styles.financeValues}>
-                  <View style={styles.financeValueBlock}>
-                    <Text style={styles.financeValueLabel}>EST. LOT VALUE</Text>
-                    <Text style={styles.financeValue}>
-                      ₹
-                      {estimatedLotValue.toLocaleString(undefined, {
-                        maximumFractionDigits: 0,
-                      })}
-                    </Text>
+                <Text style={s.financeTitle}>Unlock value from your stock</Text>
+                <Text style={s.financeDesc}>Use your digital warehouse receipt to access financing without selling today.</Text>
+                <View style={s.financeValues}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.financeLabel}>EST. LOT VALUE</Text>
+                    <Text style={s.financeVal}>₹{estimatedLotValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</Text>
                   </View>
-
-                  <View style={styles.financeDivider} />
-
-                  <View style={styles.financeValueBlock}>
-                    <Text style={styles.financeValueLabel}>UP TO 70% LOAN</Text>
-                    <Text
-                      style={[
-                        styles.financeValue,
-                        { color: UI.emerald },
-                      ]}
-                    >
-                      ₹
-                      {loanEligibility.toLocaleString(undefined, {
-                        maximumFractionDigits: 0,
-                      })}
-                    </Text>
+                  <View style={s.financeDivider} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.financeLabel}>UP TO 70% LOAN</Text>
+                    <Text style={[s.financeVal, { color: '#059669' }]}>₹{loanEligibility.toLocaleString(undefined, { maximumFractionDigits: 0 })}</Text>
                   </View>
                 </View>
-
-                <TouchableOpacity
-                  style={styles.financeButton}
-                  activeOpacity={0.85}
-                  onPress={() =>
-                    Alert.alert(
-                      'eNWR Financing Request',
-                      'Your request has been submitted to partner banks. A representative will contact you shortly.'
-                    )
-                  }
-                >
-                  <Text style={styles.financeButtonText}>Explore Financing</Text>
-                  <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+                <TouchableOpacity style={s.financeBtn} activeOpacity={0.85} onPress={() => Alert.alert('eNWR Financing', 'Your request has been submitted. A representative will contact you shortly.')}>
+                  <Text style={s.financeBtnText}>Explore Financing</Text>
+                  <Ionicons name="arrow-forward" size={18} color="#FFF" />
                 </TouchableOpacity>
-              </View>
+              </SectionCard>
             )}
 
-            <View style={{ height: canTakeAction ? 130 : 35 }} />
+            <View style={{ height: canTakeAction ? 110 : 30 }} />
           </View>
         </ScrollView>
 
+        {/* ─── Bottom Dock ─── */}
         {canTakeAction && (
-          <SafeAreaView edges={['bottom']} style={styles.actionDock}>
-            <TouchableOpacity
-              style={styles.receiptButton}
-              activeOpacity={0.8}
-              onPress={() => router.push('/receipts')}
-            >
-              <Ionicons
-                name="qr-code-outline"
-                size={22}
-                color={UI.forest}
-              />
+          <View style={s.bottomDock}>
+            <TouchableOpacity style={s.receiptBtn} activeOpacity={0.8} onPress={() => router.push('/receipts')}>
+              <Ionicons name="qr-code-outline" size={22} color={DetailUI.primary} />
             </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.primaryAction}
-              activeOpacity={0.85}
-              onPress={() => router.push('/listing/create')}
-            >
-              <Ionicons name="pricetag-outline" size={19} color="#FFFFFF" />
-              <Text style={styles.primaryActionText}>List Lot for Sale</Text>
-              <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+            <TouchableOpacity style={s.listBtn} activeOpacity={0.85} onPress={() => router.push('/listing/create')}>
+              <LinearGradient colors={[DetailUI.primaryMid, DetailUI.primary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.listBtnGradient}>
+                <Ionicons name="pricetag-outline" size={18} color="#FFF" />
+                <Text style={s.listBtnText}>List Lot for Sale</Text>
+                <Ionicons name="arrow-forward" size={17} color="#FFF" />
+              </LinearGradient>
             </TouchableOpacity>
-          </SafeAreaView>
+          </View>
         )}
       </View>
     </>
   );
 }
 
-function HeroStat({ value, label }: { value: string; label: string }) {
-  return (
-    <View style={styles.heroStat}>
-      <Text style={styles.heroStatValue}>{value}</Text>
-      <Text style={styles.heroStatLabel}>{label}</Text>
-    </View>
-  );
-}
+// ─── Fact Tile (2-column grid item) ─────────────────────────
 
-function HealthTile({
-  icon,
-  value,
-  label,
-  color,
-  background,
-}: {
-  icon: React.ComponentProps<typeof Ionicons>['name'];
-  value: string;
-  label: string;
-  color: string;
-  background: string;
-}) {
+function FactTile({ icon, label, value }: { icon: string; label: string; value: string }) {
   return (
-    <View style={[styles.healthTile, { backgroundColor: background }]}>
-      <Ionicons name={icon} size={22} color={color} />
-      <Text style={[styles.healthValue, { color }]}>{value}</Text>
-      <Text style={styles.healthLabel}>{label}</Text>
-    </View>
-  );
-}
-
-function PremiumFact({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ComponentProps<typeof Ionicons>['name'];
-  label: string;
-  value: string;
-}) {
-  return (
-    <View style={styles.factItem}>
-      <View style={styles.factIconBox}>
-        <Ionicons name={icon} size={17} color="#60726A" />
+    <View style={s.factTile}>
+      <View style={s.factIcon}>
+        <Ionicons name={icon as any} size={16} color={DetailUI.muted} />
       </View>
-
-      <View style={styles.factTextWrap}>
-        <Text style={styles.factLabel}>{label}</Text>
-        <Text style={styles.factValue} numberOfLines={1}>
-          {value}
-        </Text>
+      <View style={{ flex: 1 }}>
+        <Text style={s.factLabel}>{label}</Text>
+        <Text style={s.factValue} numberOfLines={1}>{value}</Text>
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: UI.canvas,
-  },
-
-  scrollView: {
-    flex: 1,
-    backgroundColor: UI.canvas,
-  },
-
-  scrollContent: {
-    paddingBottom: 20,
-  },
-
-  content: {
-    backgroundColor: UI.canvas,
-  },
-
-  center: {
-    flex: 1,
-    paddingHorizontal: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: UI.canvas,
-  },
-
-  loadingText: {
-    marginTop: 13,
-    color: UI.muted,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-
-  errorScreen: {
-    flex: 1,
-    paddingHorizontal: 16,
-    justifyContent: 'center',
-    backgroundColor: UI.canvas,
-  },
-
-  errorCard: {
-    padding: 27,
-    borderRadius: 24,
-    alignItems: 'center',
-    backgroundColor: UI.surface,
-    borderWidth: 1,
-    borderColor: UI.border,
-  },
-
-  errorIcon: {
-    width: 74,
-    height: 74,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFF2E8',
-  },
-
-  emptyIcon: {
-    width: 74,
-    height: 74,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#EAF0EB',
-  },
-
-  errorTitle: {
-    marginTop: 17,
-    color: UI.ink,
-    fontSize: 20,
-    fontWeight: '800',
-  },
-
-  errorDescription: {
-    marginTop: 8,
-    color: UI.muted,
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: 'center',
-  },
-
-  retryButton: {
-    minHeight: 49,
-    marginTop: 22,
-    paddingHorizontal: 18,
-    borderRadius: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: UI.forest,
-  },
-
-  retryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-
-  goBackButton: {
-    marginTop: 17,
-    paddingVertical: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-
-  goBackText: {
-    color: UI.forest,
-    fontSize: 13,
-    fontWeight: '800',
-  },
-
-  hero: {
-    paddingBottom: 25,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    overflow: 'hidden',
-  },
-
-  heroTopRow: {
-    minHeight: 58,
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.14)',
-  },
-
-  heroNavTitle: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '800',
-  },
-
-  moreButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.14)',
-  },
-
-  heroContent: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-  },
-
-  lotIdentityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  heroLotIcon: {
-    width: 54,
-    height: 54,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.15)',
-  },
-
-  lotIdentityText: {
-    flex: 1,
-    marginLeft: 12,
-    marginRight: 10,
-  },
-
-  heroLotNumber: {
-    color: 'rgba(255,255,255,0.62)',
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 0.75,
-  },
-
-  heroTitle: {
-    marginTop: 3,
-    color: '#FFFFFF',
-    fontSize: 23,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-  },
-
-  heroSubtitle: {
-    marginTop: 4,
-    color: 'rgba(255,255,255,0.62)',
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.7,
-  },
-
-  statusPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 999,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 99,
-  },
-
-  statusText: {
-    fontSize: 11,
-    fontWeight: '800',
-  },
-
-  heroStats: {
-    marginTop: 22,
-    paddingVertical: 14,
-    paddingHorizontal: 8,
-    borderRadius: 17,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(255,255,255,0.11)',
-  },
-
-  heroStat: {
-    flex: 1,
-    alignItems: 'center',
-  },
-
-  heroStatValue: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '800',
-  },
-
-  heroStatLabel: {
-    marginTop: 5,
-    color: 'rgba(255,255,255,0.58)',
-    fontSize: 8,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-
-  heroStatDivider: {
-    width: 1,
-    height: 29,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-  },
-
-  sectionIntro: {
-    paddingHorizontal: 21,
-    paddingTop: 23,
-    paddingBottom: 2,
-  },
-
-  sectionIntroEyebrow: {
-    color: UI.teal,
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 0.85,
-  },
-
-  sectionIntroTitle: {
-    marginTop: 5,
-    color: UI.ink,
-    fontSize: 22,
-    fontWeight: '800',
-    letterSpacing: -0.4,
-  },
-
-  sectionCard: {
-    marginHorizontal: 16,
-    marginTop: 15,
-    padding: 18,
-    borderRadius: 22,
-    backgroundColor: UI.surface,
-    borderWidth: 1,
-    borderColor: UI.border,
-    shadowColor: '#173D31',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.045,
-    shadowRadius: 12,
-    elevation: 2,
-  },
-
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-
-  sectionTitleWrap: {
-    flex: 1,
-  },
-
-  iconBox: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  sectionEyebrow: {
-    color: '#78857E',
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.7,
-  },
-
-  sectionTitle: {
-    marginTop: 2,
-    color: UI.ink,
-    fontSize: 17,
-    fontWeight: '800',
-  },
-
-  locationMeta: {
-    marginTop: 17,
-    paddingTop: 14,
-    borderTopWidth: 1,
-    borderTopColor: '#EEF1EC',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-  },
-
-  locationText: {
-    flex: 1,
-    color: UI.muted,
-    fontSize: 13,
-    lineHeight: 19,
-  },
-
-  healthHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-
-  livePill: {
-    paddingHorizontal: 9,
-    paddingVertical: 6,
-    borderRadius: 999,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: UI.emeraldSoft,
-  },
-
-  livePillAlert: {
-    backgroundColor: UI.dangerSoft,
-  },
-
-  liveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 99,
-    backgroundColor: UI.emerald,
-  },
-
-  liveDotAlert: {
-    backgroundColor: UI.danger,
-  },
-
-  liveText: {
-    color: '#087D58',
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-
-  liveTextAlert: {
-    color: UI.danger,
-  },
-
-  healthGrid: {
-    marginTop: 18,
-    flexDirection: 'row',
-    gap: 12,
-  },
-
-  healthTile: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 18,
-  },
-
-  healthValue: {
-    marginTop: 15,
-    fontSize: 26,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-  },
-
-  healthLabel: {
-    marginTop: 5,
-    color: '#738079',
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.55,
-  },
-
-  healthFooter: {
-    marginTop: 16,
-    paddingTop: 14,
-    borderTopWidth: 1,
-    borderTopColor: '#EEF1EC',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-  },
-
-  healthFooterText: {
-    flex: 1,
-    color: '#708078',
-    fontSize: 12,
-    lineHeight: 17,
-  },
-
-  factGrid: {
-    marginTop: 18,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-
-  factItem: {
-    width: '47%',
-    minHeight: 62,
-    padding: 11,
-    borderRadius: 15,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-    backgroundColor: '#F7F9F6',
-  },
-
-  factIconBox: {
-    width: 30,
-    height: 30,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#EAF0EB',
-  },
-
-  factTextWrap: {
-    flex: 1,
-  },
-
-  factLabel: {
-    color: '#78837D',
-    fontSize: 10,
-    fontWeight: '600',
-  },
-
-  factValue: {
-    marginTop: 2,
-    color: UI.ink,
-    fontSize: 13,
-    fontWeight: '800',
-  },
-
+// ─── Styles ─────────────────────────────────────────────────
+
+const s = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: DetailUI.canvas },
+  scrollView: { flex: 1 },
+  scrollContent: { paddingBottom: 20 },
+  cardsArea: { paddingHorizontal: 16, paddingTop: 16 },
+
+  // Center / Error states
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: DetailUI.canvas, gap: 10 },
+  centerText: { fontSize: 13, fontWeight: '600', color: DetailUI.muted },
+  errorScreen: { flex: 1, paddingHorizontal: 16, justifyContent: 'center', backgroundColor: DetailUI.canvas },
+  errorCard: { padding: 27, borderRadius: 22, alignItems: 'center', backgroundColor: DetailUI.surface, borderWidth: 1, borderColor: DetailUI.border },
+  errorIcon: { width: 70, height: 70, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF2E8' },
+  errorTitle: { marginTop: 16, color: DetailUI.ink, fontSize: 18, fontWeight: '800' },
+  errorDesc: { marginTop: 8, color: DetailUI.muted, fontSize: 13, lineHeight: 20, textAlign: 'center' },
+  retryBtn: { minHeight: 48, marginTop: 20, paddingHorizontal: 20, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: DetailUI.primary },
+  retryText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
+  goBackBtn: { marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  goBackText: { color: DetailUI.primary, fontSize: 13, fontWeight: '700' },
+
+  // Hero
+  hero: { paddingBottom: 24, borderBottomLeftRadius: 28, borderBottomRightRadius: 28, overflow: 'hidden' },
+  heroTopRow: { minHeight: 56, paddingHorizontal: 16, paddingTop: 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  heroBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.12)' },
+  heroNavTitle: { color: '#FFF', fontSize: 17, fontWeight: '800' },
+  heroContent: { paddingHorizontal: 20, paddingTop: 16 },
+  lotIdentityRow: { flexDirection: 'row', alignItems: 'center' },
+  heroLotIcon: { width: 50, height: 50, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.14)' },
+  lotIdentityText: { flex: 1, marginLeft: 12, marginRight: 8 },
+  heroLotNumber: { color: 'rgba(255,255,255,0.6)', fontSize: 9, fontWeight: '800', letterSpacing: 0.7 },
+  heroTitle: { marginTop: 3, color: '#FFF', fontSize: 22, fontWeight: '800', letterSpacing: -0.4 },
+  heroSubtitle: { marginTop: 4, color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: '800', letterSpacing: 0.6 },
+  statusPill: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, flexDirection: 'row', alignItems: 'center', gap: 5 },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
+  statusLabel: { fontSize: 11, fontWeight: '800' },
+  heroStats: { marginTop: 20, paddingVertical: 14, paddingHorizontal: 8, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'rgba(255,255,255,0.11)' },
+  heroStat: { flex: 1, alignItems: 'center' },
+  heroStatValue: { color: '#FFF', fontSize: 18, fontWeight: '800' },
+  heroStatLabel: { marginTop: 4, color: 'rgba(255,255,255,0.55)', fontSize: 8, fontWeight: '800', letterSpacing: 0.5 },
+  heroStatDivider: { width: 1, height: 28, backgroundColor: 'rgba(255,255,255,0.17)' },
+
+  // Section helpers
+  eyebrow: { fontSize: 9, fontWeight: '700', color: DetailUI.muted, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 2 },
+  sectionTitle: { fontSize: 15, fontWeight: '700', color: DetailUI.ink, letterSpacing: -0.2 },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  locationText: { flex: 1, color: DetailUI.muted, fontSize: 13, lineHeight: 19 },
+
+  // Health
+  healthHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+  livePill: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#E8F7EF' },
+  livePillAlert: { backgroundColor: DetailUI.dangerSoft },
+  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#059669' },
+  liveDotAlert: { backgroundColor: DetailUI.danger },
+  liveText: { color: '#087D58', fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
+  liveTextAlert: { color: DetailUI.danger },
+  healthGrid: { flexDirection: 'row', gap: 12, marginBottom: 4 },
+  healthTile: { flex: 1, padding: 16, borderRadius: 16 },
+  healthValue: { marginTop: 14, fontSize: 26, fontWeight: '800', letterSpacing: -0.5 },
+  healthLabel: { marginTop: 4, color: DetailUI.muted, fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
+  healthFooterRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  healthFooterText: { flex: 1, color: DetailUI.muted, fontSize: 12, lineHeight: 17 },
+
+  // Fact grid
+  factGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 4 },
+  factTile: { width: '47%', minHeight: 58, padding: 10, borderRadius: 14, flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: '#F3F5F1' },
+  factIcon: { width: 28, height: 28, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: '#E8EDE8' },
+  factLabel: { color: DetailUI.muted, fontSize: 10, fontWeight: '600' },
+  factValue: { marginTop: 2, color: DetailUI.ink, fontSize: 13, fontWeight: '800' },
+
+  // Rent card
   rentCard: {
-    marginHorizontal: 16,
-    marginTop: 15,
-    padding: 19,
-    borderRadius: 22,
-    backgroundColor: UI.goldSoft,
-    borderWidth: 1,
-    borderColor: '#F2DFB2',
+    padding: 18, borderRadius: 18, marginBottom: 12,
+    backgroundColor: '#FFF7E5', borderWidth: 1, borderColor: '#F2DFB2',
   },
+  rentAmount: { marginTop: 8, color: '#B77912', fontSize: 36, fontWeight: '900', letterSpacing: -1 },
+  rentFormula: { marginTop: 6, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
+  rentFormulaText: { color: '#887553', fontSize: 12, fontWeight: '600' },
+  rentFormulaOp: { color: '#C49C53', fontSize: 13, fontWeight: '800' },
 
-  rentTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
+  // Finance card
+  financeCard: { borderColor: '#D8E7F8' },
+  financeTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  financeBadge: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#EFF6FF' },
+  financeBadgeText: { color: '#2563EB', fontSize: 10, fontWeight: '900', letterSpacing: 0.4 },
+  financeTitle: { color: DetailUI.ink, fontSize: 19, fontWeight: '800' },
+  financeDesc: { marginTop: 6, color: DetailUI.muted, fontSize: 13, lineHeight: 19 },
+  financeValues: { marginTop: 16, padding: 14, borderRadius: 14, flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#F7FAFC' },
+  financeLabel: { color: DetailUI.muted, fontSize: 9, fontWeight: '800', letterSpacing: 0.4 },
+  financeVal: { marginTop: 4, color: DetailUI.ink, fontSize: 15, fontWeight: '800' },
+  financeDivider: { width: 1, marginHorizontal: 12, backgroundColor: DetailUI.border },
+  financeBtn: { minHeight: 50, marginTop: 14, borderRadius: 14, backgroundColor: DetailUI.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9 },
+  financeBtnText: { color: '#FFF', fontSize: 14, fontWeight: '800' },
 
-  rentIconBox: {
-    width: 42,
-    height: 42,
-    marginRight: 11,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFF0C7',
+  // Bottom dock
+  bottomDock: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    paddingHorizontal: 16, paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 16,
+    flexDirection: 'row', gap: 10,
+    borderTopWidth: 1, borderTopColor: DetailUI.borderSoft,
+    backgroundColor: 'rgba(242,244,240,0.97)',
   },
-
-  rentHeaderText: {
-    flex: 1,
-  },
-
-  rentEyebrow: {
-    color: '#A67A2B',
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.7,
-  },
-
-  rentTitle: {
-    marginTop: 2,
-    color: '#4F3D1F',
-    fontSize: 17,
-    fontWeight: '800',
-  },
-
-  rentAmount: {
-    marginTop: 21,
-    color: '#B77912',
-    fontSize: 37,
-    fontWeight: '900',
-    letterSpacing: -1,
-  },
-
-  rentFormula: {
-    marginTop: 7,
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-
-  rentFormulaText: {
-    color: '#887553',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-
-  rentFormulaDivider: {
-    color: '#C49C53',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-
-  financeCard: {
-    marginHorizontal: 16,
-    marginTop: 15,
-    padding: 18,
-    borderRadius: 22,
-    backgroundColor: UI.surface,
-    borderWidth: 1,
-    borderColor: '#D8E7F8',
-    shadowColor: '#164E8B',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.045,
-    shadowRadius: 12,
-    elevation: 2,
-  },
-
-  financeTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-
-  financeBadge: {
-    paddingHorizontal: 9,
-    paddingVertical: 6,
-    borderRadius: 999,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#EFF6FF',
-  },
-
-  financeBadgeText: {
-    color: '#2563EB',
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 0.45,
-  },
-
-  financeTitle: {
-    marginTop: 17,
-    color: UI.ink,
-    fontSize: 20,
-    fontWeight: '800',
-  },
-
-  financeDescription: {
-    marginTop: 7,
-    color: UI.muted,
-    fontSize: 13,
-    lineHeight: 19,
-  },
-
-  financeValues: {
-    marginTop: 18,
-    padding: 14,
-    borderRadius: 15,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    backgroundColor: '#F7FAFC',
-  },
-
-  financeValueBlock: {
-    flex: 1,
-  },
-
-  financeValueLabel: {
-    color: '#83908A',
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 0.45,
-  },
-
-  financeValue: {
-    marginTop: 5,
-    color: '#1C2B24',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-
-  financeDivider: {
-    width: 1,
-    marginHorizontal: 12,
-    backgroundColor: '#E1E9E3',
-  },
-
-  financeButton: {
-    minHeight: 50,
-    marginTop: 15,
-    borderRadius: 14,
-    backgroundColor: UI.forest,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 9,
-  },
-
-  financeButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-
-  actionDock: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    flexDirection: 'row',
-    gap: 11,
-    borderTopWidth: 1,
-    borderTopColor: '#E3E8E1',
-    backgroundColor: 'rgba(245,247,244,0.98)',
-  },
-
-  receiptButton: {
-    width: 55,
-    minHeight: 55,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#E6EFE9',
-  },
-
-  primaryAction: {
-    flex: 1,
-    minHeight: 55,
-    borderRadius: 16,
-    backgroundColor: UI.forest,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 9,
-    shadowColor: UI.forest,
-    shadowOffset: { width: 0, height: 7 },
-    shadowOpacity: 0.22,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-
-  primaryActionText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '800',
-  },
+  receiptBtn: { width: 54, height: 54, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: '#E8F3EE' },
+  listBtn: { flex: 1, borderRadius: 16, overflow: 'hidden' },
+  listBtnGradient: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, borderRadius: 16, minHeight: 54 },
+  listBtnText: { color: '#FFF', fontSize: 15, fontWeight: '800' },
 });
