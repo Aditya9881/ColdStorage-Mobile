@@ -25,6 +25,8 @@ import RoleSelectionModal, { DiscoverRole } from '@/components/RoleSelectionModa
 import DiscoverHero from '@/components/DiscoverHero';
 import DiscoverFeatures from '@/components/DiscoverFeatures';
 import DiscoverTrust from '@/components/DiscoverTrust';
+import SignInModal from '@/components/SignInModal';
+import SignUpModal from '@/components/SignUpModal';
 
 const ROLE_STORAGE_KEY = 'sheetkosh_discover_role';
 
@@ -445,6 +447,10 @@ export default function DiscoverScreen() {
   const [brokenPriceImages, setBrokenPriceImages] = useState<Record<string, boolean>>({});
   const [brokenFacilityImages, setBrokenFacilityImages] = useState<Record<string, boolean>>({});
 
+  /* ─── Auth Modal State ─── */
+  const [showSignInModal, setShowSignInModal] = useState(false);
+  const [showSignUpModal, setShowSignUpModal] = useState(false);
+
   const headerFade = useRef(new Animated.Value(0)).current;
   const contentSlide = useRef(new Animated.Value(20)).current;
   const cardAnims = useRef<Animated.Value[]>([]).current;
@@ -708,8 +714,8 @@ export default function DiscoverScreen() {
           {/* ─── Role-specific Hero ─── */}
           <DiscoverHero
             role={currentRole}
-            onSignIn={() => router.push('/(auth)/login')}
-            onGetStarted={() => router.push('/(auth)/register')}
+            onSignIn={() => setShowSignInModal(true)}
+            onGetStarted={() => setShowSignUpModal(true)}
             onSwitchRole={handleSwitchRole}
           />
 
@@ -1008,8 +1014,8 @@ export default function DiscoverScreen() {
 
           {/* ─── Trust section (all roles) ─── */}
           <DiscoverTrust
-            onGetStarted={() => router.push('/(auth)/register')}
-            onSignIn={() => router.push('/(auth)/login')}
+            onGetStarted={() => setShowSignUpModal(true)}
+            onSignIn={() => setShowSignInModal(true)}
           />
 
           <View style={{ height: 34 }} />
@@ -1020,13 +1026,25 @@ export default function DiscoverScreen() {
           onClose={() => setAuthModalVisible(false)}
           onLogin={() => {
             setAuthModalVisible(false);
-            router.push('/(auth)/login');
+            setShowSignInModal(true);
           }}
           onRegister={() => {
             setAuthModalVisible(false);
-            router.push('/(auth)/register');
+            setShowSignUpModal(true);
           }}
           actionMessage={authActionMessage}
+        />
+
+        {/* ─── Auth Modals ─── */}
+        <SignInModal
+          visible={showSignInModal}
+          onClose={() => setShowSignInModal(false)}
+          onSwitchToSignUp={() => { setShowSignInModal(false); setShowSignUpModal(true); }}
+        />
+        <SignUpModal
+          visible={showSignUpModal}
+          onClose={() => setShowSignUpModal(false)}
+          onSwitchToSignIn={() => { setShowSignUpModal(false); setShowSignInModal(true); }}
         />
       </View>
     </>
