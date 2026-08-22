@@ -1,36 +1,36 @@
 /**
- * ColdStorage — Login Screen
+ * ColdStorage — Login Screen (Redesigned)
+ *
+ * Clean, high-contrast auth matching the new discover design system.
+ * Light background, dark text, solid buttons — readable in sunlight.
  *
  * Flow:
  *   Step 1: Enter phone → "Send OTP"
  *   Step 2: Enter 6-digit OTP → auto-verify → logged in
  *   Alt:    "Login with Password" toggle
+ *
+ * All business logic preserved from original.
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ActivityIndicator,
-  Keyboard, ScrollView, Dimensions,
+  Keyboard, ScrollView, StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
-import {
-  Colors, Spacing, BorderRadius, FontSize, FontWeight,
-  Shadows, Gradients, FontFamily,
-} from '@/constants/Colors';
 import { hapticLight, hapticError, hapticSuccess } from '@/lib/haptics';
-
-const { width: SCREEN_W } = Dimensions.get('window');
 
 type LoginStep = 'phone' | 'otp' | 'password';
 
 export default function LoginScreen() {
   const { login, sendOtp, verifyOtp } = useAuth();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
-  // ── State ──
+  // ── State (preserved) ──
   const [step, setStep] = useState<LoginStep>('phone');
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
@@ -47,7 +47,7 @@ export default function LoginScreen() {
   const phoneInputRef = useRef<TextInput>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // ── Countdown Timer ──
+  // ── Countdown Timer (preserved) ──
   useEffect(() => {
     if (countdown > 0) {
       countdownRef.current = setInterval(() => {
@@ -65,7 +65,7 @@ export default function LoginScreen() {
     };
   }, [countdown]);
 
-  // ── Step titles ──
+  // ── Step config ──
   const stepConfig: Record<LoginStep, { title: string; help: string }> = {
     phone: {
       title: 'Welcome Back',
@@ -77,11 +77,11 @@ export default function LoginScreen() {
     },
     password: {
       title: 'Sign In',
-      help: 'Use your credentials to login',
+      help: 'Use your phone number and password',
     },
   };
 
-  // ── Send OTP ──
+  // ── Send OTP (preserved) ──
   const handleSendOtp = useCallback(async () => {
     Keyboard.dismiss();
     if (!phone || phone.length !== 10) {
@@ -109,7 +109,7 @@ export default function LoginScreen() {
     }
   }, [phone, sendOtp]);
 
-  // ── Verify OTP ──
+  // ── Verify OTP (preserved) ──
   const handleVerifyOtp = useCallback(async (otpValue: string) => {
     if (otpValue.length !== 6) return;
     Keyboard.dismiss();
@@ -128,7 +128,7 @@ export default function LoginScreen() {
     }
   }, [phone, verifyOtp]);
 
-  // ── OTP Input Change ──
+  // ── OTP Input Change (preserved) ──
   const handleOtpChange = useCallback((text: string) => {
     const cleaned = text.replace(/[^0-9]/g, '').slice(0, 6);
     setOtp(cleaned);
@@ -137,7 +137,7 @@ export default function LoginScreen() {
     }
   }, [handleVerifyOtp]);
 
-  // ── Password Login ──
+  // ── Password Login (preserved) ──
   const handlePasswordLogin = useCallback(async () => {
     Keyboard.dismiss();
     if (!phone || !password) {
@@ -164,7 +164,7 @@ export default function LoginScreen() {
     }
   }, [phone, password, login]);
 
-  // ── Resend OTP ──
+  // ── Resend OTP (preserved) ──
   const handleResendOtp = useCallback(async () => {
     if (countdown > 0) return;
     setError('');
@@ -183,14 +183,11 @@ export default function LoginScreen() {
   }, [phone, countdown, sendOtp]);
 
   return (
-    <LinearGradient
-      colors={['#0A2519', '#143D2B', '#1B5E4A'] as any}
-      style={s.gradient}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-    >
+    <View style={[s.screen, { paddingTop: insets.top }]}>
+      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+
       <KeyboardAvoidingView
-        style={s.container}
+        style={s.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView
@@ -198,22 +195,23 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="always"
           showsVerticalScrollIndicator={false}
         >
-          {/* ── Logo ── */}
-          <View style={s.logoContainer}>
-            <View style={s.logoGlow}>
-              <View style={s.logoIcon}>
-                <Ionicons name="snow" size={28} color="#E8BE6A" />
+          {/* ── Brand Header ── */}
+          <View style={s.brandArea}>
+            <View style={s.brandRow}>
+              <View style={s.brandMark}>
+                <Ionicons name="snow-outline" size={18} color="#D3A03A" />
+              </View>
+              <View>
+                <Text style={s.brandName}>SheetKosh</Text>
+                <Text style={s.brandSub}>India's Cold Storage Platform</Text>
               </View>
             </View>
-            <Text style={s.brandName}>ColdStorage</Text>
-            <Text style={s.brandHindi}>शीतकोष</Text>
-            <Text style={s.tagline}>India's Smart Cold Storage Network</Text>
           </View>
 
-          {/* ── Form Card — plain View, no animations ── */}
-          <View style={s.card}>
-            <Text style={s.stepTitle}>{stepConfig[step].title}</Text>
-            <Text style={s.stepHelp}>{stepConfig[step].help}</Text>
+          {/* ── Form Section ── */}
+          <View style={s.formSection}>
+            <Text style={s.title}>{stepConfig[step].title}</Text>
+            <Text style={s.subtitle}>{stepConfig[step].help}</Text>
 
             {/* Error Banner */}
             {error ? (
@@ -240,7 +238,7 @@ export default function LoginScreen() {
                       value={phone}
                       onChangeText={setPhone}
                       placeholder="Enter mobile number"
-                      placeholderTextColor="#94A3B8"
+                      placeholderTextColor="#9AA39E"
                       keyboardType="phone-pad"
                       maxLength={10}
                       editable={!loading}
@@ -253,26 +251,19 @@ export default function LoginScreen() {
 
                 {/* Send OTP Button */}
                 <TouchableOpacity
-                  style={[s.primaryBtn, loading && { opacity: 0.6 }]}
+                  style={[s.primaryBtn, loading && s.primaryBtnDisabled]}
                   onPress={handleSendOtp}
                   disabled={loading}
-                  activeOpacity={0.85}
+                  activeOpacity={0.88}
                 >
-                  <LinearGradient
-                    colors={['#143D2B', '#1B5E4A'] as any}
-                    style={s.primaryBtnGrad}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                  >
-                    {loading ? (
-                      <ActivityIndicator color="#FFF" size="small" />
-                    ) : (
-                      <>
-                        <Text style={s.primaryBtnText}>Get OTP</Text>
-                        <Ionicons name="arrow-forward" size={18} color="#FFF" />
-                      </>
-                    )}
-                  </LinearGradient>
+                  {loading ? (
+                    <ActivityIndicator color="#FFF" size="small" />
+                  ) : (
+                    <>
+                      <Text style={s.primaryBtnText}>Get OTP</Text>
+                      <Ionicons name="arrow-forward" size={18} color="#FFF" />
+                    </>
+                  )}
                 </TouchableOpacity>
 
                 {/* Divider */}
@@ -288,7 +279,7 @@ export default function LoginScreen() {
                   onPress={() => { setStep('password'); setError(''); hapticLight(); }}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="lock-closed-outline" size={16} color="#1B5E4A" />
+                  <Ionicons name="lock-closed-outline" size={16} color="#14532D" />
                   <Text style={s.outlineBtnText}>Login with Password</Text>
                 </TouchableOpacity>
               </>
@@ -297,7 +288,7 @@ export default function LoginScreen() {
             {/* ── OTP STEP ── */}
             {step === 'otp' && (
               <>
-                <View style={s.otpRow}>
+                <View style={s.otpWrap}>
                   <TextInput
                     ref={otpInputRef}
                     style={s.otpInput}
@@ -305,8 +296,8 @@ export default function LoginScreen() {
                     onChangeText={handleOtpChange}
                     keyboardType="number-pad"
                     maxLength={6}
-                    placeholder="Enter 6-digit OTP"
-                    placeholderTextColor="#94A3B8"
+                    placeholder="● ● ● ● ● ●"
+                    placeholderTextColor="#C4CBC7"
                     autoFocus
                     editable={!loading}
                   />
@@ -314,7 +305,7 @@ export default function LoginScreen() {
 
                 {loading && (
                   <View style={s.verifyingRow}>
-                    <ActivityIndicator size="small" color="#1B5E4A" />
+                    <ActivityIndicator size="small" color="#14532D" />
                     <Text style={s.verifyingText}>Verifying...</Text>
                   </View>
                 )}
@@ -337,7 +328,7 @@ export default function LoginScreen() {
                   style={s.backRow}
                   onPress={() => { setStep('phone'); setOtp(''); setError(''); hapticLight(); }}
                 >
-                  <Ionicons name="arrow-back" size={14} color="#5F6B7A" />
+                  <Ionicons name="arrow-back" size={14} color="#5F6B66" />
                   <Text style={s.backText}>Change phone number</Text>
                 </TouchableOpacity>
               </>
@@ -359,7 +350,7 @@ export default function LoginScreen() {
                       value={phone}
                       onChangeText={setPhone}
                       placeholder="Enter mobile number"
-                      placeholderTextColor="#94A3B8"
+                      placeholderTextColor="#9AA39E"
                       keyboardType="phone-pad"
                       maxLength={10}
                       editable={!loading}
@@ -372,13 +363,13 @@ export default function LoginScreen() {
                 <View style={s.fieldWrap}>
                   <Text style={s.fieldLabel}>PASSWORD</Text>
                   <View style={[s.inputRow, passFocused && s.inputRowFocused]}>
-                    <Ionicons name="lock-closed-outline" size={17} color={passFocused ? '#1B5E4A' : '#94A3B8'} />
+                    <Ionicons name="lock-closed-outline" size={17} color={passFocused ? '#14532D' : '#9AA39E'} />
                     <TextInput
                       style={s.input}
                       value={password}
                       onChangeText={setPassword}
                       placeholder="Enter password"
-                      placeholderTextColor="#94A3B8"
+                      placeholderTextColor="#9AA39E"
                       secureTextEntry={!showPassword}
                       autoCapitalize="none"
                       editable={!loading}
@@ -389,45 +380,38 @@ export default function LoginScreen() {
                       onPress={() => { setShowPassword(!showPassword); hapticLight(); }}
                       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                      <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color="#94A3B8" />
+                      <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color="#9AA39E" />
                     </TouchableOpacity>
                   </View>
                 </View>
 
                 <TouchableOpacity
-                  style={[s.primaryBtn, loading && { opacity: 0.6 }]}
+                  style={[s.primaryBtn, loading && s.primaryBtnDisabled]}
                   onPress={handlePasswordLogin}
                   disabled={loading}
-                  activeOpacity={0.85}
+                  activeOpacity={0.88}
                 >
-                  <LinearGradient
-                    colors={['#143D2B', '#1B5E4A'] as any}
-                    style={s.primaryBtnGrad}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                  >
-                    {loading ? (
-                      <ActivityIndicator color="#FFF" size="small" />
-                    ) : (
-                      <>
-                        <Text style={s.primaryBtnText}>Sign In</Text>
-                        <Ionicons name="log-in-outline" size={18} color="#FFF" />
-                      </>
-                    )}
-                  </LinearGradient>
+                  {loading ? (
+                    <ActivityIndicator color="#FFF" size="small" />
+                  ) : (
+                    <>
+                      <Text style={s.primaryBtnText}>Sign In</Text>
+                      <Ionicons name="log-in-outline" size={18} color="#FFF" />
+                    </>
+                  )}
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={s.backRow}
                   onPress={() => { setStep('phone'); setError(''); hapticLight(); }}
                 >
-                  <Ionicons name="arrow-back" size={14} color="#5F6B7A" />
+                  <Ionicons name="arrow-back" size={14} color="#5F6B66" />
                   <Text style={s.backText}>Login with OTP instead</Text>
                 </TouchableOpacity>
               </>
             )}
 
-            {/* ── Dev Credentials (collapsible) ── */}
+            {/* ── Dev Credentials (preserved) ── */}
             {__DEV__ && (
               <View style={s.devSection}>
                 <TouchableOpacity
@@ -438,7 +422,7 @@ export default function LoginScreen() {
                   <View style={s.devTogglePill}>
                     <Ionicons name="code-slash-outline" size={10} color="#D9A441" />
                     <Text style={s.devToggleText}>DEV</Text>
-                    <Ionicons name={showDevCreds ? 'chevron-up' : 'chevron-down'} size={10} color="#94A3B8" />
+                    <Ionicons name={showDevCreds ? 'chevron-up' : 'chevron-down'} size={10} color="#9AA39E" />
                   </View>
                   <View style={s.devToggleLine} />
                 </TouchableOpacity>
@@ -459,14 +443,14 @@ export default function LoginScreen() {
                           hapticLight();
                         }}
                       >
-                        <View style={[s.devCredIcon, { backgroundColor: cred.label === 'Farmer' ? '#E6F2ED' : '#F0FDFA' }]}>
-                          <Ionicons name={cred.icon} size={12} color={cred.label === 'Farmer' ? '#1B5E4A' : '#0F766E'} />
+                        <View style={[s.devCredIcon, { backgroundColor: cred.label === 'Farmer' ? '#E8F5EE' : '#E8F5EE' }]}>
+                          <Ionicons name={cred.icon} size={12} color="#14532D" />
                         </View>
                         <View style={{ flex: 1 }}>
                           <Text style={s.devCredLabel}>{cred.label}</Text>
                           <Text style={s.devCredPhone}>{cred.phone} / {cred.pw}</Text>
                         </View>
-                        <Ionicons name="chevron-forward" size={14} color="#94A3B8" />
+                        <Ionicons name="chevron-forward" size={14} color="#9AA39E" />
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -478,7 +462,7 @@ export default function LoginScreen() {
           {/* ── Bottom: Register + Trust ── */}
           <View style={s.bottomArea}>
             <View style={s.registerRow}>
-              <Text style={s.registerText}>New to ColdStorage? </Text>
+              <Text style={s.registerText}>New to SheetKosh? </Text>
               <TouchableOpacity onPress={() => { router.replace('/(auth)/register'); hapticLight(); }}>
                 <Text style={s.registerLink}>Create Account</Text>
               </TouchableOpacity>
@@ -487,95 +471,96 @@ export default function LoginScreen() {
             {/* Trust Badges */}
             <View style={s.trustRow}>
               <View style={s.trustBadge}>
-                <Ionicons name="shield-checkmark-outline" size={12} color="rgba(255,255,255,0.5)" />
+                <Ionicons name="shield-checkmark-outline" size={12} color="#9AA39E" />
                 <Text style={s.trustText}>Bank-grade security</Text>
               </View>
               <View style={s.trustDot} />
               <View style={s.trustBadge}>
-                <Ionicons name="checkmark-circle-outline" size={12} color="rgba(255,255,255,0.5)" />
+                <Ionicons name="checkmark-circle-outline" size={12} color="#9AA39E" />
                 <Text style={s.trustText}>FSSAI Verified</Text>
               </View>
             </View>
           </View>
-
         </ScrollView>
       </KeyboardAvoidingView>
-    </LinearGradient>
+    </View>
   );
 }
 
 // ─────────────────────────────────────────────────────
-// STYLES
+// STYLES — Clean, high-contrast design system
 // ─────────────────────────────────────────────────────
 const s = StyleSheet.create({
-  gradient: { flex: 1 },
-  container: { flex: 1 },
+  screen: {
+    flex: 1,
+    backgroundColor: '#F7F8F5',
+  },
+  flex: { flex: 1 },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
     paddingHorizontal: 24,
-    paddingVertical: 32,
+    paddingBottom: 32,
   },
 
-  // ── Logo ──
-  logoContainer: {
+  // ── Brand ──
+  brandArea: {
+    paddingTop: 20,
+    paddingBottom: 8,
+    marginBottom: 20,
+  },
+  brandRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 32,
+    gap: 10,
   },
-  logoGlow: {
-    width: 72, height: 72,
-    borderRadius: 22,
-    alignItems: 'center', justifyContent: 'center',
-    marginBottom: 14,
-    backgroundColor: 'rgba(232, 190, 106, 0.12)',
-    borderWidth: 1, borderColor: 'rgba(232, 190, 106, 0.2)',
-  },
-  logoIcon: {
-    width: 52, height: 52,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+  brandMark: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8E4',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   brandName: {
-    fontSize: 30,
+    fontSize: 22,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#0B2520',
     letterSpacing: -0.5,
   },
-  brandHindi: {
-    fontSize: 16,
-    color: '#E8BE6A',
+  brandSub: {
+    fontSize: 12,
+    color: '#5F6B66',
     fontWeight: '500',
-    marginTop: 2,
-  },
-  tagline: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.5)',
-    marginTop: 6,
-    letterSpacing: 0.3,
+    marginTop: 1,
   },
 
-  // ── Card ──
-  card: {
+  // ── Form Section ──
+  formSection: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 22,
     padding: 24,
-    ...Shadows.lg,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.04)',
+    borderColor: '#E8ECE9',
+    shadowColor: '#163C2D',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    elevation: 3,
   },
-  stepTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1A1A2E',
-    letterSpacing: -0.3,
+  title: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#0B2520',
+    letterSpacing: -0.4,
   },
-  stepHelp: {
+  subtitle: {
     fontSize: 14,
-    color: '#5F6B7A',
+    color: '#5F6B66',
+    fontWeight: '500',
     marginTop: 4,
-    marginBottom: 20,
+    marginBottom: 22,
     lineHeight: 20,
   },
 
@@ -585,9 +570,9 @@ const s = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     backgroundColor: '#FEF2F2',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 18,
     borderWidth: 1,
     borderColor: '#FECACA',
   },
@@ -596,16 +581,17 @@ const s = StyleSheet.create({
     color: '#991B1B',
     flex: 1,
     lineHeight: 18,
+    fontWeight: '500',
   },
 
   // ── Fields ──
   fieldWrap: {
-    marginBottom: 16,
+    marginBottom: 18,
   },
   fieldLabel: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#5F6B7A',
+    fontWeight: '800',
+    color: '#5F6B66',
     marginBottom: 8,
     textTransform: 'uppercase',
     letterSpacing: 1,
@@ -614,15 +600,16 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: '#E8E6E1',
+    borderColor: '#E2E8E4',
     borderRadius: 14,
     paddingHorizontal: 14,
-    paddingVertical: Platform.OS === 'ios' ? 13 : 6,
-    backgroundColor: '#FAFAF8',
+    paddingVertical: Platform.OS === 'ios' ? 14 : 8,
+    backgroundColor: '#F2F5F0',
     gap: 10,
+    minHeight: 54,
   },
   inputRowFocused: {
-    borderColor: '#1B5E4A',
+    borderColor: '#14532D',
     backgroundColor: '#FFFFFF',
   },
   countryBadge: {
@@ -635,82 +622,86 @@ const s = StyleSheet.create({
   },
   countryCode: {
     fontSize: 15,
-    fontWeight: '600',
-    color: '#1A1A2E',
+    fontWeight: '700',
+    color: '#0B2520',
   },
   inputSep: {
     width: 1,
     height: 22,
-    backgroundColor: '#E8E6E1',
+    backgroundColor: '#D4DAD6',
   },
   input: {
     flex: 1,
-    fontSize: 15,
-    color: '#1A1A2E',
+    fontSize: 16,
+    color: '#0B2520',
+    fontWeight: '600',
     padding: 0,
     margin: 0,
   },
 
   // ── OTP ──
-  otpRow: {
-    marginBottom: 16,
+  otpWrap: {
+    marginBottom: 18,
   },
   otpInput: {
     borderWidth: 1.5,
-    borderColor: '#E8E6E1',
+    borderColor: '#E2E8E4',
     borderRadius: 14,
     paddingHorizontal: 14,
-    paddingVertical: Platform.OS === 'ios' ? 13 : 6,
-    backgroundColor: '#FAFAF8',
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#1A1A2E',
+    paddingVertical: Platform.OS === 'ios' ? 16 : 10,
+    backgroundColor: '#F2F5F0',
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#0B2520',
     textAlign: 'center',
-    letterSpacing: 8,
+    letterSpacing: 10,
+    minHeight: 58,
   },
   verifyingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginBottom: 12,
+    marginBottom: 14,
   },
   verifyingText: {
-    fontSize: 13,
-    color: '#1B5E4A',
-    fontWeight: '500',
+    fontSize: 14,
+    color: '#14532D',
+    fontWeight: '600',
   },
   resendRow: {
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   resendTimer: {
     fontSize: 13,
-    color: '#5F6B7A',
+    color: '#5F6B66',
+    fontWeight: '500',
   },
   resendBold: {
-    fontWeight: '700',
-    color: '#1A1A2E',
+    fontWeight: '800',
+    color: '#0B2520',
   },
   resendLink: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#1B5E4A',
+    fontWeight: '700',
+    color: '#14532D',
   },
 
   // ── Buttons ──
   primaryBtn: {
+    backgroundColor: '#14532D',
     borderRadius: 14,
-    overflow: 'hidden',
-    marginBottom: 14,
-  },
-  primaryBtnGrad: {
-    paddingVertical: 15,
+    paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
     gap: 8,
-    borderRadius: 14,
+    marginBottom: 14,
+    minHeight: 54,
+  },
+  primaryBtnDisabled: {
+    opacity: 0.6,
   },
   primaryBtnText: {
     fontSize: 16,
@@ -722,64 +713,68 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 13,
+    paddingVertical: 14,
     borderRadius: 14,
     borderWidth: 1.5,
     borderColor: '#D4E8DC',
     backgroundColor: '#F0F8F3',
+    minHeight: 52,
   },
   outlineBtnText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#1B5E4A',
+    fontWeight: '700',
+    color: '#14532D',
   },
   dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginVertical: 14,
+    marginVertical: 16,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#E8E6E1',
+    backgroundColor: '#E2E8E4',
   },
   dividerText: {
     fontSize: 12,
-    color: '#94A3B8',
-    fontWeight: '500',
+    color: '#9AA39E',
+    fontWeight: '600',
   },
   backRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 8,
+    paddingVertical: 10,
+    marginTop: 4,
   },
   backText: {
-    fontSize: 13,
-    color: '#5F6B7A',
-    fontWeight: '500',
+    fontSize: 14,
+    color: '#5F6B66',
+    fontWeight: '600',
   },
 
   // ── Bottom ──
   bottomArea: {
     alignItems: 'center',
-    marginTop: 24,
+    marginTop: 28,
+    paddingBottom: 16,
   },
   registerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 18,
   },
   registerText: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.6)',
+    color: '#5F6B66',
+    fontWeight: '500',
   },
   registerLink: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontWeight: '800',
+    color: '#14532D',
     textDecorationLine: 'underline',
   },
   trustRow: {
@@ -794,17 +789,19 @@ const s = StyleSheet.create({
   },
   trustText: {
     fontSize: 11,
-    color: 'rgba(255,255,255,0.4)',
+    color: '#9AA39E',
+    fontWeight: '500',
   },
   trustDot: {
-    width: 3, height: 3,
+    width: 3,
+    height: 3,
     borderRadius: 1.5,
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: '#C4CBC7',
   },
 
-  // ── Dev ──
+  // ── Dev (preserved) ──
   devSection: {
-    marginTop: 16,
+    marginTop: 18,
   },
   devToggle: {
     flexDirection: 'row',
@@ -814,7 +811,7 @@ const s = StyleSheet.create({
   devToggleLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#E8E6E1',
+    backgroundColor: '#E2E8E4',
   },
   devTogglePill: {
     flexDirection: 'row',
@@ -840,25 +837,27 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    padding: 10,
-    borderRadius: 10,
-    backgroundColor: '#F8FAF8',
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: '#F2F5F0',
     borderWidth: 1,
-    borderColor: '#E8F0E8',
+    borderColor: '#E2E8E4',
   },
   devCredIcon: {
-    width: 28, height: 28,
-    borderRadius: 8,
-    alignItems: 'center', justifyContent: 'center',
+    width: 30,
+    height: 30,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   devCredLabel: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#0B2520',
   },
   devCredPhone: {
-    fontSize: 10,
-    color: '#94A3B8',
+    fontSize: 11,
+    color: '#9AA39E',
     marginTop: 1,
   },
 });
