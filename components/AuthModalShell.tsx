@@ -9,11 +9,11 @@
  * - ScrollView for overflow content
  * - Android back button support via onRequestClose
  */
-import React, { useRef, useEffect } from 'react';
+import React from 'react';
 import {
-  View, Text, StyleSheet, Modal, TouchableOpacity,
+  View, StyleSheet, Modal, TouchableOpacity,
   KeyboardAvoidingView, Platform, ScrollView, Alert,
-  Dimensions, Animated,
+  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -35,29 +35,6 @@ export default function AuthModalShell({
   showCloseConfirm = false,
 }: AuthModalShellProps) {
   const insets = useSafeAreaInsets();
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.95)).current;
-
-  useEffect(() => {
-    if (visible) {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          tension: 80,
-          friction: 12,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else {
-      fadeAnim.setValue(0);
-      scaleAnim.setValue(0.95);
-    }
-  }, [visible]);
 
   const handleClose = () => {
     if (showCloseConfirm) {
@@ -85,17 +62,14 @@ export default function AuthModalShell({
       <View style={styles.scrim}>
         <KeyboardAvoidingView
           style={styles.keyboardView}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <Animated.View
+          <View
             style={[
               styles.card,
               {
-                opacity: fadeAnim,
-                transform: [{ scale: scaleAnim }],
-                marginTop: insets.top + 24,
-                marginBottom: insets.bottom + 24,
+                marginTop: insets.top + 20,
+                marginBottom: insets.bottom + 20,
               },
             ]}
           >
@@ -113,7 +87,6 @@ export default function AuthModalShell({
 
             {/* Scrollable content */}
             <ScrollView
-              style={styles.scrollView}
               contentContainerStyle={styles.scrollContent}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="always"
@@ -121,7 +94,7 @@ export default function AuthModalShell({
             >
               {children}
             </ScrollView>
-          </Animated.View>
+          </View>
         </KeyboardAvoidingView>
       </View>
     </Modal>
@@ -136,17 +109,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   keyboardView: {
-    flex: 1,
+    width: '100%',
+    maxHeight: SCREEN_H * 0.90,
     justifyContent: 'center',
     alignItems: 'center',
-    width: '100%',
   },
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
     width: Math.min(SCREEN_W - 32, 420),
-    maxHeight: SCREEN_H * 0.88,
-    position: 'relative',
+    maxHeight: SCREEN_H * 0.85,
+    overflow: 'hidden',
     shadowColor: '#0B2520',
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.12,
@@ -169,11 +142,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8E4',
   },
-  scrollView: {
-    flex: 1,
-  },
   scrollContent: {
     padding: 24,
     paddingTop: 20,
+    paddingBottom: 28,
   },
 });

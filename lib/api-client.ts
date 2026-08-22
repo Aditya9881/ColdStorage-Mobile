@@ -60,6 +60,30 @@ interface RequestOptions {
   idempotencyKey?: string;
 }
 
+// ── CSRF Token Cache ──
+// Backend requires CSRF token for unauthenticated mutating requests.
+// We fetch once and cache in memory (tokens valid for 4h, we refresh at 3.5h).
+let _csrfToken: string | null = null;
+let _csrfFetchedAt = 0;
+const CSRF_TTL = 3.5 * 60 * 60 * 1000; // 3.5 hours
+
+async function getCsrfToken(): Promise<string | null> {
+  if (_csrfToken && Date.now() - _csrfFetchedAt < CSRF_TTL) {
+    return _csrfToken;
+  }
+  try {
+    const res = await fetch(`${API_BASE}/auth/csrf-token`);
+    const json = await res.json();
+    if (json.success && json.data?.csrfToken) {
+      _csrfToken = json.data.csrfToken;
+      _csrfFetchedAt = Date.now();
+      return _csrfToken;
+    }
+  } catch {
+    // Fail silently — CSRF may not be enforced in dev
+  }
+  return null;
+}
 async function request<T>(
   method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
   endpoint: string,
@@ -76,6 +100,16 @@ async function request<T>(
   if (method !== 'GET' && method !== 'DELETE') {
     const idempotencyKey = options?.idempotencyKey || generateIdempotencyKey();
     headers['Idempotency-Key'] = idempotencyKey;
+  }
+
+  // For unauthenticated mutating requests, add CSRF token
+  if (!token && method !== 'GET') {
+    try {
+      const csrfToken = await getCsrfToken();
+      if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+    } catch {
+      // Continue without CSRF — backend may not require it in dev
+    }
   }
 
   const config: RequestInit = { method, headers };
