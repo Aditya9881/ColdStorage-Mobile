@@ -16,10 +16,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useRouter } from 'expo-router';
 import * as Location from 'expo-location';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthWallModal from '@/components/AuthWallModal';
+import RoleSelectionModal, { DiscoverRole } from '@/components/RoleSelectionModal';
+import DiscoverHero from '@/components/DiscoverHero';
+import DiscoverFeatures from '@/components/DiscoverFeatures';
+import DiscoverTrust from '@/components/DiscoverTrust';
+
+const ROLE_STORAGE_KEY = 'sheetkosh_discover_role';
 
 interface Facility {
   id: string;
@@ -385,6 +392,46 @@ export default function DiscoverScreen() {
   const router = useRouter();
   const { isAuthenticated } = useAuth();
 
+  /* ─── Role Selection State ─── */
+  const [selectedRole, setSelectedRole] = useState<DiscoverRole | null>(null);
+  const [showRoleModal, setShowRoleModal] = useState(false);
+  const [roleLoaded, setRoleLoaded] = useState(false);
+
+  // Load persisted role on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const stored = await AsyncStorage.getItem(ROLE_STORAGE_KEY);
+        if (stored && ['OWNER', 'FARMER', 'BUYER'].includes(stored)) {
+          setSelectedRole(stored as DiscoverRole);
+        } else {
+          setShowRoleModal(true);
+        }
+      } catch {
+        setShowRoleModal(true);
+      } finally {
+        setRoleLoaded(true);
+      }
+    })();
+  }, []);
+
+  const handleRoleSelect = async (role: DiscoverRole) => {
+    setSelectedRole(role);
+    setShowRoleModal(false);
+    try {
+      await AsyncStorage.setItem(ROLE_STORAGE_KEY, role);
+    } catch {}
+  };
+
+  const handleRoleSkip = () => {
+    handleRoleSelect('FARMER'); // Default to farmer
+  };
+
+  const handleSwitchRole = () => {
+    setShowRoleModal(true);
+  };
+
+  /* ─── Existing State ─── */
   const [uiState, setUiState] = useState<'loading' | 'loaded' | 'denied'>('loading');
   const [language, setLanguage] = useState<LanguageKey>('en');
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
@@ -613,6 +660,16 @@ export default function DiscoverScreen() {
     return marketPrices.filter((item) => item?.commodity && item?.mandis?.length).slice(0, 8);
   }, [marketPrices]);
 
+  /* ─── Role modal (shown before anything else) ─── */
+  if (showRoleModal) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <RoleSelectionModal onSelect={handleRoleSelect} onSkip={handleRoleSkip} />
+      </>
+    );
+  }
+
   if (uiState === 'loading') {
     return (
       <>
@@ -632,11 +689,13 @@ export default function DiscoverScreen() {
     );
   }
 
+  const currentRole = selectedRole || 'FARMER';
+
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.container}>
-        <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+        <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
 
         <ScrollView
           style={{ flex: 1 }}
@@ -646,116 +705,19 @@ export default function DiscoverScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={UI.forest} />
           }
         >
-          <Animated.View style={{ opacity: headerFade }}>
-            <LinearGradient
-              colors={['#0B2F26', '#114235', '#1B5A48']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={[styles.hero, { paddingTop: insets.top + 8 }]}
-            >
-              <View style={styles.heroGlowOne} />
-              <View style={styles.heroGlowTwo} />
+          {/* ─── Role-specific Hero ─── */}
+          <DiscoverHero
+            role={currentRole}
+            onSignIn={() => router.push('/(auth)/login')}
+            onGetStarted={() => router.push('/(auth)/register')}
+            onSwitchRole={handleSwitchRole}
+          />
 
-              <View style={styles.heroTopBar}>
-                <View style={styles.brandRow}>
-                  <View style={styles.brandMark}>
-                    <Ionicons name="snow-outline" size={18} color={UI.gold} />
-                  </View>
+          {/* ─── Role-specific Features ─── */}
+          <DiscoverFeatures role={currentRole} />
 
-                  <View style={styles.brandTextWrap}>
-                    <Text style={styles.brandName}>{t.appName}</Text>
-                    <Text style={styles.heroSubheading}>{t.homeSub}</Text>
-                  </View>
-                </View>
-
-                {!isAuthenticated ? (
-                  <TouchableOpacity
-                    style={styles.loginButton}
-                    onPress={() => router.push('/(auth)/login')}
-                    activeOpacity={0.88}
-                  >
-                    <Ionicons name="person-outline" size={15} color="#F8FBF8" />
-                    <Text style={styles.loginButtonText}>{t.signIn}</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <View style={styles.heroBadge}>
-                    <Ionicons name="sparkles-outline" size={11} color={UI.gold} />
-                    <Text style={styles.heroBadgeText}>{t.liveCapacity}</Text>
-                  </View>
-                )}
-              </View>
-
-              <View style={styles.heroUtilityRow}>
-                <TouchableOpacity
-                  style={styles.locationCard}
-                  activeOpacity={0.88}
-                  onPress={!location ? requestLocation : undefined}
-                >
-                  <View style={styles.locationIcon}>
-                    <Ionicons name="location" size={15} color={UI.gold} />
-                  </View>
-
-                  <View style={styles.locationTextWrap}>
-                    <Text style={styles.locationPillLabel}>
-                      {location ? t.yourPlace : t.noLocation}
-                    </Text>
-
-                    <Text style={styles.locationPillValue} numberOfLines={1}>
-                      {location
-                        ? locationAddress ||
-                          `${location.coords.latitude.toFixed(4)}°N, ${location.coords.longitude.toFixed(4)}°E`
-                        : t.allIndia}
-                    </Text>
-                  </View>
-
-                  {!location && (
-                    <View style={styles.enablePill}>
-                      <Text style={styles.enablePillText}>{t.enable}</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-
-                <View style={styles.languageToggle}>
-                  <TouchableOpacity
-                    style={[
-                      styles.languageButton,
-                      language === 'hi' && styles.languageButtonActive,
-                    ]}
-                    onPress={() => setLanguage('hi')}
-                    activeOpacity={0.85}
-                  >
-                    <Text
-                      style={[
-                        styles.languageButtonText,
-                        language === 'hi' && styles.languageButtonTextActive,
-                      ]}
-                    >
-                      हिं
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.languageButton,
-                      language === 'en' && styles.languageButtonActive,
-                    ]}
-                    onPress={() => setLanguage('en')}
-                    activeOpacity={0.85}
-                  >
-                    <Text
-                      style={[
-                        styles.languageButtonText,
-                        language === 'en' && styles.languageButtonTextActive,
-                      ]}
-                    >
-                      EN
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </LinearGradient>
-          </Animated.View>
-
+          {/* ─── FARMER: Show facility + price listings ─── */}
+          {currentRole === 'FARMER' && (
           <Animated.View style={{ transform: [{ translateY: contentSlide }] }}>
             <View style={styles.section}>
               <View style={styles.sectionHead}>
@@ -1040,49 +1002,17 @@ export default function DiscoverScreen() {
               )}
             </View>
 
-            {!isAuthenticated && (
-              <View style={styles.guestSection}>
-                <LinearGradient
-                  colors={['#10392E', '#144839', '#1E5E4A']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.guestCard}
-                >
-                  <View style={styles.guestGlowOne} />
-                  <View style={styles.guestGlowTwo} />
-
-                  <View style={styles.guestIcon}>
-                    <Ionicons name="person-add-outline" size={20} color={UI.gold} />
-                  </View>
-
-                  <View style={styles.guestContent}>
-                    <Text style={styles.guestEyebrow}>{t.accountEyebrow}</Text>
-                    <Text style={styles.guestTitle}>{t.getStarted}</Text>
-                    <Text style={styles.guestSub}>{t.accountSub}</Text>
-                  </View>
-
-                  <TouchableOpacity
-                    style={styles.guestPrimaryButton}
-                    onPress={() => router.push('/(auth)/register')}
-                    activeOpacity={0.88}
-                  >
-                    <Text style={styles.guestPrimaryText}>{t.createAccount}</Text>
-                    <Ionicons name="arrow-forward" size={16} color={UI.forestDeep} />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.guestLoginButton}
-                    onPress={() => router.push('/(auth)/login')}
-                    activeOpacity={0.84}
-                  >
-                    <Text style={styles.guestLoginText}>{t.alreadyAccount}</Text>
-                  </TouchableOpacity>
-                </LinearGradient>
-              </View>
-            )}
-
             <View style={{ height: 34 }} />
           </Animated.View>
+          )}
+
+          {/* ─── Trust section (all roles) ─── */}
+          <DiscoverTrust
+            onGetStarted={() => router.push('/(auth)/register')}
+            onSignIn={() => router.push('/(auth)/login')}
+          />
+
+          <View style={{ height: 34 }} />
         </ScrollView>
 
         <AuthWallModal
